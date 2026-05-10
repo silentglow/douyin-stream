@@ -31,7 +31,6 @@ export default function Settings() {
   const [qwenCookie, setQwenCookie] = useState('');
   const [douyinCookie, setDouyinCookie] = useState('');
   const [bilibiliCookie, setBilibiliCookie] = useState('');
-  const [concurrency, setConcurrency] = useState(3);
   const [autoDeleteVideo, setAutoDeleteVideo] = useState(true);
   const [autoTranscribe, setAutoTranscribe] = useState(true);
   const [exportFormat, setExportFormat] = useState('md');
@@ -39,7 +38,6 @@ export default function Settings() {
   const [deletingBilibiliId, setDeletingBilibiliId] = useState<string | null>(null);
   const [isAddingDouyin, setIsAddingDouyin] = useState(false);
   const [isAddingBilibili, setIsAddingBilibili] = useState(false);
-  const [isSavingConcurrency, setIsSavingConcurrency] = useState(false);
   const [douyinRemark, setDouyinRemark] = useState('');
   const [bilibiliRemark, setBilibiliRemark] = useState('');
   const [editingRemarkId, setEditingRemarkId] = useState<string | null>(null);
@@ -73,7 +71,6 @@ export default function Settings() {
   useEffect(() => {
     if (!settings) return;
     queueMicrotask(() => {
-      setConcurrency(settings.global_settings.concurrency);
       setAutoDeleteVideo(settings.global_settings.auto_delete);
       setAutoTranscribe(settings.global_settings.auto_transcribe);
       setExportFormat(settings.global_settings.export_format || 'md');
@@ -97,7 +94,6 @@ export default function Settings() {
     handleClaimQuota,
     handleToggleAutoTranscribe,
     handleToggleAutoDelete,
-    handleSaveConcurrency,
     handleChangeExportFormat,
     isLoadingQwenStatus,
     qwenRemainingHoursById,
@@ -130,10 +126,8 @@ export default function Settings() {
     setAutoTranscribe,
     autoDeleteVideo,
     setAutoDeleteVideo,
-    concurrency,
     exportFormat,
     setExportFormat,
-    setIsSavingConcurrency,
   });
 
   if (!settings) {
@@ -277,10 +271,6 @@ export default function Settings() {
           onToggleAutoTranscribe={handleToggleAutoTranscribe}
           autoDeleteVideo={autoDeleteVideo}
           onToggleAutoDelete={handleToggleAutoDelete}
-          concurrency={concurrency}
-          setConcurrency={setConcurrency}
-          isSavingConcurrency={isSavingConcurrency}
-          onSaveConcurrency={handleSaveConcurrency}
           exportFormat={exportFormat}
           onChangeExportFormat={handleChangeExportFormat}
           refreshSettings={refreshSettings}

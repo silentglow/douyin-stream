@@ -97,15 +97,15 @@ chmod +x run.sh   # 仅首次
 
 ---
 
-## 配置说明
+##### 配置说明
 
-运行时配置位于 `config/config.yaml`，首次启动后通过 Settings 页面可视化管理，主要字段：
+首次启动时从 `config/config.yaml` 读取基础配置（Cookie、下载路径等），运行时配置（自动转写、导出格式等）存储在 SQLite 数据库中，通过 Settings 页面可视化管理，主要字段：
 
 | 字段 | 说明 | 默认值 |
 |------|------|--------|
 | `cookie` | 抖音登录 Cookie | 通过 Settings 页面配置 |
-| `download_path` | 视频下载存储路径 | `./downloads` |
-| `auto_transcribe` | 下载后自动触发转写 | `true` |
+| `download_path` | 视频下载存储路径 | `data/downloads` |
+| `auto_transcribe` | 下载后自动触发转写 | `false` |
 | `auto_delete_video` | 转写成功后删除源视频 | `true` |
 | `export_format` | 转写文稿导出格式 | `md` |
 | `naming` | 视频文件命名模板 | `{desc}_{aweme_id}` |

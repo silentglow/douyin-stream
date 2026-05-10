@@ -169,6 +169,8 @@ class OrchestratorV2:
         try:
             from media_tools.core.cookie_manager import get_cookie_manager
             get_cookie_manager().mark_account_status("qwen", account_id, status)
+            if status in ("expired", "rate_limited") and self._account_pool:
+                self._account_pool.exclude(account_id)
         except Exception as e:
             logger.warning(f"标记Qwen账号状态失败: {e}")
             return
@@ -235,7 +237,7 @@ class OrchestratorV2:
 
             # 单个视频固定在同一账号内重试；只有认证失效才切换账号。
             accounts_tried = set()
-            max_attempts = len(self._account_pool._accounts) if self._account_pool else 1
+            max_attempts = self._account_pool.available_count if self._account_pool else 1
             preferred_account_id = account_id
 
             # 第三阶段：解析 asset_id，三段式 fallback；找不到也允许继续跑（只是没续传能力）

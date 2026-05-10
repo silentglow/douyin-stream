@@ -1,6 +1,5 @@
-import { Loader2, Trash2, Settings2 } from 'lucide-react';
+import { Trash2, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -13,10 +12,6 @@ interface GlobalSettingsSectionProps {
   onToggleAutoTranscribe: (value: boolean) => void;
   autoDeleteVideo: boolean;
   onToggleAutoDelete: (value: boolean) => void;
-  concurrency: number;
-  setConcurrency: (v: number) => void;
-  isSavingConcurrency: boolean;
-  onSaveConcurrency: () => void;
   exportFormat: string;
   onChangeExportFormat: (format: string) => void;
   refreshSettings: () => void;
@@ -35,10 +30,6 @@ export function GlobalSettingsSection({
   onToggleAutoTranscribe,
   autoDeleteVideo,
   onToggleAutoDelete,
-  concurrency,
-  setConcurrency,
-  isSavingConcurrency,
-  onSaveConcurrency,
   exportFormat,
   onChangeExportFormat,
   refreshSettings,
@@ -53,7 +44,7 @@ export function GlobalSettingsSection({
           </div>
           <div>
             <h3 className="text-title-3 font-semibold text-foreground">全局参数</h3>
-            <p className="text-caption text-muted-foreground">下载后的自动化行为和并发控制。</p>
+            <p className="text-caption text-muted-foreground">下载后的自动化行为和导出格式。</p>
           </div>
         </div>
 
@@ -106,26 +97,6 @@ export function GlobalSettingsSection({
           </div>
         </div>
 
-        {/* Concurrency */}
-        <div className="apple-list-item rounded-[10px] px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-body font-medium text-foreground">并发数</div>
-              <div className="text-caption text-muted-foreground">建议 3，确认稳定后可提高。</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Input
-                value={concurrency.toString()}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10) || 1;
-                  setConcurrency(Math.min(10, Math.max(1, val)));
-                }}
-                className="w-16 text-center"
-              />
-            </div>
-          </div>
-        </div>
-
         {/* Cleanup */}
         <div className="apple-list-item rounded-[10px] px-4 py-3">
           <div className="flex items-center justify-between">
@@ -152,18 +123,6 @@ export function GlobalSettingsSection({
               <span className="text-[13px]">清理</span>
             </Button>
           </div>
-        </div>
-
-        {/* Save Button */}
-        <div className="pt-2">
-          <Button
-            variant="primary"
-            onClick={onSaveConcurrency}
-            disabled={isSavingConcurrency}
-          >
-            {isSavingConcurrency && <Loader2 className="size-4 animate-spin" />}
-            保存并发设置
-          </Button>
         </div>
       </CardContent>
     </Card>

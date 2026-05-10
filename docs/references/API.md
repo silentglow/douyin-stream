@@ -6,51 +6,34 @@
 
 ## 1. 核心模块与入口函数
 
-所有的通用能力均被抽象在 `scripts/utils/` 目录下，你不必通过命令行（`subprocess`）调用，而是可以直接 `import` 并在你的 Python 应用程序中调用。
-
-### 1.1 统一配置加载 (`config.py`)
+### 1.1 统一配置加载 (`core/config.py`)
 ```python
-from scripts.utils.config import load_config, get_db_path, get_download_path
+from media_tools.core.config import AppConfig, get_app_config, get_runtime_setting_int
 
-# 获取 config/config.yaml 中的所有配置
-config = load_config()
+# 获取应用配置（从 SystemSettings 表读取运行时配置）
+config = get_app_config()
+concurrency = config.concurrency  # 实际并发 = Qwen 账号数
+auto_transcribe = config.auto_transcribe
 
-# 获取统一的数据库路径
-db_path = get_db_path()
-
-# 获取经过校验的下载根目录
-dl_path = get_download_path()
+# 读取单个设置值
+val = get_runtime_setting_int("concurrency", 10)
 ```
 
-### 1.2 关注名单管理 (`following.py`)
-名单同时关联本地 JSON 和 SQLite，该模块已封装所有复杂的双写同步逻辑。
+### 1.2 转写流水线 (`pipeline/orchestrator.py`, `pipeline/worker.py`)
 ```python
-from scripts.utils.following import add_user, remove_user, list_users, get_user
-
-# 获取所有关注名单
-users = list_users()
-
-# 添加/更新用户
-add_user("1234567890", sec_user_id="MS4w...", name="博主昵称")
-
-# 删除用户
-remove_user("1234567890")
+from media_tools.pipeline.orchestrator import create_orchestrator
+from media_tools.pipeline.worker import run_local_transcribe, run_pipeline_for_user, run_batch_pipeline
 ```
 
-### 1.3 下载与统计入库 (`download.py`)
-核心下载引擎基于 `f2` 构建，支持异步并发。你可以将其无缝挂载到任何异步框架（如 FastAPI、AIOHTTP）的 Background Task 中。
+### 1.3 额度领取 (`services/qwen_status.py`)
 ```python
-import asyncio
-from scripts.download import download_with_stats
+from media_tools.services.qwen_status import claim_qwen_quota, get_qwen_account_status
 
-async def trigger_download():
-    # 异步下载博主最新 10 个视频，并自动完成元数据落库
-    await download_with_stats(
-        url="https://www.douyin.com/user/MS4w...", 
-        max_counts=10
-    )
+# 手动领取额度（force=True，直接调 API）
+result = await claim_qwen_quota()
 
-# asyncio.run(trigger_download())
+# 查询账号状态和剩余额度
+status = await get_qwen_account_status()
 ```
 
 ---
@@ -66,16 +49,16 @@ async def trigger_download():
 | `media_assets` | 素材表：存储视频/音频文件的元数据和转写状态 |
 | `creators` | 创作者表：存储博主信息及下载/转写统计 |
 | `task_queue` | 任务队列：存储下载、转写等后台任务的执行状态 |
-| `transcribe_runs` | 转写记录表：记录每次转写尝试的阶段和状态 |
 
 ### 2.2 配置与辅助表
 
 | 表名 | 用途 |
 | :--- | :--- |
-| `SystemSettings` | 系统设置：运行时配置（KV 存储） |
-| `Accounts_Pool` | 统一账号池：管理所有平台（抖音/B站/Qwen）的 Cookie 和账号状态 |
+| `SystemSettings` | 系统设置：运行时配置（KV 存储），含 `concurrency`（内部参考值）、`auto_transcribe`、`auto_delete`、`api_key`、`export_format` |
+| `Accounts_Pool` | 统一账号池：管理所有平台（抖音/B站/Qwen）的 Cookie 和账号状态。Qwen 活跃账号数决定实际转写并发数 |
+| `transcribe_runs` | 转写运行记录：每个视频在某个 Qwen 账号上的完整转写尝试（含断点续传） |
+| `scheduled_tasks` | 定时任务：自动领取 Qwen 额度等定时任务配置 |
 | `auth_credentials` | 认证凭据：Qwen 兼容回退层（逐步废弃，新代码使用 `Accounts_Pool`） |
-| `scheduled_tasks` | 定时任务：存储周期任务配置 |
 | `assets_fts` | 全文搜索索引：素材内容搜索 |
 | `video_metadata` | 视频元数据：存放视频详细信息 |
 | `user_info_web` | 用户信息：存放创作者公开信息 |
@@ -93,17 +76,24 @@ async def trigger_download():
 
 如果你准备将本项目部署到生产级服务器或开源社区的高可用场景，建议进行以下改造：
 
-### 3.1 替换 SQLite 为 MySQL/PostgreSQL
-当前 `media_tools.db` 满足本地单机高频读写，但并发写能力较弱。如果封装为多用户的 Web API：
-1. 建议使用 `SQLAlchemy` 或 `Tortoise ORM` 替换原生的 `sqlite3` 模块。
-2. 确保下载入库行为改为使用 ORM 事务。
+### 3.1 架构演进方向
 
-### 3.2 剥离 Web 看板为独立前端项目
-目前的 Web 看板是靠 `generate-data.py` 静态注入 `data.js` 的“伪 SSR”模式。如果改为 API 后端：
-1. 请提供 `/api/v1/videos?uid={uid}` 等接口直连数据库。
-2. 将 `index.html` 中的 JS 逻辑替换为使用 `fetch/axios` 动态请求后端。
+| 方向 | 说明 | 优先级 | 状态 |
+| :--- | :--- | :--- | :--- |
+| **转写并发自动跟随账号池** | `effective_concurrency = n_accounts`，无需手动设置 | P0 | ✅ 已完成 |
+| **额度领取时区一致性** | `today_key()` 使用本地时间，与 CronTrigger 一致 | P0 | ✅ 已完成 |
+| **手动领取绕过缓存检查** | 手动点击直接调 Qwen API（force=True），不受本地缓存限制 | P0 | ✅ 已完成 |
+| **API 路由尾部斜杠统一** | 添加 `redirect_slashes=False` 消除 307 重定向 | P0 | ✅ 已完成 |
+| **替换 SQLite 为 MySQL/PostgreSQL** | 当前 SQLite 已满足单机需求。如需多实例部署可考虑迁移 | P2 | 待评估 |
+| **剥离 Web 看板为独立服务** | 前端已独立为 SPA + FastAPI 后端，当前架构合理 | P3 | 不需要 |
+| **加入 Celery 任务队列** | 当前使用 asyncio + APScheduler 已足够，暂不需要引入额外依赖 | P3 | 不需要 |
 
-### 3.3 加入任务队列机制 (Celery / Redis)
-由于视频下载是典型的 I/O 密集型且耗时的任务，如果你暴露 HTTP 接口：
-- **切勿**阻塞请求线程。
-- 应当将 `download_with_stats` 丢入 **Celery Worker**，然后为前端提供一个 `/api/v1/task/status` 的轮询接口，查询当前博主视频是否抓取完毕。
+### 3.2 并发控制体系
+
+系统采用三层信号量控制并发：
+
+| 层级 | 信号量 | 初始值 | 作用 |
+| :--- | :--- | :--- | :--- |
+| L1 | `_effective_concurrency` | Qwen 活跃账号数 | 同时处理的视频数 |
+| L2 | `upload_gate` | 活跃账号数 | 同时上传到 Qwen 的数量 |
+| L3 | `export_gate` | min(2×账号数, 8) | 同时从 Qwen 导出的数量 |

@@ -96,32 +96,37 @@ async def get_qwen_account_status() -> dict:
 
 
 async def claim_qwen_quota() -> dict:
-    """手动触发领取每日 Qwen 额度"""
+    """手动触发领取每日 Qwen 额度（force=True，直接调 API）"""
     results = []
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row
         accounts = conn.execute(
-            "SELECT account_id, status, auth_state_path FROM Accounts_Pool WHERE platform='qwen'",
+            "SELECT account_id, status, auth_state_path, remark FROM Accounts_Pool WHERE platform='qwen'",
         ).fetchall()
 
     for account in accounts:
         account_id = str(account["account_id"])
+        remark = str(account["remark"] or account_id[:8])
         status = str(account["status"] or "active")
         auth_state_path = str(account["auth_state_path"] or "")
 
         if status != "active":
             results.append({"accountId": account_id, "status": "skipped", "reason": f"account-{status}"})
-            continue
-
-        if has_claimed_equity_today(account_id):
-            results.append({"accountId": account_id, "status": "already_claimed", "message": "今日已领取"})
+            logger.info(f"[额度领取] {remark}: 跳过（账号状态 {status}）")
             continue
 
         resolved_path = Path(auth_state_path) if auth_state_path.strip() else build_qwen_auth_state_path_for_account(account_id)
-        result = await claim_equity_quota(account_id=account_id, auth_state_path=resolved_path)
+        result = await claim_equity_quota(account_id=account_id, auth_state_path=resolved_path, force=True)
+        if result.claimed:
+            before = result.before_snapshot.remaining_upload if result.before_snapshot else "?"
+            after = result.after_snapshot.remaining_upload if result.after_snapshot else "?"
+            logger.info(f"[额度领取] {remark}: 领取成功（额度 {before} → {after}）")
+        else:
+            logger.info(f"[额度领取] {remark}: 跳过（{result.reason}）")
         results.append({
             "accountId": account_id,
             "status": "claimed" if result.claimed else "skipped",
             "reason": result.reason,
         })
+    logger.info(f"[额度领取] 完成，共 {len(results)} 个账号")
     return {"status": "success", "results": results}

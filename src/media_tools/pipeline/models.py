@@ -43,6 +43,7 @@ class AccountPool:
         self._upload_concurrent = upload_concurrent_per_account or self.DEFAULT_UPLOAD_CONCURRENT
         self._active_count: dict[str, int] = {}
         self._upload_active_count: dict[str, int] = {}
+        self._excluded: set[str] = set()
         logger.info(
             f"初始化加权账号池，共 {len(accounts)} 个账号，"
             f"总余额 {sum(self._balances)}，每账号最大并发 {self._max_concurrent}，"
@@ -66,6 +67,7 @@ class AccountPool:
         available = [
             (i, a) for i, a in enumerate(self._accounts)
             if self._active_count.get(str(a.get("account_id", "")), 0) < self._max_concurrent
+            and str(a.get("account_id", "")) not in self._excluded
         ]
 
         if not available:
@@ -93,6 +95,7 @@ class AccountPool:
         available = [
             (i, a) for i, a in enumerate(self._accounts)
             if self._upload_active_count.get(str(a.get("account_id", "")), 0) < self._upload_concurrent
+            and str(a.get("account_id", "")) not in self._excluded
         ]
 
         if not available:
@@ -112,15 +115,10 @@ class AccountPool:
         return selected
 
     async def acquire(self, preferred_account_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """获取一个有空闲槽位的账号（并发安全，事件驱动等待）
-
-        每个账号可同时处理 max_concurrent 个任务。
-        全部满载时通过 Condition 等待，直到有槽位释放。
-        """
         async with self._condition:
             while True:
                 selected = None
-                if preferred_account_id:
+                if preferred_account_id and preferred_account_id not in self._excluded:
                     for account in self._accounts:
                         account_id = str(account.get("account_id", ""))
                         if account_id == preferred_account_id and self._active_count.get(account_id, 0) < self._max_concurrent:
@@ -149,7 +147,7 @@ class AccountPool:
         async with self._condition:
             while True:
                 selected = None
-                if preferred_account_id:
+                if preferred_account_id and preferred_account_id not in self._excluded:
                     for account in self._accounts:
                         account_id = str(account.get("account_id", ""))
                         if account_id == preferred_account_id and self._upload_active_count.get(account_id, 0) < self._upload_concurrent:
@@ -173,6 +171,14 @@ class AccountPool:
         else:
             self._upload_active_count.pop(account_id, None)
         self._notify_waiters_sync()
+
+    def exclude(self, account_id: str) -> None:
+        self._excluded.add(account_id)
+        self._notify_waiters_sync()
+
+    @property
+    def available_count(self) -> int:
+        return len(self._accounts) - len(self._excluded)
 
     def _notify_waiters_sync(self) -> None:
         try:

@@ -46,7 +46,7 @@ def remaining_hours_from_snapshot(snapshot: QuotaSnapshot) -> int:
 
 
 def today_key() -> str:
-    return datetime.now(timezone.utc).date().isoformat()
+    return datetime.now().astimezone().date().isoformat()
 
 
 def quota_state_path() -> Path:

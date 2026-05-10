@@ -48,10 +48,8 @@ interface SettingsState {
   setAutoTranscribe: (v: boolean) => void;
   autoDeleteVideo: boolean;
   setAutoDeleteVideo: (v: boolean) => void;
-  concurrency: number;
   exportFormat: string;
   setExportFormat: (v: string) => void;
-  setIsSavingConcurrency: (v: boolean) => void;
 }
 
 export function useSettingsActions(state: SettingsState) {
@@ -250,13 +248,11 @@ export function useSettingsActions(state: SettingsState) {
     try {
       const currentSettings = state.settings || await state.fetchSettings();
       const currentAutoDelete = currentSettings?.global_settings.auto_delete ?? state.autoDeleteVideo;
-      const currentConcurrency = currentSettings?.global_settings.concurrency ?? state.concurrency;
-      await updateGlobalSettings(currentConcurrency, currentAutoDelete, value);
+      await updateGlobalSettings(undefined, currentAutoDelete, value);
       toast.success(value ? '自动转写已开启' : '自动转写已关闭');
       state.refreshSettings();
     } catch {
       state.setAutoTranscribe(!value);
-      // interceptor already toasts
     }
   };
 
@@ -265,26 +261,11 @@ export function useSettingsActions(state: SettingsState) {
     try {
       const currentSettings = state.settings || await state.fetchSettings();
       const currentAutoTranscribe = currentSettings?.global_settings.auto_transcribe ?? state.autoTranscribe;
-      const currentConcurrency = currentSettings?.global_settings.concurrency ?? state.concurrency;
-      await updateGlobalSettings(currentConcurrency, value, currentAutoTranscribe);
+      await updateGlobalSettings(undefined, value, currentAutoTranscribe);
       toast.success(value ? '自动删除源视频已开启' : '自动删除源视频已关闭');
       state.refreshSettings();
     } catch {
       state.setAutoDeleteVideo(!value);
-      // interceptor already toasts
-    }
-  };
-
-  const handleSaveConcurrency = async () => {
-    state.setIsSavingConcurrency(true);
-    try {
-      await updateGlobalSettings(state.concurrency, state.autoDeleteVideo, state.autoTranscribe, state.exportFormat);
-      toast.success('并发数已保存');
-      state.refreshSettings();
-    } catch {
-      // interceptor already toasts
-    } finally {
-      state.setIsSavingConcurrency(false);
     }
   };
 
@@ -295,8 +276,7 @@ export function useSettingsActions(state: SettingsState) {
       const currentSettings = state.settings || await state.fetchSettings();
       const currentAutoDelete = currentSettings?.global_settings.auto_delete ?? state.autoDeleteVideo;
       const currentAutoTranscribe = currentSettings?.global_settings.auto_transcribe ?? state.autoTranscribe;
-      const currentConcurrency = currentSettings?.global_settings.concurrency ?? state.concurrency;
-      await updateGlobalSettings(currentConcurrency, currentAutoDelete, currentAutoTranscribe, format);
+      await updateGlobalSettings(undefined, currentAutoDelete, currentAutoTranscribe, format);
       toast.success(`导出格式已切换为 ${format.toUpperCase()}`);
       state.refreshSettings();
     } catch {
@@ -316,7 +296,6 @@ export function useSettingsActions(state: SettingsState) {
     handleClaimQuota,
     handleToggleAutoTranscribe,
     handleToggleAutoDelete,
-    handleSaveConcurrency,
     handleChangeExportFormat,
     isLoadingQwenStatus,
     qwenRemainingHoursById,

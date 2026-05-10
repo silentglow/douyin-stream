@@ -66,15 +66,19 @@ def _register_system_jobs() -> None:
             )
 
             targets = load_qwen_accounts_from_db()
+            logger.info(f"[定时额度领取] 开始，共 {len(targets)} 个账号")
 
             try:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 for target in targets:
                     account_id = target.account_id
+                    remark = getattr(target, 'remark', '') or account_id[:8]
                     if target.status != "active":
+                        logger.info(f"[定时额度领取] {remark}: 跳过（账号状态 {target.status}）")
                         continue
                     if has_claimed_equity_today(account_id):
+                        logger.info(f"[定时额度领取] {remark}: 跳过（今日已领取）")
                         continue
                     auth_state_path = (
                         Path(target.auth_state_path)
@@ -84,15 +88,18 @@ def _register_system_jobs() -> None:
                     result = loop.run_until_complete(
                         claim_equity_quota(account_id=account_id, auth_state_path=auth_state_path)
                     )
-                    logger.info(
-                        f"Auto-claimed Qwen daily quota for account: {account_id} "
-                        f"(claimed={getattr(result, 'claimed', False)})"
-                    )
+                    if result.claimed:
+                        before = result.before_snapshot.remaining_upload if result.before_snapshot else "?"
+                        after = result.after_snapshot.remaining_upload if result.after_snapshot else "?"
+                        logger.info(f"[定时额度领取] {remark}: 领取成功（额度 {before} → {after}）")
+                    else:
+                        logger.info(f"[定时额度领取] {remark}: 跳过（{result.reason}）")
             finally:
                 asyncio.set_event_loop(None)
                 loop.close()
+            logger.info("[定时额度领取] 完成")
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Auto-claim Qwen quota failed: {e}")
+            logger.error(f"[定时额度领取] 失败: {e}")
 
     scheduler.add_job(
         _auto_claim_qwen_quota,

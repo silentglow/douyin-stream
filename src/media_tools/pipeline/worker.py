@@ -21,18 +21,20 @@ async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, d
         return {"success_count": 0, "failed_count": 0, "total": 0, "success_paths": [], "failed_paths": []}
 
     config = load_pipeline_config()
-    # 不设置 creator_folder_override，让它自动从视频路径提取创作者名称
     orchestrator = create_orchestrator(config)
+    if hasattr(orchestrator, '_resolve_qwen_execution_accounts'):
+        orchestrator._resolve_qwen_execution_accounts()
     output_root = Path(config.output_dir).resolve()
 
     success_count = 0
     failed_count = 0
     total = len(valid_paths)
 
+    effective_concurrency = getattr(orchestrator, '_effective_concurrency', config.concurrency)
     await call_progress(
         update_progress_fn,
         0.02,
-        f"准备转写 {total} 个文件（并发 {config.concurrency}）",
+        f"准备转写 {total} 个文件（并发 {effective_concurrency}）",
         stage="transcribe",
         pipeline_progress={"transcribe": {"done": 0, "total": total}},
     )
@@ -43,7 +45,7 @@ async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, d
     success_paths: list[str] = []
     failed_paths: list[str] = []
 
-    semaphore = asyncio.Semaphore(config.concurrency)
+    semaphore = asyncio.Semaphore(effective_concurrency)
     completed_count = 0
 
     async def _run_one(video_path: Path):

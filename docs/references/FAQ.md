@@ -4,19 +4,18 @@
 
 ## 🔑 Cookie 与登录相关
 
-### Q1: 下载时提示 `未配置 cookie，请在 config/config.yaml 中设置`
-- **原因**：由于未登录或配置的 Cookie 无效，导致请求被抖音服务器拦截。
-- **解决方案**：
-  请运行 `python scripts/login.py` 唤起扫码登录界面，用抖音 App 扫码登录。登录成功后，脚本会自动将最新 Cookie 写入 `config/config.yaml` 中。
+### Q1: 下载时提示 Cookie 未配置或已过期
+- **原因**：未登录或配置的 Cookie 无效，导致请求被抖音服务器拦截。
+- **解决方案**：在 Settings 页面找到「抖音 Cookie」区域，点击「添加账号」，使用抖音 App 扫码登录。登录成功后 Cookie 会自动保存。
 
 ### Q2: 为什么提示 Cookie 已过期？
 - **原因**：抖音的身份认证具有时效性。长时间不活动或异地登录会导致原 Cookie 失效。
-- **解决方案**：重新运行 `python scripts/login.py` 扫码更新即可。
+- **解决方案**：在 Settings 页面删除过期账号，重新扫码添加即可。
 
 ## ⚙️ 环境与依赖问题
 
-### Q3: 运行 `compress.py` 报错 `未找到 ffmpeg`
-- **原因**：您的系统中没有安装 `ffmpeg` 或未配置系统环境变量。
+### Q3: 转写时提示 FFmpeg 未找到
+- **原因**：系统中没有安装 `ffmpeg` 或未配置系统环境变量。
 - **解决方案**：
   - macOS: `brew install ffmpeg`
   - Ubuntu: `sudo apt install ffmpeg`
@@ -26,15 +25,14 @@
 
 ### Q4: 为什么有些视频没有被下载？
 - **原因**：
-  1. 脚本默认开启了**增量更新**。若本地已存在相同 `aweme_id` 的视频，则会自动跳过。
+  1. 系统默认开启了**增量更新**。若本地已存在相同 `aweme_id` 的视频，则会自动跳过。
   2. 该视频可能被作者设置为私密或已被删除。
   3. 你的请求过于频繁，触发了临时风控。
 - **排查建议**：您可以尝试在浏览器中打开对应博主主页，确认视频是否正常可见。如被风控，建议等待几个小时后再试。
 
-### Q5: 为什么打开 Web 界面 (`index.html`) 数据没有更新？
-- **原因**：Web 界面依赖 `data.js` 文件中的静态数据，下载完成后需要重新生成它。
-- **解决方案**：
-  在终端中运行 `python scripts/generate-data.py`。命令执行成功后，刷新浏览器页面即可看到最新数据。
+### Q5: 为什么前端页面数据没有更新？
+- **原因**：前端通过 API 实时从后端获取数据，如果页面未刷新或 WebSocket 连接断开，可能显示旧数据。
+- **解决方案**：刷新页面即可。如果持续不更新，检查后端服务是否正常运行。
 
 ### Q6: 为什么视频压缩后大小反而变大了？
 - **原因**：如果原始视频体积过小，重新编码的头部开销可能会大于压缩收益。
@@ -47,9 +45,8 @@
 
 ### Q8: Cookie 存储在哪里？
 - 所有平台的 Cookie 统一存储在 SQLite 数据库 `Accounts_Pool` 表的 `cookie_data` 字段中，这是唯一事实源
-- Qwen 账号额外在 `data/auth/` 目录下缓存 Playwright storage state 文件（运行时缓存）
+- Qwen 账号的认证状态存储在 `data/auth/` 目录下（纯 HTTP 方式，无需 Playwright）
 - 旧版 `auth_credentials` 表和 `.auth/` 目录作为兼容回退，已逐步废弃
-- 抖音 Cookie 还可配置在 `config/config.yaml` 的 `douyin.cookie` 字段中作为兜底
 - Cookie 读取通过 `CookieManager` 统一接口，支持三平台轮换策略（最久未使用优先）
 - 环境变量 `QWEN_COOKIE_STRING` 仅用于测试场景，不建议在日常使用
 
