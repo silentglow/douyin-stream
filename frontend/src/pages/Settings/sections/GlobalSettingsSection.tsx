@@ -1,4 +1,4 @@
-import { Loader2, Trash2, Settings2, FileText } from 'lucide-react';
+import { Loader2, Trash2, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -25,6 +25,9 @@ interface GlobalSettingsSectionProps {
 const EXPORT_FORMATS = [
   { value: 'md', label: 'MD', description: 'Markdown' },
   { value: 'docx', label: 'DOCX', description: 'Word 文档' },
+  { value: 'pdf', label: 'PDF', description: 'PDF 文档' },
+  { value: 'srt', label: 'SRT', description: '字幕文件' },
+  { value: 'txt', label: 'TXT', description: '纯文本' },
 ] as const;
 
 export function GlobalSettingsSection({

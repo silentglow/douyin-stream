@@ -76,7 +76,7 @@ def load_accounts_config(config_path: str | Optional[Path] = None) -> tuple[Path
 def resolve_auth_state_path(
     *,
     account_id: str = "",
-    fallback_path: Union[str, Path] = ".auth/qwen-storage-state.json",
+    fallback_path: Union[str, Path] = "data/auth/qwen-storage-state.json",
 ) -> ExecutionAccount:
     selected_account_id = str(account_id).strip()
     accounts_file_path = _accounts_config_path()
@@ -142,7 +142,7 @@ def _rotate_accounts(accounts: list[ConfiguredAccount], pivot_account_id: str) -
 def resolve_execution_accounts(
     *,
     account_id: str = "",
-    fallback_path: Union[str, Path] = ".auth/qwen-storage-state.json",
+    fallback_path: Union[str, Path] = "data/auth/qwen-storage-state.json",
     strategy: str = "round-robin",
 ) -> ExecutionAccounts:
     selected_account_id = str(account_id).strip()

@@ -7,6 +7,41 @@
 
 ---
 
+## [2.2.1] - 2026-05-10
+
+### 🎉 新增
+
+- **导出格式扩展**：转写文稿导出格式从 2 种增加到 5 种
+  - 新增 **PDF** (fileType=1)、**SRT 字幕** (fileType=2)、**TXT 纯文本** (fileType=7)
+  - 原有 DOCX (fileType=0)、MD (fileType=3) 保持不变
+  - 前端设置页和后端 API 同步更新，支持全部 5 种格式选择
+
+### 🔒 安全
+
+- **修复 Cookie 泄露漏洞**：`.pipeline_state.json` 的 `error_message` 字段中可能包含完整的 HTTP 请求头（含 Cookie），现已自动脱敏处理
+  - 新增 `_sanitize_error_message()` 函数，保存状态前自动将 `cookie:`、`tongyi_sso_ticket=` 等敏感信息替换为 `[REDACTED]`
+  - 已清理现有 `.pipeline_state.json` 中的 26 条敏感记录
+
+### 🐛 修复
+
+- **修复文件夹扫描转写强制删除源文件**：`creator_transcribe_worker` 在转写完成后无条件调用 `cleanup_paths_allowlist()` 删除视频，忽略了全局「自动删除源视频」设置
+  - 现在读取全局 `auto_delete` 设置，仅当 `auto_delete=True` 时才执行源文件清理
+  - `auto_delete=False` 时只清理 `.cache` 临时目录，不删除视频文件
+- **修复 Pipeline/BatchPipeline 的 auto_delete 默认值**：`PipelineRequest` 和 `BatchPipelineRequest` 的 `auto_delete` 默认值从硬编码 `True` 改为 `None`
+  - 当 API 调用未指定 `auto_delete` 时，回退到全局设置 `get_runtime_setting_bool("auto_delete", True)`
+  - 确保所有路径（pipeline、batch、creator transcribe）统一遵守用户的全局设置
+- **移除 Orchestrator 中的重复删除逻辑**：`OrchestratorV2` 中 `remove_video or not keep_original` 的视频删除逻辑与 worker 层的 `auto_delete` 重复且冲突
+  - 删除决策统一收归 worker 层，Orchestrator 不再自行删除视频文件
+  - 移除 `PipelineConfig.remove_video`、`PipelineConfig.keep_original` 属性
+  - 移除 `AppConfig.pipeline_remove_video`、`AppConfig.pipeline_keep_original` 环境变量配置
+  - 状态摘要中用 `auto_delete` 替代原有的 `pipeline_remove_video`/`pipeline_keep_original`
+- **修复文件夹扫描转写误删本地视频**：`creator_transcribe_worker` 处理的是用户本地文件，无论全局 `auto_delete` 设置如何，都不应删除源视频
+  - 移除 `cleanup_paths_allowlist()` 调用，只保留 `.cache` 临时目录清理
+  - 移除 `_build_cleanup_candidates()`、`_cleanup_retry_delay_seconds()` 等不再使用的函数
+  - `auto_delete` 全局设置现在仅影响 Pipeline 流水线（下载→转写→清理），不影响本地文件扫描转写
+
+---
+
 ## [2.2.0] - 2026-05-06
 
 ### 🎉 新增

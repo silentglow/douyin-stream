@@ -320,14 +320,14 @@ def init_logging(
             level = config.log_level
         
         if log_dir is None:
-            log_dir = config.project_root / "logs"
+            log_dir = config.project_root / "data" / "logs"
     except ImportError:
         # 配置系统尚未初始化时使用环境变量
         if level is None:
             level = os.environ.get("LOG_LEVEL", os.environ.get("MEDIA_TOOLS_LOG_LEVEL", "INFO"))
         
         if log_dir is None:
-            log_dir = Path("logs")
+            log_dir = Path("data/logs")
 
     level_map = {
         "DEBUG": logging.DEBUG,

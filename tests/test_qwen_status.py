@@ -14,7 +14,7 @@ def test_qwen_account_status_does_not_mark_invalid_when_snapshot_fails(monkeypat
     )
     conn.execute(
         "INSERT INTO Accounts_Pool(account_id, platform, cookie_data, remark, status, auth_state_path) VALUES(?,?,?,?,?,?)",
-        ("a1", "qwen", "", "r", "active", ".auth/qwen-storage-state-a1.json"),
+        ("a1", "qwen", "", "r", "active", "data/auth/qwen-storage-state-a1.json"),
     )
     conn.commit()
 

@@ -18,7 +18,7 @@ class DbQwenAccount:
 
 def build_qwen_auth_state_path_for_account(account_id: str) -> Path:
     safe = str(account_id).strip()
-    return Path(".auth") / f"qwen-storage-state-{safe}.json"
+    return Path("data/auth") / f"qwen-storage-state-{safe}.json"
 
 
 def load_qwen_accounts_from_db() -> list[DbQwenAccount]:

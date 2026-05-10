@@ -1,0 +1,58 @@
+{"ts": "2026-05-07T02:28:20.427458", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"ts": "2026-05-07T02:29:48.166612", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"timestamp": "2026-05-07T02:29:48.184795", "level": "INFO", "logger": "media_tools", "message": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: True)"}
+{"ts": "2026-05-07T02:30:25.638048", "level": "INFO", "logger": "media_tools.douyin.ui", "msg": "", "request_id": "3224863f"}
+{"ts": "2026-05-07T02:30:25.640688", "level": "INFO", "logger": "media_tools.douyin.ui", "msg": "============================================================", "request_id": "3224863f"}
+{"ts": "2026-05-07T02:30:25.641532", "level": "INFO", "logger": "media_tools.douyin.ui", "msg": "  下载博主视频", "request_id": "3224863f"}
+{"ts": "2026-05-07T02:30:25.642241", "level": "INFO", "logger": "media_tools.douyin.ui", "msg": "============================================================", "request_id": "3224863f"}
+{"ts": "2026-05-07T02:30:25.642743", "level": "INFO", "logger": "media_tools.douyin.ui", "msg": "", "request_id": "3224863f"}
+{"ts": "2026-05-07T02:30:51.487604", "level": "INFO", "logger": "media_tools.douyin.core.file_ops", "msg": "  [移动] 小巴ovo -> 小巴ovo (4 文件)", "request_id": "3224863f"}
+{"ts": "2026-05-07T02:30:51.515015", "level": "INFO", "logger": "media_tools.pipeline.state_manager", "msg": "已加载状态文件: /Users/gq/Projects/media-tools/.pipeline_state.json (2293 条记录)", "request_id": "3224863f"}
+{"ts": "2026-05-07T02:30:51.516309", "level": "INFO", "logger": "media_tools.pipeline.orchestrator", "msg": "批量处理: 共 4 个视频（不启用断点续传）", "request_id": "3224863f"}
+{"ts": "2026-05-07T02:30:51.516716", "level": "INFO", "logger": "media_tools.pipeline.orchestrator", "msg": "跳过已成功的视频: /Users/gq/Projects/media-tools/downloads/小巴ovo/不怕兄弟过得苦，就怕兄弟开奥迪.mp4", "request_id": "3224863f"}
+{"ts": "2026-05-07T02:30:51.569688", "level": "INFO", "logger": "media_tools.pipeline.orchestrator", "msg": "跳过已成功的视频: /Users/gq/Projects/media-tools/downloads/小巴ovo/当你猛攻发现队友装备时.mp4", "request_id": "3224863f"}
+{"ts": "2026-05-07T02:30:51.573817", "level": "INFO", "logger": "media_tools.pipeline.orchestrator", "msg": "跳过已成功的视频: /Users/gq/Projects/media-tools/downloads/小巴ovo/星际穿越致敬过这一段.mp4", "request_id": "3224863f"}
+{"ts": "2026-05-07T02:30:51.577155", "level": "INFO", "logger": "media_tools.pipeline.orchestrator", "msg": "跳过已成功的视频: /Users/gq/Projects/media-tools/downloads/小巴ovo/当你有个只会说反话的病人.mp4", "request_id": "3224863f"}
+{"ts": "2026-05-07T02:30:51.580330", "level": "INFO", "logger": "media_tools.pipeline.orchestrator", "msg": "批量处理完成: 成功 4, 失败 0, 跳过 0, 总耗时 0.1s", "request_id": "3224863f"}
+{"ts": "2026-05-07T08:05:01.052678", "level": "INFO", "logger": "media_tools.api.routers.scheduler", "msg": "Auto-claimed Qwen daily quota for account: 8341abe3-07ea-44fd-80d7-bcb64a0f0653 (claimed=True)"}
+{"ts": "2026-05-07T08:05:01.945859", "level": "INFO", "logger": "media_tools.api.routers.scheduler", "msg": "Auto-claimed Qwen daily quota for account: 2bf5e16e-aea7-4a07-aa31-92f45a5dc594 (claimed=True)"}
+{"ts": "2026-05-07T08:05:02.881067", "level": "INFO", "logger": "media_tools.api.routers.scheduler", "msg": "Auto-claimed Qwen daily quota for account: a9539d87-5273-4d38-9b68-b0400703725b (claimed=True)"}
+{"ts": "2026-05-07T11:44:21.296324", "level": "INFO", "logger": "media_tools.api.app", "msg": "shutdown: closed 1 cached DB connection(s)"}
+{"ts": "2026-05-07T11:44:21.915536", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"ts": "2026-05-07T11:44:29.961621", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"timestamp": "2026-05-07T11:44:29.973067", "level": "INFO", "logger": "media_tools", "message": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: True)"}
+{"ts": "2026-05-07T11:44:43.726739", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"timestamp": "2026-05-07T11:44:43.741619", "level": "INFO", "logger": "media_tools", "message": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: True)"}
+{"ts": "2026-05-07T11:44:57.143214", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"timestamp": "2026-05-07T11:44:57.155417", "level": "INFO", "logger": "media_tools", "message": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: True)"}
+{"ts": "2026-05-07T11:46:09.990170", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"timestamp": "2026-05-07T11:46:10.004276", "level": "INFO", "logger": "media_tools", "message": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: True)"}
+{"ts": "2026-05-07T11:46:23.945311", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"timestamp": "2026-05-07T11:46:23.956516", "level": "INFO", "logger": "media_tools", "message": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: True)"}
+{"timestamp": "2026-05-07T11:46:24.052769", "level": "INFO", "logger": "media_tools.douyin.core.f2_helper", "message": "[F2] 测试消息"}
+{"timestamp": "2026-05-07T11:46:24.053352", "level": "INFO", "logger": "media_tools.douyin.core.f2_helper", "message": "[F2] 第二行消息"}
+{"ts": "2026-05-07T11:56:43.016542", "level": "INFO", "logger": "media_tools.api.app", "msg": "shutdown: closed 1 cached DB connection(s)"}
+{"ts": "2026-05-07T11:56:43.564554", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"ts": "2026-05-07T11:56:50.233169", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"timestamp": "2026-05-07T11:56:50.248956", "level": "INFO", "logger": "media_tools", "message": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: True)"}
+{"ts": "2026-05-07T11:56:54.872400", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"timestamp": "2026-05-07T11:56:54.881037", "level": "INFO", "logger": "media_tools", "message": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: True)"}
+{"ts": "2026-05-07T11:57:06.060917", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"timestamp": "2026-05-07T11:57:06.073407", "level": "INFO", "logger": "media_tools", "message": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: True)"}
+{"ts": "2026-05-07T11:57:42.554088", "level": "INFO", "logger": "media_tools.douyin.ui", "msg": "", "request_id": "03857349"}
+{"ts": "2026-05-07T11:57:42.556659", "level": "INFO", "logger": "media_tools.douyin.ui", "msg": "============================================================", "request_id": "03857349"}
+{"ts": "2026-05-07T11:57:42.557515", "level": "INFO", "logger": "media_tools.douyin.ui", "msg": "  下载博主视频", "request_id": "03857349"}
+{"ts": "2026-05-07T11:57:42.558440", "level": "INFO", "logger": "media_tools.douyin.ui", "msg": "============================================================", "request_id": "03857349"}
+{"ts": "2026-05-07T11:57:42.559166", "level": "INFO", "logger": "media_tools.douyin.ui", "msg": "", "request_id": "03857349"}
+{"ts": "2026-05-07T11:57:58.843842", "level": "INFO", "logger": "media_tools.api.app", "msg": "shutdown: cancelled 1 background task(s)"}
+{"ts": "2026-05-07T11:57:58.847498", "level": "INFO", "logger": "media_tools.api.app", "msg": "shutdown: closed 1 cached DB connection(s)"}
+{"ts": "2026-05-07T11:58:01.956097", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"ts": "2026-05-07T14:23:42.259334", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"timestamp": "2026-05-07T14:23:42.275908", "level": "INFO", "logger": "media_tools", "message": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: True)"}
+{"ts": "2026-05-07T14:24:30.807815", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"timestamp": "2026-05-07T14:24:30.820796", "level": "INFO", "logger": "media_tools", "message": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: True)"}
+{"timestamp": "2026-05-07T14:24:30.938642", "level": "INFO", "logger": "media_tools.douyin.core.f2_helper", "message": "[F2] ────────────────────────────────────────── 处理第 0 页 (2026-05-07 02-30-26) ───────────────────────────────────────────"}
+{"ts": "2026-05-07T14:25:27.409369", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}
+{"timestamp": "2026-05-07T14:25:27.423436", "level": "INFO", "logger": "media_tools", "message": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: True)"}
+{"timestamp": "2026-05-07T14:25:27.564785", "level": "INFO", "logger": "media_tools.douyin.core.f2_helper", "message": "[F2] 处理第 0 页 (2026-05-07 02-30-26)"}
+{"ts": "2026-05-07T19:19:59.293899", "level": "INFO", "logger": "media_tools", "msg": "日志系统初始化完成 (级别: INFO, JSON日志: True, 结构化: False)"}

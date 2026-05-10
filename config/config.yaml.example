@@ -5,7 +5,7 @@ database:
 
 # 下载目录配置
 download:
-  path: downloads
+  path: data/downloads
 
 # 文件命名格式
 naming: "{desc}_{aweme_id}"

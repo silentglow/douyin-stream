@@ -113,13 +113,11 @@ class ConfigManager:
             yaml.dump(self._config, f, allow_unicode=True, default_flow_style=False)
 
     def has_cookie(self):
-        """检查是否配置了 Cookie"""
-        cookie = self.get("cookie") or self.get("douyin.cookie")
+        cookie = self.get("douyin.cookie") or self.get("cookie")
         return bool(cookie) and len(cookie.strip()) > 0
 
     def get_cookie(self):
-        """获取 Cookie 字符串"""
-        return self.get("cookie") or self.get("douyin.cookie", "")
+        return self.get("douyin.cookie") or self.get("cookie", "")
 
     def get_download_path(self):
         """获取下载路径"""
@@ -127,7 +125,7 @@ class ConfigManager:
         if path:
             return Path(path).expanduser()
 
-        return self.project_root / "downloads"
+        return self.project_root / "data" / "downloads"
 
     def get_db_path(self):
         """获取数据库路径"""

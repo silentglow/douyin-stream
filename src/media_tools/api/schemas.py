@@ -37,7 +37,7 @@ def _validate_path(value: str) -> str:
 class PipelineRequest(BaseModel):
     url: str
     max_counts: int = Field(default=5, ge=1, le=1000)
-    auto_delete: bool = True
+    auto_delete: Optional[bool] = None
 
     @field_validator("url")
     @classmethod
@@ -47,7 +47,7 @@ class PipelineRequest(BaseModel):
 
 class BatchPipelineRequest(BaseModel):
     video_urls: List[str]
-    auto_delete: bool = True
+    auto_delete: Optional[bool] = None
 
     @field_validator("video_urls")
     @classmethod
@@ -110,6 +110,7 @@ class LocalTranscribeRequest(BaseModel):
 
 class CreatorTranscribeRequest(BaseModel):
     uid: str = Field(min_length=1, max_length=200)
+    delete_after: Optional[bool] = None
 
 
 class ScanDirectoryRequest(BaseModel):

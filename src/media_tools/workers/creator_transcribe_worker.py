@@ -8,6 +8,7 @@ import sqlite3
 import uuid as _uuid
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from media_tools.common.paths import get_download_path, get_project_root
 from media_tools.db.core import get_db_connection
@@ -64,16 +65,6 @@ def _build_cleanup_candidates(video_path: Path) -> list[Path]:
         seen.add(rp)
         unique.append(p)
     return unique
-
-
-def _cleanup_retry_delay_seconds() -> float:
-    raw = os.environ.get("MEDIA_TOOLS_CLEANUP_RETRY_DELAY", "").strip()
-    if not raw:
-        return 2.0
-    try:
-        return max(float(raw), 0.0)
-    except ValueError:
-        return 2.0
 
 
 def _discover_creator_files(uid: str) -> tuple[list[str], list[str]]:
@@ -201,7 +192,7 @@ def _discover_creator_files(uid: str) -> tuple[list[str], list[str]]:
 
     return file_paths, not_found
 
-async def background_creator_transcribe_worker(task_id: str, uid: str) -> None:
+async def background_creator_transcribe_worker(task_id: str, uid: str, delete_after: Optional[bool] = None) -> None:
     try:
         await update_task_progress(task_id, 0.01, "正在扫描待转写文件...", "local_transcribe", stage="scanning")
         file_paths, not_found = await asyncio.to_thread(_discover_creator_files, uid)
@@ -241,64 +232,68 @@ async def background_creator_transcribe_worker(task_id: str, uid: str) -> None:
     heartbeat = asyncio.create_task(_task_heartbeat(task_id))
     try:
         with task_context(task_id=task_id, creator_uid=uid):
+            from media_tools.core.config import get_runtime_setting_bool
+            should_delete = delete_after if delete_after is not None else get_runtime_setting_bool("auto_delete", True)
             result = await run_local_transcribe(file_paths, _progress_fn, delete_after=False)
             s_count = int(result.get("success_count", 0) or 0)
             f_count = int(result.get("failed_count", 0) or 0)
             total = int(result.get("total", s_count + f_count) or (s_count + f_count))
             success_paths = [Path(p) for p in (result.get("success_paths") or []) if isinstance(p, str)]
 
-            await update_task_progress(
-                task_id,
-                0.95,
-                "转写完成，开始清理源文件与临时文件...",
-                "local_transcribe",
-                stage="cleanup",
-            )
+            if should_delete:
+                await update_task_progress(
+                    task_id,
+                    0.95,
+                    "转写完成，开始清理源文件与临时文件...",
+                    "local_transcribe",
+                    stage="cleanup",
+                )
 
-            cleanup_candidates: list[Path] = []
-            for sp in success_paths:
-                cleanup_candidates.extend(_build_cleanup_candidates(sp))
+                cleanup_candidates: list[Path] = []
+                for sp in success_paths:
+                    cleanup_candidates.extend(_build_cleanup_candidates(sp))
 
-            outcome = cleanup_paths_allowlist(
-                cleanup_candidates,
-                downloads_root=downloads_root,
-                transcripts_root=transcripts_root,
-            )
-
-            delay = _cleanup_retry_delay_seconds()
-            retry_failed = [Path(p.path) for p in outcome.failed_paths]
-            if retry_failed:
-                if delay > 0:
-                    await asyncio.sleep(delay)
-                retry_outcome = cleanup_paths_allowlist(
-                    retry_failed,
+                outcome = cleanup_paths_allowlist(
+                    cleanup_candidates,
                     downloads_root=downloads_root,
                     transcripts_root=transcripts_root,
                 )
-                deleted_count = outcome.deleted_count + retry_outcome.deleted_count
-                failed_paths = retry_outcome.failed_paths
-            else:
+
                 deleted_count = outcome.deleted_count
-                failed_paths = outcome.failed_paths
+                failed_paths = list(outcome.failed_paths)
 
-            cache_outcome = cleanup_task_cache_dir(cache_dir)
-            deleted_count += cache_outcome.deleted_count
-            failed_paths = [*failed_paths, *cache_outcome.failed_paths]
+                cache_outcome = cleanup_task_cache_dir(cache_dir)
+                deleted_count += cache_outcome.deleted_count
+                failed_paths = [*failed_paths, *cache_outcome.failed_paths]
 
-            TaskRepository.patch_payload(
-                task_id,
-                {
-                    "cleanup_deleted_count": deleted_count,
-                    "cleanup_failed_count": len(failed_paths),
-                    "cleanup_failed_paths": [{"path": fp.path, "reason": fp.reason} for fp in failed_paths],
-                    "cleanup_cache_dir": str(cache_dir),
-                },
-            )
+                TaskRepository.patch_payload(
+                    task_id,
+                    {
+                        "cleanup_deleted_count": deleted_count,
+                        "cleanup_failed_count": len(failed_paths),
+                        "cleanup_failed_paths": [{"path": fp.path, "reason": fp.reason} for fp in failed_paths],
+                        "cleanup_cache_dir": str(cache_dir),
+                    },
+                )
+            else:
+                cache_outcome = cleanup_task_cache_dir(cache_dir)
+                TaskRepository.patch_payload(
+                    task_id,
+                    {
+                        "cleanup_deleted_count": cache_outcome.deleted_count,
+                        "cleanup_failed_count": len(cache_outcome.failed_paths),
+                        "cleanup_cache_dir": str(cache_dir),
+                    },
+                )
 
             msg = (
                 "没有找到有效的音视频文件"
                 if total == 0
-                else f"转写完成：成功 {s_count} 个，失败 {f_count} 个；清理：已删除 {deleted_count} 个，失败 {len(failed_paths)} 个"
+                else (
+                    f"转写完成：成功 {s_count} 个，失败 {f_count} 个；清理：已删除 {deleted_count} 个，失败 {len(failed_paths)} 个"
+                    if should_delete
+                    else f"转写完成：成功 {s_count} 个，失败 {f_count} 个"
+                )
             )
             await update_task_progress(
                 task_id,

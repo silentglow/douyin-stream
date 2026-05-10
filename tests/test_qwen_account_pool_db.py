@@ -54,7 +54,7 @@ def test_add_qwen_account_sets_auth_state_path(monkeypatch) -> None:
 
     monkeypatch.setattr("media_tools.api.routers.settings.get_quota_snapshot", _fake_get_snapshot)
 
-    req = settings_router.QwenAccountRequest(cookie_string="x=y", remark="r")
+    req = settings_router.QwenAccountRequest(cookie_string="tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", remark="r")
     result = asyncio.run(settings_router.add_qwen_account(req))
     account_id = result["account_id"]
     row = conn.execute("SELECT auth_state_path FROM Accounts_Pool WHERE account_id=?", (account_id,)).fetchone()
@@ -91,7 +91,7 @@ def test_add_qwen_account_returns_validation_ok_when_snapshot_succeeds(monkeypat
 
     monkeypatch.setattr("media_tools.api.routers.settings.get_quota_snapshot", _fake_get_snapshot)
 
-    req = settings_router.QwenAccountRequest(cookie_string="x=y", remark="r")
+    req = settings_router.QwenAccountRequest(cookie_string="tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", remark="r")
     result = asyncio.run(settings_router.add_qwen_account(req))
     assert result["status"] == "success"
     assert result["validation"]["ok"] is True
@@ -116,7 +116,7 @@ def test_add_qwen_account_sets_status_expired_only_on_auth_error(monkeypatch) ->
 
     monkeypatch.setattr("media_tools.api.routers.settings.get_quota_snapshot", _auth_fail_snapshot)
 
-    req = settings_router.QwenAccountRequest(cookie_string="x=y", remark="r")
+    req = settings_router.QwenAccountRequest(cookie_string="tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", remark="r")
     result = asyncio.run(settings_router.add_qwen_account(req))
     account_id = result["account_id"]
     assert result["validation"]["ok"] is False
@@ -144,7 +144,7 @@ def test_add_qwen_account_does_not_set_status_expired_on_network_error(monkeypat
 
     monkeypatch.setattr("media_tools.api.routers.settings.get_quota_snapshot", _network_fail_snapshot)
 
-    req = settings_router.QwenAccountRequest(cookie_string="x=y", remark="r")
+    req = settings_router.QwenAccountRequest(cookie_string="tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", remark="r")
     result = asyncio.run(settings_router.add_qwen_account(req))
     account_id = result["account_id"]
     assert result["validation"]["ok"] is False
@@ -166,7 +166,7 @@ def test_qwen_status_returns_remaining_hours_from_db(monkeypatch) -> None:
     )
     conn.execute(
         "INSERT INTO Accounts_Pool(account_id, platform, cookie_data, remark, status, auth_state_path) VALUES(?,?,?,?,?,?)",
-        ("a1", "qwen", "x=y", "r", "active", ".auth/qwen-storage-state-a1.json"),
+        ("a1", "qwen", "tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", "r", "active", "data/auth/qwen-storage-state-a1.json"),
     )
     conn.commit()
     monkeypatch.setattr("media_tools.api.routers.settings.get_db_connection", lambda: conn)
@@ -198,7 +198,7 @@ def test_qwen_status_does_not_fail_when_single_account_snapshot_errors(monkeypat
     )
     conn.execute(
         "INSERT INTO Accounts_Pool(account_id, platform, cookie_data, remark, status, auth_state_path) VALUES(?,?,?,?,?,?)",
-        ("a1", "qwen", "x=y", "r", "active", ".auth/qwen-storage-state-a1.json"),
+        ("a1", "qwen", "tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", "r", "active", "data/auth/qwen-storage-state-a1.json"),
     )
     conn.commit()
     monkeypatch.setattr("media_tools.api.routers.settings.get_db_connection", lambda: conn)
@@ -232,7 +232,7 @@ def test_qwen_claim_iterates_db_accounts(monkeypatch) -> None:
     )
     conn.execute(
         "INSERT INTO Accounts_Pool(account_id, platform, cookie_data, remark, status, auth_state_path) VALUES(?,?,?,?,?,?)",
-        ("a1", "qwen", "x=y", "r", "active", ".auth/qwen-storage-state-a1.json"),
+        ("a1", "qwen", "tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", "r", "active", "data/auth/qwen-storage-state-a1.json"),
     )
     conn.commit()
     monkeypatch.setattr("media_tools.api.routers.settings.get_db_connection", lambda: conn)

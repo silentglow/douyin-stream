@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { Users } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { sortTasks } from '@/lib/task-utils';
@@ -30,6 +30,8 @@ export default function Creators() {
   const canDownloadAny = settings?.status_summary.can_download ?? false;
   const qwenReady = settings?.status_summary.qwen_ready ?? false;
   const autoTranscribe = settings?.global_settings.auto_transcribe ?? false;
+
+  const [deleteAfterTranscribe, setDeleteAfterTranscribe] = useState(true);
 
   const {
     loading,
@@ -136,6 +138,8 @@ export default function Creators() {
                 retryingFailedUids={retryingFailedUids}
                 onDelete={handleDelete}
                 settings={settings}
+                deleteAfterTranscribe={deleteAfterTranscribe}
+                setDeleteAfterTranscribe={setDeleteAfterTranscribe}
               />
             ))}
           </section>

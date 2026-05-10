@@ -17,39 +17,52 @@ logger = logging.getLogger(__name__)
 class AccountPool:
     """账号轮换池 - 按余额权重分配任务，余额多的分配更多
 
-    每个账号可同时处理多个任务（per-account 并发上限），
-    按余额加权选择账号：余额高的账号被分配更多并发任务。
+    Qwen 平台约束：同一账号同一时刻仅允许一个上传操作，
+    多余请求会被服务端排队挂起。因此上传并发数 = 活跃账号数。
+
+    转写轮询（poll_until_done）仅读取状态，不占用上传资源，
+    可与上传并行，因此每账号允许的并发槽位 > 1 仍有意义。
     """
 
-    # 每个账号默认最大并发数
     DEFAULT_MAX_CONCURRENT = 10
+    DEFAULT_UPLOAD_CONCURRENT = 1
 
     def __init__(
         self,
         accounts: list[dict[str, Any]],
         balances: list[int] | None = None,
         max_concurrent_per_account: Optional[int] = None,
+        upload_concurrent_per_account: Optional[int] = None,
     ):
         self._accounts = accounts
         self._balances = balances or [0] * len(accounts)
         self._current = 0
         self._lock = asyncio.Lock()
+        self._condition = asyncio.Condition(self._lock)
         self._max_concurrent = max_concurrent_per_account or self.DEFAULT_MAX_CONCURRENT
-        # 每个 account_id 当前正在处理的任务数
+        self._upload_concurrent = upload_concurrent_per_account or self.DEFAULT_UPLOAD_CONCURRENT
         self._active_count: dict[str, int] = {}
+        self._upload_active_count: dict[str, int] = {}
         logger.info(
             f"初始化加权账号池，共 {len(accounts)} 个账号，"
-            f"总余额 {sum(self._balances)}，每账号最大并发 {self._max_concurrent}"
+            f"总余额 {sum(self._balances)}，每账号最大并发 {self._max_concurrent}，"
+            f"每账号上传并发 {self._upload_concurrent}"
         )
 
+    @property
+    def account_count(self) -> int:
+        return len(self._accounts)
+
+    @property
+    def max_upload_concurrency(self) -> int:
+        return self._upload_concurrent * len(self._accounts)
+
     def _pick_account(self) -> Optional[Dict[str, Any]]:
-        """内部方法：按权重选一个有空闲槽位的账号（调用方需持锁）"""
         import random
 
         if not self._accounts:
             return None
 
-        # 筛选有空闲槽位的账号
         available = [
             (i, a) for i, a in enumerate(self._accounts)
             if self._active_count.get(str(a.get("account_id", "")), 0) < self._max_concurrent
@@ -71,14 +84,41 @@ class AccountPool:
 
         return selected
 
+    def _pick_upload_account(self) -> Optional[Dict[str, Any]]:
+        import random
+
+        if not self._accounts:
+            return None
+
+        available = [
+            (i, a) for i, a in enumerate(self._accounts)
+            if self._upload_active_count.get(str(a.get("account_id", "")), 0) < self._upload_concurrent
+        ]
+
+        if not available:
+            return None
+
+        indices, accounts = zip(*available)
+        balances = [self._balances[i] for i in indices]
+        total = sum(balances)
+
+        if total > 0:
+            safe_balances = [max(b, 1) for b in balances]
+            selected = random.choices(accounts, weights=safe_balances, k=1)[0]
+        else:
+            selected = accounts[self._current % len(accounts)]
+            self._current = (self._current + 1) % len(accounts)
+
+        return selected
+
     async def acquire(self, preferred_account_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """获取一个有空闲槽位的账号（并发安全）
+        """获取一个有空闲槽位的账号（并发安全，事件驱动等待）
 
         每个账号可同时处理 max_concurrent 个任务。
-        全部满载时阻塞等待，直到有槽位释放。
+        全部满载时通过 Condition 等待，直到有槽位释放。
         """
-        while True:
-            async with self._lock:
+        async with self._condition:
+            while True:
                 selected = None
                 if preferred_account_id:
                     for account in self._accounts:
@@ -86,7 +126,7 @@ class AccountPool:
                         if account_id == preferred_account_id and self._active_count.get(account_id, 0) < self._max_concurrent:
                             selected = account
                             break
-                else:
+                if selected is None:
                     selected = self._pick_account()
 
                 if selected is not None:
@@ -94,22 +134,88 @@ class AccountPool:
                     self._active_count[account_id] = self._active_count.get(account_id, 0) + 1
                     return selected
 
-            await asyncio.sleep(1)
+                await self._condition.wait()
 
     def release(self, account_id: str) -> None:
-        """释放一个并发槽位"""
+        """释放一个并发槽位并通知等待者"""
         cur = self._active_count.get(account_id, 0)
         if cur > 1:
             self._active_count[account_id] = cur - 1
         else:
             self._active_count.pop(account_id, None)
+        self._notify_waiters_sync()
+
+    async def acquire_upload_slot(self, preferred_account_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        async with self._condition:
+            while True:
+                selected = None
+                if preferred_account_id:
+                    for account in self._accounts:
+                        account_id = str(account.get("account_id", ""))
+                        if account_id == preferred_account_id and self._upload_active_count.get(account_id, 0) < self._upload_concurrent:
+                            selected = account
+                            break
+                if selected is None:
+                    selected = self._pick_upload_account()
+
+                if selected is not None:
+                    account_id = str(selected.get("account_id", ""))
+                    self._upload_active_count[account_id] = self._upload_active_count.get(account_id, 0) + 1
+                    return selected
+
+                await self._condition.wait()
+
+    def release_upload_slot(self, account_id: str) -> None:
+        """释放一个上传槽位并通知等待者"""
+        cur = self._upload_active_count.get(account_id, 0)
+        if cur > 1:
+            self._upload_active_count[account_id] = cur - 1
+        else:
+            self._upload_active_count.pop(account_id, None)
+        self._notify_waiters_sync()
+
+    def _notify_waiters_sync(self) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+            loop.call_soon(self._do_notify)
+        except RuntimeError:
+            pass
+
+    def _do_notify(self) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+            if loop.is_closed():
+                return
+            async def _inner():
+                async with self._condition:
+                    self._condition.notify_all()
+            asyncio.ensure_future(_inner(), loop=loop)
+        except RuntimeError:
+            pass
 
     def remaining(self) -> int:
-        """还有空闲槽位的账号数"""
         return sum(
             1 for a in self._accounts
             if self._active_count.get(str(a.get("account_id", "")), 0) < self._max_concurrent
         )
+
+    def upload_remaining(self) -> int:
+        return sum(
+            1 for a in self._accounts
+            if self._upload_active_count.get(str(a.get("account_id", "")), 0) < self._upload_concurrent
+        )
+
+    def get_stats(self) -> dict[str, Any]:
+        return {
+            "total_accounts": len(self._accounts),
+            "upload_concurrency_per_account": self._upload_concurrent,
+            "max_concurrency_per_account": self._max_concurrent,
+            "max_upload_concurrency": self.max_upload_concurrency,
+            "upload_available_slots": self.upload_remaining(),
+            "task_available_slots": self.remaining(),
+            "active_uploads": dict(self._upload_active_count),
+            "active_tasks": dict(self._active_count),
+        }
 
 
 @dataclass

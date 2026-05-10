@@ -206,6 +206,7 @@ async def run_real_flow(
     account_id: str = "",
     cookie_string: str = "",
     export_gate: asyncio.Semaphore | None = None,
+    upload_gate: asyncio.Semaphore | None = None,
     title: Optional[str] = None,
     shared_api: Optional[Any] = None,
     run_id: Optional[str] = None,
@@ -256,12 +257,21 @@ async def run_real_flow(
         log(f"genRecordId: {token['genRecordId']}")
         log(f"recordId: {token['recordId']}")
 
-        await upload_file_to_oss(
-            token=token,
-            file_path=input_path,
-            mime_type=mime_type,
-            on_progress=_make_upload_progress_logger(log),
-        )
+        if upload_gate is None:
+            await upload_file_to_oss(
+                token=token,
+                file_path=input_path,
+                mime_type=mime_type,
+                on_progress=_make_upload_progress_logger(log),
+            )
+        else:
+            async with upload_gate:
+                await upload_file_to_oss(
+                    token=token,
+                    file_path=input_path,
+                    mime_type=mime_type,
+                    on_progress=_make_upload_progress_logger(log),
+                )
 
         await api_json(
             api,

@@ -88,24 +88,23 @@ dmypy.json
 .DS_Store
 
 # 项目特定
-downloads/
+data/
 transcripts/
-logs/
 douyin_users.db
 media_tools.db
-
-# 本地数据库文件
-# 注意：data/media_tools.db 需要手动创建或从备份恢复
-data/
 
 # 配置（敏感信息）
 config/
 !config/config.yaml.example
+!config/auth_rules.yaml
+!config/transcribe/.env.example
+!config/transcribe/accounts.example.json
+!config/following.json.example
 config/transcribe/.env
 config/transcribe/accounts.json
 config/backups/
 
-# 认证状态
+# 认证状态（已迁移到 data/auth/，保留兼容）
 .auth/
 .playwright-data/
 

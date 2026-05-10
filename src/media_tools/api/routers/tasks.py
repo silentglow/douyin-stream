@@ -485,9 +485,8 @@ async def trigger_full_sync(req: FullSyncRequest):
 
 @router.post("/transcribe/local")
 async def trigger_local_transcribe(req: LocalTranscribeRequest):
-    from media_tools.core.config import get_runtime_setting_bool
     task_id = str(uuid.uuid4())
-    delete_after = req.delete_after if req.delete_after is not None else get_runtime_setting_bool("auto_delete", True)
+    delete_after = req.delete_after if req.delete_after is not None else False
     req.delete_after = delete_after
     _register_local_assets(req.file_paths, delete_after, req.directory_root)
     await _create_task(
@@ -505,10 +504,10 @@ async def trigger_creator_transcribe(req: CreatorTranscribeRequest):
     await _create_task(
         task_id,
         "local_transcribe",
-        {"file_paths": [], "delete_after": False, "directory_root": None, "creator_uid": req.uid},
+        {"file_paths": [], "delete_after": req.delete_after, "directory_root": None, "creator_uid": req.uid},
     )
     from media_tools.workers.creator_transcribe_worker import background_creator_transcribe_worker
-    _register_background_task(task_id, background_creator_transcribe_worker(task_id, req.uid))
+    _register_background_task(task_id, background_creator_transcribe_worker(task_id, req.uid, delete_after=req.delete_after))
     file_count = 0
     try:
         with get_db_connection() as conn:

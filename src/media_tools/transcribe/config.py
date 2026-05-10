@@ -34,6 +34,7 @@ class AppConfig:
     export_concurrency: int
     export_max_retries: int
     export_initial_backoff_seconds: float
+    upload_concurrency_per_account: int
     paths: AppPaths
 
 
@@ -72,14 +73,14 @@ def parse_float_setting(name: str, default: float, *, minimum: Optional[float] =
 def load_config() -> AppConfig:
     base_url = _strip(os.environ.get("QWEN_BASE_URL"), "https://www.qianwen.com")
     app_url = _strip(os.environ.get("QWEN_APP_URL"), f"{base_url}/discover")
-    auth_state_path = as_absolute(_strip(os.environ.get("QWEN_AUTH_STATE_PATH"), ".auth/qwen-storage-state.json"))
-    accounts_file = as_absolute(_strip(os.environ.get("QWEN_ACCOUNTS_FILE"), "accounts.json"))
+    auth_state_path = as_absolute(_strip(os.environ.get("QWEN_AUTH_STATE_PATH"), "data/auth/qwen-storage-state.json"))
+    accounts_file = as_absolute(_strip(os.environ.get("QWEN_ACCOUNTS_FILE"), "data/auth/accounts.json"))
     account_pool_state_file = as_absolute(
-        _strip(os.environ.get("QWEN_ACCOUNT_POOL_STATE_FILE"), ".auth/account-pool-state.json")
+        _strip(os.environ.get("QWEN_ACCOUNT_POOL_STATE_FILE"), "data/auth/account-pool-state.json")
     )
-    quota_state_file = as_absolute(_strip(os.environ.get("QWEN_QUOTA_STATE_FILE"), ".auth/quota-usage.json"))
-    network_log_dir = as_absolute(_strip(os.environ.get("QWEN_NETWORK_LOG_DIR"), "artifacts/network"))
-    download_dir = as_absolute(_strip(os.environ.get("QWEN_DOWNLOAD_DIR"), "downloads"))
+    quota_state_file = as_absolute(_strip(os.environ.get("QWEN_QUOTA_STATE_FILE"), "data/auth/quota-usage.json"))
+    network_log_dir = as_absolute(_strip(os.environ.get("QWEN_NETWORK_LOG_DIR"), "data/logs/network"))
+    download_dir = as_absolute(_strip(os.environ.get("QWEN_DOWNLOAD_DIR"), "data/downloads"))
 
     return AppConfig(
         base_url=base_url,
@@ -98,6 +99,11 @@ def load_config() -> AppConfig:
             "QWEN_EXPORT_INITIAL_BACKOFF_SECONDS",
             2.0,
             minimum=0.1,
+        ),
+        upload_concurrency_per_account=parse_int_setting(
+            "QWEN_UPLOAD_CONCURRENCY_PER_ACCOUNT",
+            1,
+            minimum=1,
         ),
         paths=AppPaths(
             auth_state_path=auth_state_path,

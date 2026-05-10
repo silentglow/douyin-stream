@@ -28,8 +28,13 @@ export const triggerLocalTranscribe = async (
 
 export const triggerCreatorTranscribe = async (
   uid: string,
+  deleteAfter?: boolean,
   signal?: AbortSignal
 ): Promise<{ task_id: string; file_count: number }> => {
-  const response = await apiClient.post('/tasks/transcribe/creator', { uid }, { signal });
+  const payload: { uid: string; delete_after?: boolean } = { uid };
+  if (deleteAfter !== undefined) {
+    payload.delete_after = deleteAfter;
+  }
+  const response = await apiClient.post('/tasks/transcribe/creator', payload, { signal });
   return response.data;
 };

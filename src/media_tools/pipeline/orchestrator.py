@@ -57,31 +57,21 @@ class OrchestratorV2:
         on_progress: Optional[ProgressCallback] = None,
         creator_folder_override: Optional[str] = None,
         export_gate: Optional[asyncio.Semaphore] = None,
+        upload_gate: Optional[asyncio.Semaphore] = None,
     ):
-        """初始化编排器
-
-        Args:
-            config: Pipeline 配置
-            auth_state_path: 认证状态文件路径
-            retry_config: 重试配置
-            state_file: 状态持久化文件路径
-            on_progress: 进度回调函数 on_progress(current, total, video_path, status)
-            creator_folder_override: 强制指定转写文件子目录名（如"本地上传"）
-        """
         self.config = config or load_pipeline_config()
         self.auth_state_path = auth_state_path
         self.retry_config = retry_config or RetryConfig()
         self.state_manager = PipelineStateManager(state_file)
         self.on_progress = on_progress
         self._creator_folder_override = creator_folder_override
-        self._account_pool: AccountPool | None = None  # 账号轮换池
-        self._current_account_id: Optional[str] = None  # 当前转写使用的账户
-        # 导出限流信号量（通义 API 限频），默认 2 并发
+        self._account_pool: AccountPool | None = None
+        self._current_account_id: Optional[str] = None
         self._export_gate = export_gate or asyncio.Semaphore(
             getattr(self.config, 'export_concurrency', 2)
         )
+        self._upload_gate = upload_gate
 
-        # 确定认证路径
         if self.auth_state_path is None:
             try:
                 transcribe_config = load_transcribe_config()
@@ -145,9 +135,9 @@ class OrchestratorV2:
                 balances.append(_score(account.account_id))
 
             if resolved:
-                # 初始化加权账号池（按余额分配任务）
                 self._account_pool = AccountPool(resolved, balances)
                 logger.info(f"账号池初始化: {[(a['account_id'], b) for a, b in zip(resolved, balances)]}")
+                self._adjust_gates_to_account_pool()
                 return resolved
         except (sqlite3.Error, OSError, TypeError, ValueError) as e:
             logger.warning(f"加载账号池失败: {e}")
@@ -156,22 +146,30 @@ class OrchestratorV2:
             return []
 
         single_account = [{"account_id": self.config.account_id, "auth_state_path": Path(self.auth_state_path)}]
-        self._account_pool = AccountPool(single_account, [0])  # 单账号，余额为0
+        self._account_pool = AccountPool(single_account, [0])
+        self._adjust_gates_to_account_pool()
         return single_account
+
+    def _adjust_gates_to_account_pool(self) -> None:
+        if self._account_pool is None:
+            return
+        n_accounts = self._account_pool.account_count
+        if self._upload_gate is None:
+            self._upload_gate = asyncio.Semaphore(n_accounts)
+            logger.info(f"上传信号量初始化: {n_accounts}（= 活跃账号数）")
+        export_concurrency = min(2 * n_accounts, 8)
+        current_export = self._export_gate._value if hasattr(self._export_gate, '_value') else 2
+        if export_concurrency != current_export:
+            self._export_gate = asyncio.Semaphore(export_concurrency)
+            logger.info(f"导出信号量动态调整: {current_export} → {export_concurrency}（= min(2×{n_accounts}, 8)）")
 
     def _mark_qwen_account_status(self, account_id: str, status: str) -> None:
         if not account_id:
             return
         try:
-            from media_tools.db.core import get_db_connection
-
-            with get_db_connection() as conn:
-                conn.execute(
-                    "UPDATE Accounts_Pool SET status=? WHERE platform='qwen' AND account_id=?",
-                    (status, account_id),
-                )
-                conn.commit()
-        except sqlite3.Error as e:
+            from media_tools.core.cookie_manager import get_cookie_manager
+            get_cookie_manager().mark_account_status("qwen", account_id, status)
+        except Exception as e:
             logger.warning(f"标记Qwen账号状态失败: {e}")
             return
 
@@ -179,14 +177,9 @@ class OrchestratorV2:
         if not account_id:
             return
         try:
-            from media_tools.db.core import get_db_connection
-
-            with get_db_connection() as conn:
-                conn.execute(
-                    "UPDATE Accounts_Pool SET last_used=CURRENT_TIMESTAMP WHERE platform='qwen' AND account_id=?",
-                    (account_id,),
-                )
-        except sqlite3.Error as e:
+            from media_tools.core.cookie_manager import get_cookie_manager
+            get_cookie_manager().mark_account_used("qwen", account_id)
+        except Exception as e:
             logger.warning(f"标记Qwen账号使用失败: {e}")
             return
 
@@ -324,6 +317,7 @@ class OrchestratorV2:
                         account_id=current_account_id,
                         title=video_title,
                         export_gate=self._export_gate,
+                        upload_gate=self._upload_gate,
                         run_id=run_id,
                         resume_state=resume_state,
                     )
@@ -337,10 +331,6 @@ class OrchestratorV2:
                         except Exception as exc:  # noqa: BLE001
                             logger.warning(f"transcribe_runs.mark_saved 失败 (run_id={run_id}): {exc}")
 
-                    if self.config.remove_video or not self.config.keep_original:
-                        video_path.unlink()
-                        logger.info(f"已删除原视频: {video_path}")
-
                     duration = time.time() - start_time
                     return PipelineResultV2(
                         success=True,
@@ -348,7 +338,7 @@ class OrchestratorV2:
                         transcript_path=result.export_path,
                         duration=duration,
                         account_id=current_account_id,
-                        video_deleted=self.config.remove_video or not self.config.keep_original,
+                        video_deleted=False,
                     )
                 except BaseException as e:  # classify_error 设计为处理任意异常类型
                     if not isinstance(e, Exception):
@@ -732,25 +722,8 @@ def create_orchestrator(
     state_file: Path | str = DEFAULT_STATE_FILE,
     on_progress: Optional[ProgressCallback] = None,
     creator_folder_override: Optional[str] = None,
+    upload_gate: Optional[asyncio.Semaphore] = None,
 ) -> OrchestratorV2:
-    """创建编排器实例的工厂函数
-
-    Args:
-        config: Pipeline 配置
-        auth_state_path: 认证状态文件路径
-        retry_config: 重试配置
-        state_file: 状态持久化文件路径
-        on_progress: 进度回调函数 on_progress(current, total, video_path, status)
-        creator_folder_override: 强制指定转写文件子目录名（如"本地上传"）
-
-    Returns:
-        OrchestratorV2: 编排器实例
-
-    Example:
-        >>> orchestrator = create_orchestrator(
-        ...     on_progress=lambda c, t, p, s: logger.info(f"[{c}/{t}] {p.name}: {s}")
-        ... )
-    """
     return OrchestratorV2(
         config=config,
         auth_state_path=auth_state_path,
@@ -758,6 +731,7 @@ def create_orchestrator(
         state_file=state_file,
         on_progress=on_progress,
         creator_folder_override=creator_folder_override,
+        upload_gate=upload_gate,
     )
 
 

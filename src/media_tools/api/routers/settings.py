@@ -99,17 +99,34 @@ def get_settings():
         }
     }
 
+_MIN_COOKIE_LENGTH = 20
+
+
+def _validate_cookie_string(cookie_string: str) -> str:
+    trimmed = cookie_string.strip()
+    if not trimmed:
+        raise HTTPException(status_code=400, detail="Cookie 不能为空")
+    if len(trimmed) < _MIN_COOKIE_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Cookie 格式无效或过短（最少 {_MIN_COOKIE_LENGTH} 字符）")
+    if "=" not in trimmed:
+        raise HTTPException(status_code=400, detail="Cookie 格式无效，应为 key=value;key=value 格式")
+    return trimmed
+
+
 @router.post("/douyin")
 def add_douyin_account(req: DouyinAccountRequest):
     try:
+        cookie = _validate_cookie_string(req.cookie_string)
         account_id = str(uuid.uuid4())
         with get_db_connection() as conn:
             conn.execute(
                 "INSERT INTO Accounts_Pool (account_id, platform, cookie_data, remark) VALUES (?, ?, ?, ?)",
-                (account_id, "douyin", req.cookie_string, req.remark)
+                (account_id, "douyin", cookie, req.remark)
             )
             conn.commit()
         return {"status": "success", "account_id": account_id}
+    except HTTPException:
+        raise
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -149,14 +166,17 @@ def update_douyin_account_remark(account_id: str, req: RemarkRequest):
 @router.post("/bilibili/accounts")
 def add_bilibili_account(req: BilibiliAccountRequest):
     try:
+        cookie = _validate_cookie_string(req.cookie_string)
         account_id = str(uuid.uuid4())
         with get_db_connection() as conn:
             conn.execute(
                 "INSERT INTO Accounts_Pool (account_id, platform, cookie_data, remark) VALUES (?, ?, ?, ?)",
-                (account_id, "bilibili", req.cookie_string, req.remark),
+                (account_id, "bilibili", cookie, req.remark),
             )
             conn.commit()
         return {"status": "success", "account_id": account_id}
+    except HTTPException:
+        raise
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -219,8 +239,8 @@ def update_global_settings(req: GlobalSettingsRequest):
         if req.auto_transcribe is not None:
             set_runtime_setting("auto_transcribe", req.auto_transcribe)
         if req.export_format is not None:
-            if req.export_format not in ("md", "docx"):
-                raise HTTPException(status_code=400, detail="export_format must be 'md' or 'docx'")
+            if req.export_format not in ("md", "docx", "pdf", "srt", "txt"):
+                raise HTTPException(status_code=400, detail="export_format must be one of: md, docx, pdf, srt, txt")
             set_runtime_setting("export_format", req.export_format)
         return {"status": "success"}
     except HTTPException:
@@ -231,17 +251,21 @@ def update_global_settings(req: GlobalSettingsRequest):
 @router.post("/qwen")
 def update_qwen_key(req: QwenConfigRequest):
     try:
-        save_qwen_cookie_string(req.cookie_string, default_qwen_auth_state_path())
+        cookie = _validate_cookie_string(req.cookie_string)
+        save_qwen_cookie_string(cookie, default_qwen_auth_state_path())
         return {"status": "success"}
+    except HTTPException:
+        raise
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/qwen/accounts")
 async def add_qwen_account(req: QwenAccountRequest):
     try:
+        cookie = _validate_cookie_string(req.cookie_string)
         account_id = str(uuid.uuid4())
         auth_state_path = build_qwen_auth_state_path_for_account(account_id)
-        save_qwen_cookie_string(req.cookie_string, auth_state_path, sync_db=False)
+        save_qwen_cookie_string(cookie, auth_state_path, sync_db=False)
 
         status = "active"
         validation: dict[str, object] = {
@@ -278,6 +302,7 @@ async def add_qwen_account(req: QwenAccountRequest):
 @router.put("/qwen/accounts/{account_id}/cookie")
 def update_qwen_account_cookie(account_id: str, req: QwenCookieUpdateRequest):
     try:
+        cookie = _validate_cookie_string(req.cookie_string)
         with get_db_connection() as conn:
             cursor = conn.cursor()
             row = cursor.execute(
@@ -290,11 +315,11 @@ def update_qwen_account_cookie(account_id: str, req: QwenCookieUpdateRequest):
             existing_path = str(row[0] or "")
             auth_state_path = Path(existing_path) if existing_path.strip() else build_qwen_auth_state_path_for_account(account_id)
 
-            save_qwen_cookie_string(req.cookie_string, auth_state_path, sync_db=False)
+            save_qwen_cookie_string(cookie, auth_state_path, sync_db=False)
 
             cursor.execute(
                 "UPDATE Accounts_Pool SET cookie_data=?, status='active', auth_state_path=? WHERE account_id=? AND platform='qwen'",
-                (req.cookie_string, str(auth_state_path), account_id),
+                (cookie, str(auth_state_path), account_id),
             )
             conn.commit()
 

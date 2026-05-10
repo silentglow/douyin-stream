@@ -38,6 +38,32 @@ def _collect_task_counts() -> dict[str, int]:
     return counts
 
 
+def _collect_account_pool_stats() -> dict:
+    try:
+        from media_tools.pipeline.orchestrator import OrchestratorV2
+        from media_tools.pipeline.config import load_pipeline_config
+        config = load_pipeline_config()
+        orchestrator = OrchestratorV2(config=config)
+        if orchestrator._account_pool is not None:
+            return orchestrator._account_pool.get_stats()
+    except Exception as e:
+        logger.warning(f"metrics: collect account pool stats failed: {e}")
+    return {}
+
+
+def _collect_transcribe_stage_counts() -> dict[str, int]:
+    stage_counts: dict[str, int] = {}
+    try:
+        with get_db_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            for row in conn.execute("SELECT stage, COUNT(*) AS c FROM transcribe_runs GROUP BY stage"):
+                stage = str(row["stage"] or "unknown")
+                stage_counts[stage] = int(row["c"])
+    except (sqlite3.Error, OSError) as e:
+        logger.warning(f"metrics: read transcribe stage counts failed: {e}")
+    return stage_counts
+
+
 @router.get("/")
 def get_metrics():
     return {
@@ -52,6 +78,14 @@ def get_metrics():
     }
 
 
+@router.get("/transcribe")
+def get_transcribe_metrics():
+    return {
+        "account_pool": _collect_account_pool_stats(),
+        "transcribe_stages": _collect_transcribe_stage_counts(),
+    }
+
+
 @router.get("/failure-summary")
 def get_failure_summary(days: int = 7):
     """转写失败原因聚合：按 (error_type, error_stage) 分桶，给运维看"为什么失败"。
@@ -59,7 +93,7 @@ def get_failure_summary(days: int = 7):
     数据源是 transcribe_runs 表（每次转写尝试一行）。每次返回最近 N 天的统计。
     """
     from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
-    days = max(1, min(days, 90))  # 限到 90 天，避免一次扫太多历史
+    days = max(1, min(days, 90))
     try:
         buckets = TranscribeRunRepository.aggregate_failures(days=days)
     except sqlite3.Error as e:

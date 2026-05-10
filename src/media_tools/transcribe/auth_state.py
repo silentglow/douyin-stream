@@ -7,8 +7,6 @@ from typing import Any, Mapping, Optional, Union
 import json
 import sqlite3
 
-from media_tools.db.core import init_db
-from media_tools.common.paths import get_db_path
 from media_tools.douyin.utils.auth_parser import AuthParser
 from media_tools.logger import get_logger
 
@@ -240,21 +238,61 @@ def load_qwen_storage_state_from_db(db_path: str | Optional[Path] = None) -> Opt
 
 def has_qwen_auth_state(auth_state_path: str | Optional[Path] = None) -> bool:
     target_path = _normalized_path(auth_state_path or default_qwen_auth_state_path())
-    if is_default_qwen_auth_state_path(target_path) and load_qwen_storage_state_from_db() is not None:
+    if _has_active_qwen_account_in_pool():
         return True
     return read_qwen_storage_state_file(target_path) is not None
 
 
+def _has_active_qwen_account_in_pool() -> bool:
+    try:
+        from media_tools.db.core import get_db_connection
+        with get_db_connection() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM Accounts_Pool WHERE platform='qwen' AND status='active' AND cookie_data IS NOT NULL AND cookie_data != '' LIMIT 1",
+            ).fetchone()
+            return row is not None
+    except Exception:
+        return False
+
+
+def _get_active_qwen_cookie_from_pool() -> str:
+    try:
+        from media_tools.db.core import get_db_connection
+        with get_db_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT cookie_data
+                FROM Accounts_Pool
+                WHERE platform = 'qwen' AND status = 'active'
+                  AND cookie_data IS NOT NULL AND cookie_data != ''
+                ORDER BY
+                    CASE WHEN last_used IS NULL THEN 0 ELSE 1 END,
+                    last_used ASC,
+                    create_time ASC
+                LIMIT 1
+                """,
+            ).fetchone()
+            if row and row[0]:
+                return str(row[0]).strip()
+    except Exception as e:
+        logger.warning(f"从账号池读取Qwen Cookie失败: {e}")
+    return ""
+
+
 def resolve_qwen_auth_state(auth_state_path: Union[str, Path]) -> ResolvedQwenAuthState:
     target_path = _normalized_path(auth_state_path)
-    if is_default_qwen_auth_state_path(target_path):
-        db_state = load_qwen_storage_state_from_db()
-        if db_state is not None:
+
+    pool_cookie = _get_active_qwen_cookie_from_pool()
+    if pool_cookie:
+        try:
+            state = build_qwen_storage_state_from_cookie_string(pool_cookie)
             return ResolvedQwenAuthState(
-                storage_state=db_state,
-                source="db",
+                storage_state=state,
+                source="pool",
                 auth_state_path=target_path,
             )
+        except (ValueError, OSError):
+            logger.warning("账号池中的 Qwen Cookie 无法构建有效的 storage state，回退到文件")
 
     file_state = read_qwen_storage_state_file(target_path)
     if file_state is not None:
@@ -279,34 +317,12 @@ def persist_qwen_auth_state(
 
     target_path = _normalized_path(auth_state_path)
     ensure_dir(target_path.parent)
-    # 原子写入：先写 .tmp 再 os.replace，防止进程被杀/磁盘满时留下半截 JSON 让后续解析失败
     import os
     import threading
     payload = json.dumps(serialized_state, ensure_ascii=False, indent=2)
     tmp_path = target_path.with_name(f"{target_path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     tmp_path.write_text(payload, encoding="utf-8")
     os.replace(str(tmp_path), str(target_path))
-
-    should_sync_db = is_default_qwen_auth_state_path(target_path) if sync_db is None else sync_db
-    if should_sync_db:
-        db_path = Path(get_db_path()).expanduser().resolve()
-        init_db(db_path)
-        from media_tools.db.core import get_db_connection
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT OR REPLACE INTO auth_credentials (platform, auth_data, is_valid, last_check_time)
-                VALUES (?, ?, ?, ?)
-                """,
-                (
-                    QWEN_AUTH_PLATFORM,
-                    json.dumps(serialized_state, ensure_ascii=False),
-                    True,
-                    datetime.now().isoformat(timespec="seconds"),
-                ),
-            )
-            conn.commit()
 
     return target_path
 
@@ -318,7 +334,7 @@ def save_qwen_cookie_string(
     sync_db: Optional[bool] = None,
 ) -> dict[str, Any]:
     state = build_qwen_storage_state_from_cookie_string(raw_cookie)
-    persist_qwen_auth_state(state, auth_state_path, sync_db=sync_db)
+    persist_qwen_auth_state(state, auth_state_path)
     return state
 
 
@@ -346,6 +362,10 @@ def resolve_qwen_cookie_string(*, auth_state_path: Union[str, Path], account_id:
         cookie_data = load_qwen_cookie_data_for_account(selected_account)
         if cookie_data:
             return cookie_data
+
+    pool_cookie = _get_active_qwen_cookie_from_pool()
+    if pool_cookie:
+        return pool_cookie
 
     resolved = resolve_qwen_auth_state(auth_state_path)
     storage_state = resolved.storage_state

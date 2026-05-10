@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Toggle } from '@/components/ui/toggle';
 import { formatRelativeTime, getTaskDisplayState, getTaskError, getTaskMessage } from '@/lib/task-utils';
 import type { Creator, Task } from '@/lib/api';
 
@@ -12,7 +13,7 @@ interface CreatorCardProps {
   downloadingCreators: Record<string, 'incremental' | 'full' | null>;
   isDeleting: boolean;
   onDownload: (uid: string, nickname: string, mode: 'incremental' | 'full') => void;
-  onTranscribe: (uid: string, nickname: string) => void;
+  onTranscribe: (uid: string, nickname: string, deleteAfter?: boolean) => void;
   transcribingUids: Set<string>;
   onRetryFailed: (uid: string, nickname: string) => void;
   retryingFailedUids: Set<string>;
@@ -25,6 +26,8 @@ interface CreatorCardProps {
       douyin_cookie_source?: 'config' | 'pool' | 'none' | string;
     };
   } | null;
+  deleteAfterTranscribe: boolean;
+  setDeleteAfterTranscribe: (v: boolean) => void;
 }
 
 function getCreatorPlatform(creator: Creator): 'douyin' | 'bilibili' | 'local' {
@@ -54,6 +57,8 @@ export function CreatorCard({
   retryingFailedUids,
   onDelete,
   settings,
+  deleteAfterTranscribe,
+  setDeleteAfterTranscribe,
 }: CreatorCardProps) {
   const platform = getCreatorPlatform(creator);
   const isBusy = !!downloadingCreators[creator.uid];
@@ -199,7 +204,7 @@ export function CreatorCard({
             <Button
               variant="primary"
               size="sm"
-              onClick={() => onTranscribe(creator.uid, creator.nickname)}
+              onClick={() => onTranscribe(creator.uid, creator.nickname, deleteAfterTranscribe)}
               disabled={transcribingUids.has(creator.uid)}
             >
               {transcribingUids.has(creator.uid) ? <Loader2 className="size-3.5 animate-spin" /> : <FileText className="size-3.5" />}
@@ -207,6 +212,13 @@ export function CreatorCard({
             </Button>
           )}
         </div>
+
+        {(creator.disk_transcript_pending_count ?? 0) > 0 && (
+          <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+            <span>转写后删除源视频</span>
+            <Toggle checked={deleteAfterTranscribe} onChange={setDeleteAfterTranscribe} />
+          </div>
+        )}
 
         {/* Retry failed button */}
         {(creator.transcript_failed_count ?? 0) > 0 && (

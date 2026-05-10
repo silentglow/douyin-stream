@@ -5,6 +5,7 @@ from typing import Optional, Union
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 
@@ -12,6 +13,24 @@ from .models import VideoState
 from ..transcribe.runtime import ensure_dir
 
 logger = logging.getLogger(__name__)
+
+_SENSITIVE_PATTERNS = [
+    re.compile(r'cookie:\s*\S+', re.IGNORECASE),
+    re.compile(r'tongyi_sso_ticket=\S+', re.IGNORECASE),
+    re.compile(r'tongyi_guest_ticket=\S+', re.IGNORECASE),
+    re.compile(r'tongyi_sso_ticket_hash=\S+', re.IGNORECASE),
+    re.compile(r'authorization:\s*\S+', re.IGNORECASE),
+    re.compile(r'x-xsrf-token:\s*\S+', re.IGNORECASE),
+]
+
+
+def _sanitize_error_message(message: str) -> str:
+    if not message:
+        return message
+    sanitized = message
+    for pattern in _SENSITIVE_PATTERNS:
+        sanitized = pattern.sub("[REDACTED]", sanitized)
+    return sanitized
 
 DEFAULT_STATE_FILE = None  # Will use project root when None
 
@@ -97,7 +116,7 @@ class PipelineStateManager:
             if error_type:
                 state.error_type = error_type
             if error_message:
-                state.error_message = error_message
+                state.error_message = _sanitize_error_message(error_message)
             if status == "failed":
                 state.last_error_time = time.time()
 

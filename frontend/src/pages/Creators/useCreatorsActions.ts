@@ -114,11 +114,11 @@ export function useCreatorsActions({
     }
   };
 
-  const handleTranscribe = async (uid: string, nickname: string) => {
+  const handleTranscribe = async (uid: string, nickname: string, deleteAfter?: boolean) => {
     if (transcribingUids.has(uid)) return;
     setTranscribingUids((prev) => new Set(prev).add(uid));
     try {
-      const result = await triggerCreatorTranscribe(uid);
+      const result = await triggerCreatorTranscribe(uid, deleteAfter);
       toast.success(`已开始转写 ${nickname || uid} 的 ${result.file_count} 个待处理素材`, {
         description: `任务 ID: ${result.task_id}`,
       });

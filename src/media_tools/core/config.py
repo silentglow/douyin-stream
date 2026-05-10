@@ -307,7 +307,7 @@ class AppConfig:
     @property
     def pipeline_output_dir(self) -> str:
         """Pipeline 输出目录"""
-        return _get_env_str("PIPELINE_OUTPUT_DIR", str(self.project_root / "transcripts"))
+        return _get_env_str("PIPELINE_OUTPUT_DIR", str(self.project_root / "data" / "transcripts"))
 
     @property
     def pipeline_delete_after_export(self) -> bool:
@@ -318,16 +318,6 @@ class AppConfig:
     def pipeline_account_id(self) -> str:
         """Pipeline 默认账号 ID"""
         return _get_env_str("PIPELINE_ACCOUNT_ID", "")
-
-    @property
-    def pipeline_remove_video(self) -> bool:
-        """是否删除视频文件"""
-        return _get_env_bool("PIPELINE_REMOVE_VIDEO", False)
-
-    @property
-    def pipeline_keep_original(self) -> bool:
-        """是否保留原始文件"""
-        return _get_env_bool("PIPELINE_KEEP_ORIGINAL", True)
 
     # === Derived properties ===
     
@@ -382,8 +372,7 @@ class AppConfig:
                 "pipeline_output_dir": self.pipeline_output_dir,
                 "pipeline_delete_after_export": self.pipeline_delete_after_export,
                 "pipeline_account_id_set": bool(self.pipeline_account_id),
-                "pipeline_remove_video": self.pipeline_remove_video,
-                "pipeline_keep_original": self.pipeline_keep_original,
+                "auto_delete": self.auto_delete,
             },
         }
 
@@ -435,17 +424,15 @@ class PipelineConfig:
         output_dir: str = "",
         delete_after_export: Optional[bool] = None,
         account_id: str = "",
-        remove_video: Optional[bool] = None,
-        keep_original: Optional[bool] = None,
         concurrency: Optional[int] = None,
+        export_concurrency: Optional[int] = None,
     ):
         self._export_format = export_format
         self._output_dir = output_dir
         self._delete_after_export = delete_after_export
         self._account_id = account_id
-        self._remove_video = remove_video
-        self._keep_original = keep_original
         self._concurrency = concurrency
+        self._export_concurrency = export_concurrency
 
     @property
     def export_format(self) -> str:
@@ -478,22 +465,16 @@ class PipelineConfig:
         return get_app_config().pipeline_account_id
 
     @property
-    def remove_video(self) -> bool:
-        if self._remove_video is not None:
-            return self._remove_video
-        return False
-
-    @property
-    def keep_original(self) -> bool:
-        if self._keep_original is not None:
-            return self._keep_original
-        return not get_app_config().auto_delete
-
-    @property
     def concurrency(self) -> int:
         if self._concurrency is not None:
             return self._concurrency
         return get_app_config().concurrency
+
+    @property
+    def export_concurrency(self) -> int:
+        if self._export_concurrency is not None:
+            return self._export_concurrency
+        return _get_env_int("QWEN_EXPORT_CONCURRENCY", 2)
 
 
 _pipeline_config = PipelineConfig()

@@ -6,7 +6,6 @@ F2 辅助模块 - 统一管理 F2 配置和初始化
 
 import f2
 import logging
-import sqlite3
 
 logger = logging.getLogger(__name__)
 from f2.utils.conf_manager import ConfigManager
@@ -50,41 +49,6 @@ _disable_f2_bark_notifications()
 _disable_f2_logging()
 
 
-def _get_active_douyin_cookie_from_pool(db_path) -> str:
-    """从账号池里取一个当前可用的抖音 Cookie（轮换策略：最久未使用优先）。
-
-    取到后自动更新 last_used，实现 round-robin。
-    """
-    try:
-        from media_tools.db.core import get_db_connection
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            # 最久未使用的排前面（NULL 即从未使用，最优先）
-            cursor.execute("""
-                SELECT account_id, cookie_data
-                FROM Accounts_Pool
-                WHERE platform = 'douyin' AND status = 'active' AND cookie_data IS NOT NULL AND cookie_data != ''
-                ORDER BY
-                    CASE WHEN last_used IS NULL THEN 0 ELSE 1 END,
-                    last_used ASC,
-                    create_time ASC
-                LIMIT 1
-            """)
-            row = cursor.fetchone()
-            if row and row[1]:
-                # 更新 last_used 实现轮换
-                cursor.execute(
-                    "UPDATE Accounts_Pool SET last_used = CURRENT_TIMESTAMP WHERE account_id = ?",
-                    (row[0],)
-                )
-                conn.commit()
-                return row[1]
-            return ""
-    except sqlite3.Error as e:
-        logger.debug(f"读取F2数据库值失败: {e}")
-        return ""
-
-
 def merge_f2_config(main_conf: dict, custom_conf: dict) -> dict:
     """
     合并 F2 配置
@@ -114,11 +78,8 @@ def get_f2_kwargs() -> dict:
     """
     config = get_config()
 
-    # 优先使用账号池（支持多账号轮换），config.yaml cookie 作为兜底
-    cookie = ""
-    get_db_path = getattr(config, "get_db_path", None)
-    if callable(get_db_path):
-        cookie = _get_active_douyin_cookie_from_pool(get_db_path())
+    from media_tools.core.cookie_manager import get_cookie_manager
+    cookie = get_cookie_manager().get_cookie("douyin")
     if not cookie:
         cookie = config.get_cookie()
 

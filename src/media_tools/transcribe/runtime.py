@@ -22,7 +22,10 @@ def strip_quotes(value: str) -> str:
 
 
 def load_dotenv(dotenv_path: str | Optional[Path] = None) -> Path:
-    path = Path(dotenv_path or Path.cwd() / ".env").resolve()
+    if dotenv_path is not None:
+        path = Path(dotenv_path).resolve()
+    else:
+        path = _get_project_root() / ".env"
     try:
         for raw_line in path.read_text(encoding="utf-8").splitlines():
             line = raw_line.strip()
@@ -38,11 +41,19 @@ def load_dotenv(dotenv_path: str | Optional[Path] = None) -> Path:
     return path
 
 
+def _get_project_root() -> Path:
+    try:
+        from media_tools.core.config import get_project_root as _core_root
+        return _core_root()
+    except Exception:
+        return Path.cwd().resolve()
+
+
 def as_absolute(input_path: Union[str, Path]) -> Path:
     path = Path(input_path)
     if path.is_absolute():
         return path
-    return (Path.cwd() / path).resolve()
+    return (_get_project_root() / path).resolve()
 
 
 def ensure_dir(dir_path: Union[str, Path]) -> Path:
@@ -74,8 +85,14 @@ def get_export_config(format_name: str) -> ExportConfig:
     normalized = str(format_name).strip().lower()
     if normalized == "docx":
         return ExportConfig(file_type=0, extension=".docx", label="docx")
+    if normalized == "pdf":
+        return ExportConfig(file_type=1, extension=".pdf", label="pdf")
+    if normalized == "srt":
+        return ExportConfig(file_type=2, extension=".srt", label="srt")
     if normalized in {"md", "markdown"}:
         return ExportConfig(file_type=3, extension=".md", label="md")
+    if normalized == "txt":
+        return ExportConfig(file_type=7, extension=".txt", label="txt")
     raise ValueError(f"Unsupported export format: {format_name}")
 
 

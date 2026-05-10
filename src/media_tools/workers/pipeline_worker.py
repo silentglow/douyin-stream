@@ -31,13 +31,16 @@ async def _background_pipeline_worker(task_id: str, req: Any):
     async def _progress_fn(p, m, stage="", pipeline_progress=None):
         await update_task_progress(task_id, p, m, "pipeline", stage=stage, pipeline_progress=pipeline_progress)
 
+    from media_tools.core.config import get_runtime_setting_bool
+    delete_after = req.auto_delete if req.auto_delete is not None else get_runtime_setting_bool("auto_delete", True)
+
     async with _heartbeat_scope(task_id):
         try:
             result = await run_pipeline_for_user(
                 url=req.url,
                 max_counts=req.max_counts,
                 update_progress_fn=_progress_fn,
-                delete_after=req.auto_delete,
+                delete_after=delete_after,
                 task_id=task_id,
             )
             msg = "成功转写完成"
@@ -99,12 +102,15 @@ async def _background_batch_worker(task_id: str, req: Any):
     async def _progress_fn(p, m, stage="", pipeline_progress=None):
         await update_task_progress(task_id, p, m, "pipeline", stage=stage, pipeline_progress=pipeline_progress)
 
+    from media_tools.core.config import get_runtime_setting_bool
+    delete_after = req.auto_delete if req.auto_delete is not None else get_runtime_setting_bool("auto_delete", True)
+
     async with _heartbeat_scope(task_id):
         try:
             result = await run_batch_pipeline(
                 video_urls=req.video_urls,
                 update_progress_fn=_progress_fn,
-                delete_after=req.auto_delete,
+                delete_after=delete_after,
                 task_id=task_id,
             )
             success_count = result.get("success_count", 0)

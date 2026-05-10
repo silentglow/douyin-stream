@@ -11,7 +11,7 @@ client = TestClient(app)
 def test_add_and_delete_bilibili_account() -> None:
     add_resp = client.post(
         "/api/v1/settings/bilibili/accounts",
-        json={"cookie_string": "SESSDATA=xxx", "remark": "test"},
+        json={"cookie_string": "SESSDATA=abcdefghijklmnopqrstuvwxyz1234567890", "remark": "test"},
     )
     assert add_resp.status_code == 200
     account_id = add_resp.json()["account_id"]

@@ -530,6 +530,80 @@ def init_db(db_path: Union[str, Path]):
         if conn:
             conn.close()
 
+    _migrate_legacy_auth_files(db_path.parent.parent)
+
+
+def _migrate_legacy_auth_files(project_root: Path) -> None:
+    old_auth_dir = project_root / ".auth"
+    new_auth_dir = project_root / "data" / "auth"
+    if old_auth_dir.exists() and old_auth_dir.is_dir() and any(old_auth_dir.iterdir()):
+        new_auth_dir.mkdir(parents=True, exist_ok=True)
+        for old_file in old_auth_dir.iterdir():
+            if not old_file.is_file():
+                continue
+            new_file = new_auth_dir / old_file.name
+            if new_file.exists():
+                continue
+            try:
+                import shutil
+                shutil.move(str(old_file), str(new_file))
+                logger.info(f"迁移认证文件: {old_file} → {new_file}")
+            except (OSError, PermissionError) as e:
+                logger.warning(f"迁移认证文件失败: {old_file} → {new_file}: {e}")
+        remaining = list(old_auth_dir.iterdir())
+        if not remaining:
+            try:
+                old_auth_dir.rmdir()
+                logger.info(f"已删除空目录: {old_auth_dir}")
+            except OSError:
+                pass
+
+    _migrate_single_file(project_root / "accounts.json", new_auth_dir / "accounts.json")
+    _migrate_legacy_artifacts(project_root)
+
+
+def _migrate_single_file(old_path: Path, new_path: Path) -> None:
+    if not old_path.exists() or not old_path.is_file():
+        return
+    if new_path.exists():
+        return
+    try:
+        new_path.parent.mkdir(parents=True, exist_ok=True)
+        import shutil
+        shutil.move(str(old_path), str(new_path))
+        logger.info(f"迁移文件: {old_path} → {new_path}")
+    except (OSError, PermissionError) as e:
+        logger.warning(f"迁移文件失败: {old_path} → {new_path}: {e}")
+
+
+def _migrate_legacy_artifacts(project_root: Path) -> None:
+    old_dir = project_root / "artifacts"
+    new_dir = project_root / "data" / "logs"
+    if not old_dir.exists() or not old_dir.is_dir():
+        return
+    if not any(old_dir.iterdir()):
+        return
+    new_dir.mkdir(parents=True, exist_ok=True)
+    for item in old_dir.iterdir():
+        if not item.is_dir():
+            continue
+        target = new_dir / item.name
+        if target.exists():
+            continue
+        try:
+            import shutil
+            shutil.move(str(item), str(target))
+            logger.info(f"迁移日志目录: {item} → {target}")
+        except (OSError, PermissionError) as e:
+            logger.warning(f"迁移日志目录失败: {item} → {target}: {e}")
+    remaining = list(old_dir.iterdir())
+    if not remaining:
+        try:
+            old_dir.rmdir()
+            logger.info(f"已删除空目录: {old_dir}")
+        except OSError:
+            pass
+
 
 # --- Path helpers (shared across routers & downloader) ---
 
