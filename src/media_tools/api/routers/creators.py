@@ -127,7 +127,7 @@ class CreatorCreateRequest(BaseModel):
     url: str
 
 
-@router.get("/")
+@router.get("")
 def list_creators(
     limit: Optional[int] = Query(default=None, ge=1, le=500),
     offset: Optional[int] = Query(default=None, ge=0),
@@ -183,7 +183,7 @@ def list_creators(
         raise HTTPException(status_code=500, detail="获取创作者列表失败")
 
 
-@router.post("/")
+@router.post("")
 async def create_creator(req: CreatorCreateRequest):
     try:
         if "bilibili.com" in req.url or "b23.tv" in req.url:

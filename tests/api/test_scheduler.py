@@ -27,13 +27,13 @@ class TestSchedulerAPI:
 
     def test_list_schedules_empty(self):
         """空列表返回空数组"""
-        response = client.get("/api/v1/scheduler/")
+        response = client.get("/api/v1/scheduler")
         assert response.status_code == 200
         assert response.json() == []
 
     def test_add_schedule_success(self):
         """添加有效的 cron 调度任务"""
-        response = client.post("/api/v1/scheduler/", json={
+        response = client.post("/api/v1/scheduler", json={
             "cron_expr": "0 2 * * *",
             "enabled": True,
         })
@@ -43,7 +43,7 @@ class TestSchedulerAPI:
         assert "task_id" in data
 
         # 验证列表中包含新任务
-        list_resp = client.get("/api/v1/scheduler/")
+        list_resp = client.get("/api/v1/scheduler")
         assert list_resp.status_code == 200
         tasks = list_resp.json()
         assert len(tasks) == 1
@@ -56,7 +56,7 @@ class TestSchedulerAPI:
 
     def test_add_schedule_invalid_cron(self):
         """无效的 cron 表达式返回 400"""
-        response = client.post("/api/v1/scheduler/", json={
+        response = client.post("/api/v1/scheduler", json={
             "cron_expr": "invalid",
             "enabled": True,
         })
@@ -66,7 +66,7 @@ class TestSchedulerAPI:
     def test_toggle_schedule(self):
         """切换调度任务启用状态"""
         # 先创建
-        create_resp = client.post("/api/v1/scheduler/", json={
+        create_resp = client.post("/api/v1/scheduler", json={
             "cron_expr": "0 3 * * *",
             "enabled": True,
         })
@@ -78,7 +78,7 @@ class TestSchedulerAPI:
         assert toggle_resp.json()["status"] == "success"
 
         # 验证状态
-        list_resp = client.get("/api/v1/scheduler/")
+        list_resp = client.get("/api/v1/scheduler")
         tasks = list_resp.json()
         task = next(t for t in tasks if t["task_id"] == task_id)
         assert task["enabled"] is False
@@ -87,7 +87,7 @@ class TestSchedulerAPI:
         toggle_resp = client.put(f"/api/v1/scheduler/{task_id}/toggle", json={"enabled": True})
         assert toggle_resp.status_code == 200
 
-        list_resp = client.get("/api/v1/scheduler/")
+        list_resp = client.get("/api/v1/scheduler")
         tasks = list_resp.json()
         task = next(t for t in tasks if t["task_id"] == task_id)
         assert task["enabled"] is True
@@ -102,7 +102,7 @@ class TestSchedulerAPI:
 
     def test_delete_schedule(self):
         """删除调度任务"""
-        create_resp = client.post("/api/v1/scheduler/", json={
+        create_resp = client.post("/api/v1/scheduler", json={
             "cron_expr": "0 4 * * *",
             "enabled": True,
         })
@@ -113,7 +113,7 @@ class TestSchedulerAPI:
         assert delete_resp.json()["status"] == "success"
 
         # 验证已删除
-        list_resp = client.get("/api/v1/scheduler/")
+        list_resp = client.get("/api/v1/scheduler")
         assert list_resp.json() == []
 
     def test_delete_nonexistent_schedule(self):

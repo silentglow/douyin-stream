@@ -50,7 +50,14 @@ def _get_stale_minutes_for_stage(stage: str, default_minutes: int) -> int:
     return default_minutes
 
 
-def cleanup_stale_tasks(conn: sqlite3.Connection, stale_minutes: Optional[int] = None):
+SERVER_RESTART_ERROR = "服务重启导致任务中断，请点击重试恢复。"
+
+
+def cleanup_stale_tasks(
+    conn: sqlite3.Connection,
+    stale_minutes: Optional[int] = None,
+    is_startup: bool = False,
+):
     default_minutes = stale_minutes if stale_minutes is not None else get_task_stale_minutes()
     default_minutes = default_minutes if default_minutes > 0 else DEFAULT_TASK_STALE_MINUTES
 
@@ -60,13 +67,14 @@ def cleanup_stale_tasks(conn: sqlite3.Connection, stale_minutes: Optional[int] =
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         """
-        SELECT task_id, payload, update_time
+        SELECT task_id, task_type, payload, update_time
         FROM task_queue
         WHERE status IN ('PENDING', 'RUNNING')
           AND update_time IS NOT NULL
         """
     ).fetchall()
 
+    recovered_count = 0
     for row in rows:
         task_id = row["task_id"]
         update_time_raw = row["update_time"]
@@ -80,6 +88,11 @@ def cleanup_stale_tasks(conn: sqlite3.Connection, stale_minutes: Optional[int] =
         if last_update >= (now - timedelta(minutes=minutes)):
             continue
 
+        if is_startup:
+            error_msg = SERVER_RESTART_ERROR
+        else:
+            error_msg = "任务长时间没有更新，已自动标记为失败，请重新发起。"
+
         conn.execute(
             """
             UPDATE task_queue
@@ -87,15 +100,19 @@ def cleanup_stale_tasks(conn: sqlite3.Connection, stale_minutes: Optional[int] =
                 status = 'FAILED',
                 progress = 0.0,
                 error_msg = CASE
-                    WHEN error_msg IS NULL OR error_msg = '' THEN '任务长时间没有更新，已自动标记为失败，请重新发起。'
+                    WHEN error_msg IS NULL OR error_msg = '' THEN ?
                     ELSE error_msg
                 END,
                 update_time = ?
             WHERE task_id = ?
               AND status IN ('PENDING', 'RUNNING')
             """,
-            (now_iso, task_id),
+            (error_msg, now_iso, task_id),
         )
+        recovered_count += 1
+
+    if is_startup and recovered_count > 0:
+        logger.info(f"startup: marked {recovered_count} orphan task(s) as FAILED (server restart)")
 
     failed_cutoff = (datetime.now() - timedelta(days=1)).isoformat()
     completed_cutoff = (datetime.now() - timedelta(days=3)).isoformat()
@@ -112,7 +129,6 @@ def cleanup_stale_tasks(conn: sqlite3.Connection, stale_minutes: Optional[int] =
         "DELETE FROM task_queue WHERE status = 'CANCELLED' AND update_time < ?",
         (cancelled_cutoff,),
     )
-    # 失败任务最多保留 50 条，超出时删除最旧的
     row = conn.execute(
         "SELECT COUNT(*) as cnt FROM task_queue WHERE status = 'FAILED'"
     ).fetchone()

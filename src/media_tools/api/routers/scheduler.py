@@ -138,7 +138,7 @@ def shutdown_scheduler():
     if scheduler.running:
         scheduler.shutdown()
 
-@router.get("/")
+@router.get("")
 def list_schedules():
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -154,7 +154,7 @@ def list_schedules():
             })
     return tasks
 
-@router.post("/")
+@router.post("")
 def add_schedule(req: ScheduleRequest):
     task_id = str(uuid.uuid4())
     try:

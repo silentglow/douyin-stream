@@ -16,7 +16,7 @@ def test_add_and_delete_bilibili_account() -> None:
     assert add_resp.status_code == 200
     account_id = add_resp.json()["account_id"]
 
-    settings = client.get("/api/v1/settings/").json()
+    settings = client.get("/api/v1/settings").json()
     ids = {a["id"] for a in settings.get("bilibili_accounts", [])}
     assert account_id in ids
 

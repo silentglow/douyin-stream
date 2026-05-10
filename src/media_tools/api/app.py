@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
         import sqlite3
 
         with get_db_connection() as conn:
-            cleanup_stale_tasks(conn)
+            cleanup_stale_tasks(conn, is_startup=True)
             conn.commit()
     except (sqlite3.Error, OSError) as e:
         logger.warning(f"startup cleanup failed: {e}")
@@ -82,7 +82,7 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown_scheduler()
 
 
-app = FastAPI(title="Media Tools API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Media Tools API", version="1.0.0", lifespan=lifespan, redirect_slashes=False)
 
 
 class UnhandledApiErrorsMiddleware(BaseHTTPMiddleware):

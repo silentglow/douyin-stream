@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/v1/assets", tags=["assets"], redirect_slashes=Fa
 logger = logging.getLogger(__name__)
 LOCAL_CREATOR_UID = "local:upload"
 
-@router.get("/")
+@router.get("")
 def list_assets(
     creator_uid: Optional[str] = Query(None),
     transcript_status: Optional[str] = Query(

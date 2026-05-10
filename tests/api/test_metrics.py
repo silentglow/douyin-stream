@@ -6,7 +6,7 @@ client = TestClient(app)
 
 
 def test_metrics_endpoint_returns_expected_shape() -> None:
-    resp = client.get("/api/v1/metrics/")
+    resp = client.get("/api/v1/metrics")
     assert resp.status_code == 200
     body = resp.json()
 

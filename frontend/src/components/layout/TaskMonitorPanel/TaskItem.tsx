@@ -10,6 +10,7 @@ import {
   getTaskMessage,
   getTaskStatusLabel,
   getStageInfo,
+  isServerRestartError,
   taskTypeLabel,
 } from '@/lib/task-utils';
 import { cancelTask, rerunTask, retryFailedSubtasks, setAutoRetry, deleteTask, recoverAwemeAndTranscribe, retryCreatorTranscribeCleanup } from '@/lib/api';
@@ -314,6 +315,7 @@ export const TaskItem = memo(function TaskItem({ task, onRetry, isExpanded, onTo
   const isRunning = state === 'running';
   const isPaused = state === 'paused';
   const isFailed = state === 'failed' || state === 'stale';
+  const isServerRestart = isFailed && isServerRestartError(task);
   const isPartial = state === 'partial';
   const parsed = useMemo(() => parsePayload(task.payload), [task.payload]);
   const failedRetryableCount = useMemo(() => {
@@ -474,7 +476,20 @@ export const TaskItem = memo(function TaskItem({ task, onRetry, isExpanded, onTo
               <div className="mt-3 text-xs text-muted-foreground">{message}</div>
             )}
 
-            {error && (
+            {isServerRestart && (
+              <div className="mt-3 flex items-center gap-3 rounded-[var(--radius-card)] border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+                <span className="text-xs font-medium text-amber-600 dark:text-amber-400">服务重启导致任务中断</span>
+                <button
+                  onClick={() => onRetry(task)}
+                  className="flex h-7 items-center gap-1 rounded-md bg-primary px-3 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  <RotateCw className="size-3" />
+                  一键重试
+                </button>
+              </div>
+            )}
+
+            {error && !isServerRestart && (
               <div className="mt-3 rounded-[var(--radius-card)] border border-destructive/20 bg-destructive/10 p-3 text-xs leading-6 text-destructive whitespace-pre-wrap">
                 {error}
               </div>
@@ -561,7 +576,20 @@ export const TaskItem = memo(function TaskItem({ task, onRetry, isExpanded, onTo
 
       {!isRunning && <div className="mt-3 text-sm leading-6 text-muted-foreground">{message}</div>}
 
-      {error && (
+      {isServerRestart && (
+        <div className="mt-3 flex items-center gap-3 rounded-[var(--radius-card)] border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">服务重启导致任务中断</span>
+          <button
+            onClick={() => onRetry(task)}
+            className="flex h-7 items-center gap-1 rounded-md bg-primary px-3 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90"
+          >
+            <RotateCw className="size-3" />
+            一键重试
+          </button>
+        </div>
+      )}
+
+      {error && !isServerRestart && (
         <div className="mt-3 rounded-[var(--radius-card)] border border-destructive/20 bg-destructive/10 p-3 text-xs leading-6 text-destructive whitespace-pre-wrap">
           {error}
         </div>

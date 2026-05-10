@@ -91,7 +91,16 @@ export function getTaskMessage(task: Task) {
   return '暂无详细信息';
 }
 
+const SERVER_RESTART_ERROR = '服务重启导致任务中断，请点击重试恢复。';
+
+export function isServerRestartError(task: Task): boolean {
+  return task.error_msg === SERVER_RESTART_ERROR;
+}
+
 export function getTaskError(task: Task) {
+  if (isServerRestartError(task)) {
+    return SERVER_RESTART_ERROR;
+  }
   if (isTaskStale(task)) {
     return '这个任务长时间没有更新，通常意味着浏览器或后台进程已经中断。建议重新发起。';
   }

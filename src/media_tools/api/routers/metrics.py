@@ -64,7 +64,7 @@ def _collect_transcribe_stage_counts() -> dict[str, int]:
     return stage_counts
 
 
-@router.get("/")
+@router.get("")
 def get_metrics():
     return {
         "uptime_seconds": int(time.monotonic() - _PROCESS_START_TIME),
