@@ -52,20 +52,33 @@ cp config/config.yaml.example config/config.yaml
 
 ## 5. 数据目录说明
 
-项目使用以下目录结构存储数据：
+项目所有运行时数据统一存储在 `data/` 目录下：
 
 | 目录 | 用途 |
 | :--- | :--- |
-| `data/` | SQLite 数据库文件 (`media_tools.db`) |
-| `downloads/` | 下载的视频文件 |
-| `transcripts/` | 转写文本文件 |
-| `logs/` | 日志文件 |
+| `data/` | 运行时数据根目录 |
+| `data/media_tools.db` | SQLite 数据库文件 |
+| `data/auth/` | 认证状态文件（Qwen storage state、账号池状态等） |
+| `data/downloads/` | 下载的视频文件 |
+| `data/transcripts/` | 转写文本文件 |
+| `data/logs/` | 日志文件 |
 
-数据库路径可通过 `config/config.yaml` 中的 `database.path` 配置：
+配置模板存放在 `config/` 目录下：
+
+| 文件 | 用途 |
+| :--- | :--- |
+| `config/config.yaml.example` | 主配置模板（复制为 `config.yaml` 使用） |
+| `config/auth_rules.yaml` | Cookie 验证规则 |
+| `config/transcribe/.env.example` | Qwen 转写环境变量模板 |
+
+数据库路径和下载路径可通过 `config/config.yaml` 配置：
 
 ```yaml
 database:
   path: data/media_tools.db
+
+download:
+  path: data/downloads
 ```
 
-接下来，你就可以参考 [使用说明 (USAGE.md)](USAGE.md) 进行配置并开始下载了。
+> **注意**：旧版本中散落在项目根目录的 `.auth/`、`downloads/`、`logs/`、`transcripts/` 目录已迁移到 `data/` 下。启动时系统会自动迁移旧路径的文件。

@@ -199,8 +199,9 @@ class TaskService:
     def cleanup_stale_tasks() -> Dict[str, int]:
         """清理过期任务"""
         try:
-            removed = cleanup_stale_tasks()
-            return {"removed": removed}
+            with get_db_connection() as conn:
+                removed = cleanup_stale_tasks(conn, is_startup=False)
+                return {"removed": removed}
         except Exception as e:
             logger.exception(f"cleanup_stale_tasks failed: {e}")
             raise

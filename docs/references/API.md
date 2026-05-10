@@ -73,8 +73,8 @@ async def trigger_download():
 | 表名 | 用途 |
 | :--- | :--- |
 | `SystemSettings` | 系统设置：运行时配置（KV 存储） |
-| `Accounts_Pool` | Qwen 账号池：管理通义千问转写账号 |
-| `auth_credentials` | 认证凭据：存储 Cookie 等认证信息 |
+| `Accounts_Pool` | 统一账号池：管理所有平台（抖音/B站/Qwen）的 Cookie 和账号状态 |
+| `auth_credentials` | 认证凭据：Qwen 兼容回退层（逐步废弃，新代码使用 `Accounts_Pool`） |
 | `scheduled_tasks` | 定时任务：存储周期任务配置 |
 | `assets_fts` | 全文搜索索引：素材内容搜索 |
 | `video_metadata` | 视频元数据：存放视频详细信息 |

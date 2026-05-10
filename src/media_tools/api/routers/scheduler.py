@@ -41,7 +41,7 @@ def _register_system_jobs() -> None:
     def _cleanup_job():
         try:
             with get_db_connection() as conn:
-                cleanup_stale_tasks(conn)
+                cleanup_stale_tasks(conn, is_startup=False)
         except (sqlite3.Error, OSError) as e:
             logger.error(f"Stale task cleanup failed: {e}")
 

@@ -114,7 +114,7 @@ chmod +x run.sh   # 仅首次
 
 > **自动删除源视频**：此设置仅影响 Pipeline 流水线（下载→转写→清理）中下载的视频。本地文件扫描转写永远不会删除用户源视频，只清理临时文件。
 
-通义千问认证状态优先存储在 SQLite 数据库（`auth_credentials` 表 / `Accounts_Pool` 表），回退到 `.auth/` 目录下的 JSON 文件，通过 Settings 页面配置。
+通义千问认证状态统一存储在 SQLite 数据库 `Accounts_Pool` 表中，通过 `CookieManager` 统一接口管理，支持三平台（抖音/B站/Qwen）账号轮换。运行时缓存在 `data/auth/` 目录下。通过 Settings 页面配置。
 
 ---
 
@@ -134,12 +134,16 @@ media-tools/
 │   ├── services/              # 业务逻辑层：任务操作、文件浏览、Qwen 状态等
 │   ├── repositories/          # 数据访问层：task_queue, creators, assets
 │   ├── workers/               # 后台任务 worker
-│   ├── core/                  # 统一配置系统（DB 为单一数据源）
+│   ├── core/                  # 统一配置系统 + CookieManager + 安全存储
 │   └── db/                    # SQLite 数据库初始化、FTS5 索引、路径工具
-├── config/                    # 运行时配置文件
+├── config/                    # 配置模板和规则文件
+├── data/                      # 运行时数据（数据库、认证、下载、日志）
+│   ├── media_tools.db         # SQLite 数据库
+│   ├── auth/                  # 认证状态缓存
+│   ├── downloads/             # 视频下载目录
+│   ├── transcripts/           # 转写文稿输出目录
+│   └── logs/                  # 日志文件
 ├── tests/                     # 测试套件
-├── transcripts/               # 转写文稿输出目录
-├── downloads/                 # 视频下载目录
 └── run.sh                     # 一键启动脚本
 ```
 

@@ -46,11 +46,12 @@
 - **不会**。从 v2.2.1 起，所有写入 `.pipeline_state.json` 的错误信息都会经过自动脱敏处理，`cookie`、`tongyi_sso_ticket` 等敏感字段会被替换为 `[REDACTED]`，不会明文存储。
 
 ### Q8: Cookie 存储在哪里？
-- Cookie 存储在以下位置（按实际调用优先级排列）：
-  - **多账号模式**（Settings 页添加的 Qwen 账号）：存储在 SQLite 数据库 `Accounts_Pool` 表的 `cookie_data` 字段中
-  - **单账号模式**（默认认证）：优先从 SQLite 数据库 `auth_credentials` 表的 `auth_data` 字段读取；若 DB 为空则回退到文件 `.auth/qwen-storage-state.json`
-  - 环境变量 `QWEN_COOKIE_STRING` 仅用于测试场景，不建议在生产环境中使用
-- 抖音/B站 Cookie 存储在 SQLite 数据库 `Accounts_Pool` 表中
+- 所有平台的 Cookie 统一存储在 SQLite 数据库 `Accounts_Pool` 表的 `cookie_data` 字段中，这是唯一事实源
+- Qwen 账号额外在 `data/auth/` 目录下缓存 Playwright storage state 文件（运行时缓存）
+- 旧版 `auth_credentials` 表和 `.auth/` 目录作为兼容回退，已逐步废弃
+- 抖音 Cookie 还可配置在 `config/config.yaml` 的 `douyin.cookie` 字段中作为兜底
+- Cookie 读取通过 `CookieManager` 统一接口，支持三平台轮换策略（最久未使用优先）
+- 环境变量 `QWEN_COOKIE_STRING` 仅用于测试场景，不建议在日常使用
 
 ## 📄 导出与转写
 
@@ -66,3 +67,11 @@
 ### Q10: 关闭「自动删除源视频」后，转写还会删除我的视频吗？
 - **不会**。从 v2.2.1 起，「自动删除源视频」设置仅影响 Pipeline 流水线（下载→转写→清理）中下载的视频。
 - **本地文件扫描转写**（creator transcribe）永远不会删除用户的源视频文件，无论全局设置如何，只清理 `.cache` 临时目录。
+
+## 🔄 服务重启与任务恢复
+
+### Q11: 服务重启后，正在执行的任务会怎样？
+- 服务重启时，内存中的后台任务会全部丢失。系统启动时会自动将残留的 `RUNNING/PENDING` 任务标记为 `FAILED`，错误信息为"服务重启导致任务中断，请点击重试恢复。"
+- 前端会对这类任务显示**琥珀色醒目横幅**和**一键重试按钮**，点击即可重新提交任务
+- 对于转写任务，重试时会利用 `transcribe_runs` 表的断点续传机制，跳过已上传的文件，从失败阶段继续
+- 如果任务开启了「自动重试」，系统会自动重新提交（最多 2 次）

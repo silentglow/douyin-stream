@@ -57,7 +57,7 @@ def cleanup_stale_tasks(
     conn: sqlite3.Connection,
     stale_minutes: Optional[int] = None,
     is_startup: bool = False,
-):
+) -> int:
     default_minutes = stale_minutes if stale_minutes is not None else get_task_stale_minutes()
     default_minutes = default_minutes if default_minutes > 0 else DEFAULT_TASK_STALE_MINUTES
 
@@ -141,6 +141,8 @@ def cleanup_stale_tasks(
             ")",
             (excess,),
         )
+
+    return recovered_count
 
 
 async def notify_task_update(
