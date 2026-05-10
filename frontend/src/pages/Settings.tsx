@@ -34,6 +34,7 @@ export default function Settings() {
   const [concurrency, setConcurrency] = useState(3);
   const [autoDeleteVideo, setAutoDeleteVideo] = useState(true);
   const [autoTranscribe, setAutoTranscribe] = useState(true);
+  const [exportFormat, setExportFormat] = useState('md');
   const [deletingDouyinId, setDeletingDouyinId] = useState<string | null>(null);
   const [deletingBilibiliId, setDeletingBilibiliId] = useState<string | null>(null);
   const [isAddingDouyin, setIsAddingDouyin] = useState(false);
@@ -75,6 +76,7 @@ export default function Settings() {
       setConcurrency(settings.global_settings.concurrency);
       setAutoDeleteVideo(settings.global_settings.auto_delete);
       setAutoTranscribe(settings.global_settings.auto_transcribe);
+      setExportFormat(settings.global_settings.export_format || 'md');
     });
   }, [settings]);
 
@@ -96,6 +98,7 @@ export default function Settings() {
     handleToggleAutoTranscribe,
     handleToggleAutoDelete,
     handleSaveConcurrency,
+    handleChangeExportFormat,
     isLoadingQwenStatus,
     qwenRemainingHoursById,
   } = useSettingsActions({
@@ -128,6 +131,8 @@ export default function Settings() {
     autoDeleteVideo,
     setAutoDeleteVideo,
     concurrency,
+    exportFormat,
+    setExportFormat,
     setIsSavingConcurrency,
   });
 
@@ -276,6 +281,8 @@ export default function Settings() {
           setConcurrency={setConcurrency}
           isSavingConcurrency={isSavingConcurrency}
           onSaveConcurrency={handleSaveConcurrency}
+          exportFormat={exportFormat}
+          onChangeExportFormat={handleChangeExportFormat}
           refreshSettings={refreshSettings}
         />
         <FailureSummarySection />

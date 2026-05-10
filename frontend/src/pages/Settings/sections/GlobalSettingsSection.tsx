@@ -1,4 +1,4 @@
-import { Loader2, Trash2, Settings2 } from 'lucide-react';
+import { Loader2, Trash2, Settings2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { cleanupMissingAssets } from '@/lib/api';
 import { useStore } from '@/store/useStore';
+import { cn } from '@/lib/utils';
 
 interface GlobalSettingsSectionProps {
   autoTranscribe: boolean;
@@ -16,8 +17,15 @@ interface GlobalSettingsSectionProps {
   setConcurrency: (v: number) => void;
   isSavingConcurrency: boolean;
   onSaveConcurrency: () => void;
+  exportFormat: string;
+  onChangeExportFormat: (format: string) => void;
   refreshSettings: () => void;
 }
+
+const EXPORT_FORMATS = [
+  { value: 'md', label: 'MD', description: 'Markdown' },
+  { value: 'docx', label: 'DOCX', description: 'Word 文档' },
+] as const;
 
 export function GlobalSettingsSection({
   autoTranscribe,
@@ -28,6 +36,8 @@ export function GlobalSettingsSection({
   setConcurrency,
   isSavingConcurrency,
   onSaveConcurrency,
+  exportFormat,
+  onChangeExportFormat,
   refreshSettings,
 }: GlobalSettingsSectionProps) {
   return (
@@ -41,6 +51,33 @@ export function GlobalSettingsSection({
           <div>
             <h3 className="text-title-3 font-semibold text-foreground">全局参数</h3>
             <p className="text-caption text-muted-foreground">下载后的自动化行为和并发控制。</p>
+          </div>
+        </div>
+
+        {/* Export Format */}
+        <div className="apple-list-item rounded-[10px] px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-body font-medium text-foreground">导出格式</div>
+              <div className="text-caption text-muted-foreground">转写文稿的输出格式，新转写将使用此格式。</div>
+            </div>
+            <div className="flex items-center gap-1 rounded-lg bg-muted p-0.5">
+              {EXPORT_FORMATS.map((fmt) => (
+                <button
+                  key={fmt.value}
+                  type="button"
+                  onClick={() => onChangeExportFormat(fmt.value)}
+                  className={cn(
+                    'rounded-md px-3 py-1.5 text-[13px] font-medium transition-all duration-150',
+                    exportFormat === fmt.value
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {fmt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

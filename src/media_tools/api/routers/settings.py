@@ -11,7 +11,7 @@ from media_tools.transcribe.db_account_pool import build_qwen_auth_state_path_fo
 from media_tools.transcribe.quota import get_quota_snapshot, remaining_hours_from_snapshot
 from media_tools.douyin.core.config_mgr import get_config
 from media_tools.db.core import get_db_connection
-from media_tools.core.config import get_runtime_setting_int, get_runtime_setting_bool, set_runtime_setting
+from media_tools.core.config import get_runtime_setting, get_runtime_setting_int, get_runtime_setting_bool, set_runtime_setting
 from media_tools.services.qwen_status import get_qwen_account_status, claim_qwen_quota
 
 router = APIRouter(prefix="/api/v1/settings", tags=["settings"], redirect_slashes=False)
@@ -39,6 +39,7 @@ class GlobalSettingsRequest(BaseModel):
     concurrency: Optional[int] = None
     auto_delete: Optional[bool] = None
     auto_transcribe: Optional[bool] = None
+    export_format: Optional[str] = None
 
 class RemarkRequest(BaseModel):
     remark: str
@@ -63,6 +64,7 @@ def get_settings():
     concurrency = get_runtime_setting_int("concurrency", 5)
     auto_delete = get_runtime_setting_bool("auto_delete", True)
     auto_transcribe = get_runtime_setting_bool("auto_transcribe", False)
+    export_format = get_runtime_setting("export_format", "md")
     douyin_accounts_count = len(accounts)
     douyin_primary_configured = get_config().has_cookie()
     douyin_cookie_source = "pool" if douyin_accounts_count > 0 else ("config" if douyin_primary_configured else "none")
@@ -81,6 +83,7 @@ def get_settings():
             "concurrency": concurrency,
             "auto_delete": auto_delete,
             "auto_transcribe": auto_transcribe,
+            "export_format": export_format,
         },
         "status_summary": {
             "qwen_ready": qwen_configured or qwen_accounts_count > 0,
@@ -207,7 +210,7 @@ async def claim_qwen_quota_endpoint():
 @router.post("/global")
 def update_global_settings(req: GlobalSettingsRequest):
     try:
-        if req.concurrency is None and req.auto_delete is None and req.auto_transcribe is None:
+        if req.concurrency is None and req.auto_delete is None and req.auto_transcribe is None and req.export_format is None:
             raise HTTPException(status_code=400, detail="No fields to update")
         if req.concurrency is not None:
             set_runtime_setting("concurrency", req.concurrency)
@@ -215,7 +218,13 @@ def update_global_settings(req: GlobalSettingsRequest):
             set_runtime_setting("auto_delete", req.auto_delete)
         if req.auto_transcribe is not None:
             set_runtime_setting("auto_transcribe", req.auto_transcribe)
+        if req.export_format is not None:
+            if req.export_format not in ("md", "docx"):
+                raise HTTPException(status_code=400, detail="export_format must be 'md' or 'docx'")
+            set_runtime_setting("export_format", req.export_format)
         return {"status": "success"}
+    except HTTPException:
+        raise
     except (ValueError, sqlite3.Error, OSError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 

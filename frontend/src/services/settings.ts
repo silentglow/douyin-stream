@@ -5,7 +5,7 @@ export const getSettings = async (signal?: AbortSignal): Promise<{
   douyin_accounts: Array<{id: string; status: string; last_used: string | null; remark: string; create_time: string}>;
   qwen_accounts: Array<{id: string; status: string; last_used: string | null; remark: string; create_time: string}>;
   bilibili_accounts: Array<{id: string; status: string; last_used: string | null; remark: string; create_time: string}>;
-  global_settings: {concurrency: number; auto_delete: boolean; auto_transcribe: boolean};
+  global_settings: {concurrency: number; auto_delete: boolean; auto_transcribe: boolean; export_format: string};
   status_summary: {
     qwen_ready: boolean;
     douyin_ready: boolean;
@@ -77,8 +77,12 @@ export const updateBilibiliAccountRemark = async (accountId: string, remark: str
   return response.data;
 };
 
-export const updateGlobalSettings = async (concurrency: number, autoDelete: boolean, autoTranscribe: boolean, signal?: AbortSignal): Promise<unknown> => {
-  const response = await apiClient.post('/settings/global', { concurrency, auto_delete: autoDelete, auto_transcribe: autoTranscribe }, { signal });
+export const updateGlobalSettings = async (concurrency: number, autoDelete: boolean, autoTranscribe: boolean, exportFormat?: string, signal?: AbortSignal): Promise<unknown> => {
+  const payload: Record<string, unknown> = { concurrency, auto_delete: autoDelete, auto_transcribe: autoTranscribe };
+  if (exportFormat !== undefined) {
+    payload.export_format = exportFormat;
+  }
+  const response = await apiClient.post('/settings/global', payload, { signal });
   return response.data;
 };
 

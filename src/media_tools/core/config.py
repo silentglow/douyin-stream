@@ -37,6 +37,7 @@ _RUNTIME_DEFAULTS: dict[str, str] = {
     "auto_transcribe": "false",
     "auto_delete": "true",
     "api_key": "",
+    "export_format": "md",
 }
 
 
@@ -297,7 +298,10 @@ class AppConfig:
 
     @property
     def pipeline_export_format(self) -> str:
-        """Pipeline 导出格式 (md, docx)"""
+        """Pipeline 导出格式 (md, docx)。优先从 SystemSettings 读取，fallback 到环境变量。"""
+        db_value = get_runtime_setting("export_format", "")
+        if db_value in ("md", "docx"):
+            return db_value
         return _get_env_str("PIPELINE_EXPORT_FORMAT", "md").lower()
 
     @property
