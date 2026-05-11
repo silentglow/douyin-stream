@@ -117,6 +117,9 @@ class AccountPool:
     async def acquire(self, preferred_account_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         async with self._condition:
             while True:
+                if not self._accounts or len(self._excluded) >= len(self._accounts):
+                    return None
+
                 selected = None
                 if preferred_account_id and preferred_account_id not in self._excluded:
                     for account in self._accounts:
@@ -146,6 +149,9 @@ class AccountPool:
     async def acquire_upload_slot(self, preferred_account_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         async with self._condition:
             while True:
+                if not self._accounts or len(self._excluded) >= len(self._accounts):
+                    return None
+
                 selected = None
                 if preferred_account_id and preferred_account_id not in self._excluded:
                     for account in self._accounts:

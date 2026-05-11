@@ -248,7 +248,7 @@ export function useSettingsActions(state: SettingsState) {
     try {
       const currentSettings = state.settings || await state.fetchSettings();
       const currentAutoDelete = currentSettings?.global_settings.auto_delete ?? state.autoDeleteVideo;
-      await updateGlobalSettings(undefined, currentAutoDelete, value);
+      await updateGlobalSettings(currentAutoDelete, value);
       toast.success(value ? '自动转写已开启' : '自动转写已关闭');
       state.refreshSettings();
     } catch {
@@ -261,7 +261,7 @@ export function useSettingsActions(state: SettingsState) {
     try {
       const currentSettings = state.settings || await state.fetchSettings();
       const currentAutoTranscribe = currentSettings?.global_settings.auto_transcribe ?? state.autoTranscribe;
-      await updateGlobalSettings(undefined, value, currentAutoTranscribe);
+      await updateGlobalSettings(value, currentAutoTranscribe);
       toast.success(value ? '自动删除源视频已开启' : '自动删除源视频已关闭');
       state.refreshSettings();
     } catch {
@@ -276,7 +276,7 @@ export function useSettingsActions(state: SettingsState) {
       const currentSettings = state.settings || await state.fetchSettings();
       const currentAutoDelete = currentSettings?.global_settings.auto_delete ?? state.autoDeleteVideo;
       const currentAutoTranscribe = currentSettings?.global_settings.auto_transcribe ?? state.autoTranscribe;
-      await updateGlobalSettings(undefined, currentAutoDelete, currentAutoTranscribe, format);
+      await updateGlobalSettings(currentAutoDelete, currentAutoTranscribe, format);
       toast.success(`导出格式已切换为 ${format.toUpperCase()}`);
       state.refreshSettings();
     } catch {

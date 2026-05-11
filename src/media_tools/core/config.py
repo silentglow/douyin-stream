@@ -298,9 +298,9 @@ class AppConfig:
 
     @property
     def pipeline_export_format(self) -> str:
-        """Pipeline 导出格式 (md, docx)。优先从 SystemSettings 读取，fallback 到环境变量。"""
+        """Pipeline 导出格式 (md, docx, pdf, srt, txt)。优先从 SystemSettings 读取，fallback 到环境变量。"""
         db_value = get_runtime_setting("export_format", "")
-        if db_value in ("md", "docx"):
+        if db_value in ("md", "docx", "pdf", "srt", "txt"):
             return db_value
         return _get_env_str("PIPELINE_EXPORT_FORMAT", "md").lower()
 

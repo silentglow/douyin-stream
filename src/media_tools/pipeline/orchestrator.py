@@ -12,13 +12,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import logging
 import os
 import re
 import sqlite3
 import time
 from pathlib import Path
-from typing import Optional, Callable, Awaitable, Any, Union
+from typing import Dict, Optional, Callable, Awaitable, Any, Union
 
 from ..transcribe.flow import run_real_flow
 from ..transcribe.runtime import get_export_config, ensure_dir, now_stamp

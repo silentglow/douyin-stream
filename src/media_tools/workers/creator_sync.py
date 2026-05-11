@@ -289,7 +289,7 @@ async def background_creator_download_worker(
 
         # 自动转写
         auto_transcribe = get_runtime_setting_bool("auto_transcribe")
-        auto_delete = get_runtime_setting_bool("auto_delete")
+        auto_delete = get_runtime_setting_bool("auto_delete", True)
         if auto_transcribe and new_files:
             tr = await transcribe_files(task_id, _progress_fn, new_files, display_name, auto_delete)
             transcribe_stats["success_count"] += tr.get("success_count", 0)

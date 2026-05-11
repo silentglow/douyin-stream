@@ -12,7 +12,7 @@ from media_tools.infrastructure.db import (
     create_task_repository,
 )
 
-router = APIRouter(prefix="/api/v2", tags=["v2"])
+router = APIRouter(prefix="/api/v2", tags=["v2"], redirect_slashes=False)
 
 
 # 领域服务实例

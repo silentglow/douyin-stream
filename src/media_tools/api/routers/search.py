@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Query
 from media_tools.db.core import get_db_connection
 
-router = APIRouter(prefix="/api", tags=["search"])
+router = APIRouter(prefix="/api", tags=["search"], redirect_slashes=False)
 
 
 @router.get("/search")

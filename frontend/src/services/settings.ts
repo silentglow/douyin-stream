@@ -77,11 +77,8 @@ export const updateBilibiliAccountRemark = async (accountId: string, remark: str
   return response.data;
 };
 
-export const updateGlobalSettings = async (concurrency: number | undefined, autoDelete: boolean, autoTranscribe: boolean, exportFormat?: string, signal?: AbortSignal): Promise<unknown> => {
+export const updateGlobalSettings = async (autoDelete: boolean, autoTranscribe: boolean, exportFormat?: string, signal?: AbortSignal): Promise<unknown> => {
   const payload: Record<string, unknown> = { auto_delete: autoDelete, auto_transcribe: autoTranscribe };
-  if (concurrency !== undefined) {
-    payload.concurrency = concurrency;
-  }
   if (exportFormat !== undefined) {
     payload.export_format = exportFormat;
   }

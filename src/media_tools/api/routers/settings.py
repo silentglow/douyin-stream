@@ -61,7 +61,7 @@ def get_settings():
         cursor.execute("SELECT account_id, status, last_used, remark, create_time FROM Accounts_Pool WHERE platform='bilibili'")
         bilibili_accounts = [{"id": row[0], "status": row[1], "last_used": row[2], "remark": row[3] or "", "create_time": row[4] or ""} for row in cursor.fetchall()]
 
-    concurrency = get_runtime_setting_int("concurrency", 5)
+    concurrency = get_runtime_setting_int("concurrency", 10)
     auto_delete = get_runtime_setting_bool("auto_delete", True)
     auto_transcribe = get_runtime_setting_bool("auto_transcribe", False)
     export_format = get_runtime_setting("export_format", "md")
@@ -233,6 +233,8 @@ def update_global_settings(req: GlobalSettingsRequest):
         if req.concurrency is None and req.auto_delete is None and req.auto_transcribe is None and req.export_format is None:
             raise HTTPException(status_code=400, detail="No fields to update")
         if req.concurrency is not None:
+            if req.concurrency < 1 or req.concurrency > 100:
+                raise HTTPException(status_code=400, detail="concurrency 必须在 1-100 之间")
             set_runtime_setting("concurrency", req.concurrency)
         if req.auto_delete is not None:
             set_runtime_setting("auto_delete", req.auto_delete)
