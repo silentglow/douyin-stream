@@ -13,6 +13,7 @@ from fastapi import APIRouter
 from media_tools.api.websocket_manager import manager as ws_manager
 from media_tools.core import background
 from media_tools.db.core import DBConnection, get_db_connection
+from media_tools.services.health_check_service import run_health_check
 
 logger = logging.getLogger(__name__)
 
@@ -103,4 +104,74 @@ def get_failure_summary(days: int = 7):
         "window_days": days,
         "total_failed": sum(b["count"] for b in buckets),
         "buckets": buckets,
+    }
+
+
+def _collect_creator_sync_status() -> dict[str, Any]:
+    """创作者自动同步状态：总数、开启自动同步数、最近同步时间分布。"""
+    try:
+        with get_db_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            total = conn.execute("SELECT COUNT(*) AS c FROM creators").fetchone()["c"]
+            auto_sync = conn.execute(
+                "SELECT COUNT(*) AS c FROM creators WHERE auto_sync = 1"
+            ).fetchone()["c"]
+            stale = conn.execute(
+                """SELECT COUNT(*) AS c FROM creators
+                   WHERE auto_sync = 1
+                   AND (last_fetch_time IS NULL
+                        OR last_fetch_time < datetime('now', '-6 hours'))"""
+            ).fetchone()["c"]
+            return {
+                "total_creators": int(total),
+                "auto_sync_enabled": int(auto_sync),
+                "stale_sync_count": int(stale),
+            }
+    except (sqlite3.Error, OSError) as e:
+        logger.warning(f"metrics: creator sync status failed: {e}")
+        return {"total_creators": 0, "auto_sync_enabled": 0, "stale_sync_count": 0}
+
+
+@router.get("/dashboard")
+async def get_dashboard():
+    """Dashboard 聚合端点：一次性返回所有观测数据。
+
+    包括：健康检查、任务统计、转写阶段、账号池、失败汇总、额度状态、创作者同步。
+    """
+    health = run_health_check(sample_size=5)
+    tasks_counts = _collect_task_counts()
+    transcribe_stages = _collect_transcribe_stage_counts()
+    account_pool = _collect_account_pool_stats()
+    creator_sync = _collect_creator_sync_status()
+
+    # failure summary (7 days)
+    from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
+    try:
+        buckets = TranscribeRunRepository.aggregate_failures(days=7)
+        failure_summary = {
+            "window_days": 7,
+            "total_failed": sum(b["count"] for b in buckets),
+            "buckets": buckets,
+        }
+    except sqlite3.Error as e:
+        logger.warning(f"dashboard: failure summary failed: {e}")
+        failure_summary = {"window_days": 7, "total_failed": 0, "buckets": []}
+
+    # quota status
+    from media_tools.services.qwen_status import get_qwen_account_status
+    try:
+        quota_status = await get_qwen_account_status()
+    except Exception as e:
+        logger.warning(f"dashboard: quota status failed: {e}")
+        quota_status = {"status": "unavailable", "accounts": []}
+
+    return {
+        "health": health,
+        "tasks": tasks_counts,
+        "transcribe_stages": transcribe_stages,
+        "account_pool": account_pool,
+        "failure_summary": failure_summary,
+        "quota_status": quota_status,
+        "creator_sync": creator_sync,
+        "uptime_seconds": int(time.monotonic() - _PROCESS_START_TIME),
     }

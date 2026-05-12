@@ -9,6 +9,7 @@ import { useStore } from './store/useStore';
 const Discovery = lazy(() => import('./pages/Discovery'));
 const Creators = lazy(() => import('./pages/Creators'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -68,6 +69,7 @@ function App() {
             <Route element={<AppLayout />}>
               <Route path="/discover" element={<Discovery />} />
               <Route path="/creators" element={<Creators />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Routes>

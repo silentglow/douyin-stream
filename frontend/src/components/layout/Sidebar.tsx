@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Compass, Users, Settings, Sun, Moon, X } from 'lucide-react';
+import { Compass, Users, Settings, Sun, Moon, X, LayoutDashboard } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import { TaskMonitorPanel } from '@/components/layout/TaskMonitorPanel';
@@ -112,6 +112,7 @@ export default function Sidebar({ listContent, open, onClose }: SidebarProps) {
       <nav className="px-3 py-2 space-y-0.5">
         <SidebarItem icon={Compass} label="发现" href="/discover" />
         <SidebarItem icon={Users} label="创作者" href="/creators" />
+        <SidebarItem icon={LayoutDashboard} label="仪表盘" href="/dashboard" />
         <SidebarItem icon={Settings} label="设置" href="/settings" />
       </nav>
 

@@ -114,3 +114,8 @@ export {
   scanDirectory,
   triggerLocalTranscribe,
 } from '@/services/discovery';
+
+export {
+  getDashboard,
+} from '@/services/dashboard';
+export type { DashboardData, HealthCheck } from '@/services/dashboard';
