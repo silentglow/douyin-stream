@@ -47,7 +47,7 @@ class AccountPool:
         lock = self._upload_locks_view.get(account_id)
         return lock is None or not lock.locked()
 
-    async def acquire(self, preferred_account_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    async def acquire(self, preferred_account_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         """选一个可用账号。preferred 命中直接返回；否则空闲账号优先 + round-robin。
 
         acquire 后调用方还要 await upload_lock，hint 是空闲不保证拿到——但减少
