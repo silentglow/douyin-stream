@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
     # 数据库里残留的 RUNNING/PENDING 任务实际上已经无人执行。
     try:
         from media_tools.store.db import get_db_connection
-        from media_tools.services.task_ops import cleanup_stale_tasks
+        from media_tools.scheduler.ops import cleanup_stale_tasks
         import sqlite3
 
         with get_db_connection() as conn:

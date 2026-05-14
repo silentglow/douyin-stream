@@ -44,8 +44,8 @@ class TaskPayloadRetryTests(unittest.IsolatedAsyncioTestCase):
 
         from media_tools.services import task_ops
 
-        with patch("media_tools.services.task_ops.get_db_connection", return_value=conn), patch(
-            "media_tools.services.task_ops.notify_task_update",
+        with patch("media_tools.scheduler.ops.get_db_connection", return_value=conn), patch(
+            "media_tools.scheduler.ops.notify_task_update",
             new=AsyncMock(),
         ):
             await task_ops.update_task_progress(task_id, 0.2, "正在转写 /tmp/a.mp3 (1/1)", "local_transcribe")

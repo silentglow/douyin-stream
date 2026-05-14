@@ -9,7 +9,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_handle_auto_retry_restarts_failed_task() -> None:
-    import media_tools.services.auto_retry as auto_retry_module
+    import media_tools.scheduler.retry as auto_retry_module
 
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
@@ -38,7 +38,7 @@ async def test_handle_auto_retry_restarts_failed_task() -> None:
     conn.commit()
 
     start_worker = AsyncMock()
-    with patch("media_tools.services.auto_retry.get_db_connection", return_value=conn), patch(
+    with patch("media_tools.scheduler.retry.get_db_connection", return_value=conn), patch(
         "media_tools.workers.task_dispatcher._start_task_worker",
         new=start_worker,
     ):

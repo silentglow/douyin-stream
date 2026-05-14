@@ -10,13 +10,13 @@ import logging
 from typing import Any, Optional
 
 from media_tools.core.logging_context import task_context
-from media_tools.services.task_ops import (
+from media_tools.scheduler.ops import (
     update_task_progress,
     _complete_task,
     _fail_task,
     _mark_task_cancelled,
 )
-from media_tools.services.task_state import _task_heartbeat
+from media_tools.scheduler.state import _task_heartbeat
 
 logger = logging.getLogger(__name__)
 

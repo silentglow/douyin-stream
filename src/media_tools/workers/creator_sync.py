@@ -11,7 +11,7 @@ from typing import Any, Optional
 from media_tools.core.config import get_runtime_setting_bool
 from media_tools.store.db import get_db_connection, get_table_columns
 from media_tools.douyin.core.cancel_registry import clear_download_progress, get_download_progress
-from media_tools.services.task_ops import update_task_progress
+from media_tools.scheduler.ops import update_task_progress
 from media_tools.workers.base import BaseWorker, register_worker
 from media_tools.workers.transcribe import transcribe_files
 

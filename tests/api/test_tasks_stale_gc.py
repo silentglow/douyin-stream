@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import datetime, timedelta
 
-from media_tools.services.task_ops import cleanup_stale_tasks
+from media_tools.scheduler.ops import cleanup_stale_tasks
 
 
 def test_cleanup_stale_tasks_marks_long_running_failed(monkeypatch) -> None:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from media_tools.db.core import init_db
 from media_tools.repositories.task_repository import TaskRepository
-from media_tools.services.task_ops import cleanup_stale_tasks
+from media_tools.scheduler.ops import cleanup_stale_tasks
 
 
 def test_cleanup_stale_tasks_does_not_delete_media_assets() -> None:

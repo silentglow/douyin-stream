@@ -72,7 +72,7 @@ async def test_creator_download_sets_missing_items_in_payload() -> None:
     conn.commit()
 
     with patch("media_tools.workers.creator_sync.get_db_connection", return_value=conn), patch(
-        "media_tools.services.task_ops.get_db_connection",
+        "media_tools.scheduler.ops.get_db_connection",
         return_value=conn,
     ), patch(
         "media_tools.workers.creator_sync.get_runtime_setting_bool",

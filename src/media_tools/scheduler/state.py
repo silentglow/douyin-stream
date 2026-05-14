@@ -5,7 +5,7 @@ from datetime import datetime
 from media_tools.core import background
 from media_tools.douyin.core.cancel_registry import clear_cancel_event
 from media_tools.store.db import get_db_connection
-from media_tools.services.auto_retry import schedule_auto_retry
+from media_tools.scheduler.retry import schedule_auto_retry
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ def _register_background_task(task_id: str, coro) -> asyncio.Task:
         # worker 抛出未捕获异常时其内部不会调用 _fail_task，DB 仍是 RUNNING；
         # 这里补一刀把状态改成 FAILED，并由 _fail_task 内部触发 schedule_auto_retry 与 WS 广播。
         error_text = f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
-        from media_tools.services.task_ops import _fail_task
+        from media_tools.scheduler.ops import _fail_task
 
         try:
             loop = asyncio.get_event_loop()
