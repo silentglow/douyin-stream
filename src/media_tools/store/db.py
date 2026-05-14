@@ -98,7 +98,7 @@ def get_db_connection() -> sqlite3.Connection:
         except sqlite3.Error:
             try:
                 cached.close()
-            except Exception:
+            except (sqlite3.Error, OSError):
                 pass
             _thread_local.conn = None
 
@@ -125,17 +125,43 @@ def close_all_cached_connections() -> int:
     return 1
 
 
+def reset_db_cache() -> None:
+    """Clear current thread's DB connection cache.
+
+    Mainly for testing (e.g. when init_db switches to a test database).
+    """
+    close_db_connection()
+
+
+# --- Connection pool stats ---
+_physical_connections: int = 0
+_physical_connections_lock = threading.Lock()
+
+
 # --- Legacy DBConnection class (for backward compatibility) ---
 class DBConnection:
     """Legacy wrapper for backward compatibility."""
 
+    _open_count = 0
+    _open_count_lock = threading.Lock()
+    _max_connections_warning = 20
+
     def __init__(self, keep_open: bool = False, _owns_physical: bool = True):
+        global _physical_connections
         self._conn = sqlite3.connect(get_db_path(), timeout=15.0)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.row_factory = sqlite3.Row
         self._keep_open = keep_open
         self._committed = False
         self._owns_physical = _owns_physical
+
+        if _owns_physical:
+            with DBConnection._open_count_lock:
+                DBConnection._open_count += 1
+            with _physical_connections_lock:
+                _physical_connections += 1
+            if DBConnection._open_count > DBConnection._max_connections_warning:
+                logger.warning(f"DB connection count high: {DBConnection._open_count}")
 
     def __enter__(self) -> sqlite3.Connection:
         return self._conn
@@ -149,11 +175,26 @@ class DBConnection:
         except sqlite3.Error:
             self._conn.rollback()
         finally:
-            self._conn.close()
+            if self._owns_physical:
+                self._conn.close()
+                with DBConnection._open_count_lock:
+                    DBConnection._open_count -= 1
+                global _physical_connections
+                with _physical_connections_lock:
+                    _physical_connections -= 1
 
     def commit(self) -> None:
         self._conn.commit()
         self._committed = True
+
+    @classmethod
+    def get_stats(cls) -> dict:
+        """Return connection statistics."""
+        return {
+            "open_connections": cls._open_count,
+            "physical_connections": _physical_connections,
+            "max_warning": cls._max_connections_warning,
+        }
 
 
 # --- init_db (legacy entry point) ---

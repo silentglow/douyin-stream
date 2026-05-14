@@ -19,9 +19,15 @@ from media_tools.store.db import (  # noqa: F401
     resolve_safe_path,
     resolve_query_value,
     local_asset_id,
+    _db_path,
 )
 from media_tools.store.fts import (  # noqa: F401
     ensure_fts_populated,
     update_fts_for_asset,
     rebuild_fts_index,
 )
+
+
+def reset_db_cache() -> None:
+    """Clear current thread's DB connection cache."""
+    close_all_cached_connections()

@@ -61,8 +61,9 @@ def test_no_bare_sqlite3_connect():
         capture_output=True, text=True, cwd=str(REPO_ROOT)
     )
     lines = [l for l in result.stdout.strip().split("\n") if l]
-    allowed = [l for l in lines if "db/core.py" in l]
-    violations = [l for l in lines if "db/core.py" not in l]
+    allowed_paths = ("db/core.py", "store/db.py")
+    allowed = [l for l in lines if any(p in l for p in allowed_paths)]
+    violations = [l for l in lines if not any(p in l for p in allowed_paths)]
     assert len(violations) == 0, (
         f"发现 {len(violations)} 处裸 sqlite3.connect (BACKEND-004):\n" +
         "\n".join(violations[:20])
@@ -277,9 +278,10 @@ def test_pragma_table_info_only_in_db_core():
         cwd=str(REPO_ROOT),
     )
     lines = [l for l in result.stdout.strip().split("\n") if l.strip()]
-    violations = [l for l in lines if "src/media_tools/db/core.py" not in l]
+    allowed_paths = ("src/media_tools/db/core.py", "src/media_tools/store/db.py")
+    violations = [l for l in lines if not any(p in l for p in allowed_paths)]
     assert not violations, (
-        "PRAGMA table_info 应只出现在 db/core.py (BACKEND-009):\n" + "\n".join(violations)
+        "PRAGMA table_info 应只出现在 db/core.py 或 store/db.py (BACKEND-009):\n" + "\n".join(violations)
     )
 
 

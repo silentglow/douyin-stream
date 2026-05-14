@@ -14,7 +14,7 @@ def test_ensure_fts_populated_runs_on_startup() -> None:
         called["value"] = True
         return True
 
-    with patch("media_tools.db.core.ensure_fts_populated", side_effect=_fake):
+    with patch("media_tools.store.db.ensure_fts_populated", side_effect=_fake):
         with TestClient(app):
             pass
 
