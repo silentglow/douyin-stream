@@ -180,7 +180,7 @@ export default function Home() {
   }
 
   return (
-    <div className="h-full p-7 px-8 max-sm:p-4 max-sm:pb-20 overflow-y-auto">
+    <div className="h-full p-6 max-sm:p-4 max-sm:pb-20 overflow-y-auto">
       {/* 手机2列 / 平板3列 / 桌面4列 */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-sm:gap-3">
         {/* ── 行1: 4个 Small ── */}

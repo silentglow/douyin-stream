@@ -67,11 +67,11 @@ export function Widget({
     >
       <div className="flex items-center gap-2">
         {icon && (
-          <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0', iconBg)}>
+          <div className={cn('w-6 h-6 rounded-lg flex items-center justify-center text-sm shrink-0', iconBg)}>
             {icon}
           </div>
         )}
-        <span className="text-[15px] font-semibold text-[#8E8E93] dark:text-[#8E8E93]">
+        <span className="text-[17px] font-semibold text-[#8E8E93]">
           {title}
         </span>
       </div>
