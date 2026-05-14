@@ -35,7 +35,7 @@ export function WidgetGrid({ children }: WidgetGridProps) {
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-sm:gap-3"
+      className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-sm:gap-3"
     >
       {Array.isArray(children)
         ? children.map((child, i) => (

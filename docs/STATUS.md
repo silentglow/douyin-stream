@@ -1,6 +1,6 @@
 # Media Tools — 项目现状文档
 
-> 最后更新：2026-05-12
+> 最后更新：2026-05-14
 
 ---
 
@@ -229,19 +229,20 @@ WebSocket 广播进度更新（含 result_summary）
 
 | 路由 | 页面组件 | 功能 |
 |------|---------|------|
-| `/` | → 重定向到 `/inbox` | — |
-| `/inbox` | `Inbox.tsx` | 收件箱：三栏布局，自动同步，文件夹分组 |
-| `/discover` | `Discovery.tsx` | 发现页：粘贴链接预览视频、批量下载 |
-| `/creators` | `Creators.tsx` | 创作者管理：添加/删除、同步、定时任务 |
-| `/settings` | `Settings.tsx` | 设置页：账号池、Cookie、全局参数 |
+| `/` | → 重定向到 `/home` | — |
+| `/home` | `Home.tsx` | 工作台：iOS Widget 风格仪表盘，实时任务进度、创作者概览、快捷操作 |
+| `/library` | `Library.tsx` | 内容库：创作者网格、搜索、添加创作者 |
+| `/settings` | `Settings.tsx` | 设置页：账号池（抖音/B站/Qwen）、Cookie、全局偏好、导出格式 |
 
 ### 布局组件
 
 | 组件 | 位置 | 功能 |
 |------|------|------|
-| `Sidebar` | 全局左侧 | 导航 + 主题切换 + 任务监控入口 |
-| `TaskMonitorPanel` | Sidebar 底部弹出 | 任务中心：状态/进度/子任务列表 |
-| `InboxAuthorList` | Inbox 左侧 | 创作者列表（含未读计数） |
+| `Sidebar` | 全局左侧（桌面端） | 导航 + 主题切换 |
+| `BottomNav` | 全局底部（移动端） | 导航 + 任务徽章 |
+| `Widget` | Home 页面 | Small/Medium/Large 三种 iOS 风格卡片 |
+| `WidgetGrid` | Home 页面 | 2×2/4 列自适应网格 |
+| `AppleEmptyState` | 各页面 | 苹果风格空状态占位 |
 
 ---
 
@@ -327,6 +328,7 @@ WebSocket 广播进度更新（含 result_summary）
 
 ### P3 — UI / 体验
 
+- [x] **iOS Widget 风格前端重构**：像素级对齐 prototype.html，Apple 原生设计语言（2026-05-14）
 - [ ] **前端测试**：补充 Vitest + React Testing Library（按需，不强求覆盖率）
 - [ ] **Store 类型安全**：消除 `(taskUpdate as any).msg`
 - [ ] **Settings 并发数校验**：程序化 clamp 到 1-10

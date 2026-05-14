@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
-import { Search, Users, Plus, Loader2, Film, FileText } from 'lucide-react';
+import { Search, Users, Plus, Loader2 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { AppleEmptyState } from '@/components/ui/AppleEmptyState';
 import { cn } from '@/lib/utils';
@@ -86,7 +86,7 @@ export default function Library() {
       <div className="text-title-1 font-bold mb-6 tracking-tight">内容库</div>
 
       {/* Segmented Control */}
-      <div className="inline-flex bg-secondary rounded-lg p-1 mb-5">
+      <div className="inline-flex bg-secondary rounded-lg p-[3px] mb-5">
         {([
           { key: 'all', label: '全部' },
           { key: 'video', label: '视频' },
@@ -96,7 +96,7 @@ export default function Library() {
             key={item.key}
             onClick={() => setFilter(item.key)}
             className={cn(
-              'px-5 py-1.5 rounded-md text-sm font-medium transition-all duration-200',
+              'px-5 py-[7px] rounded-md text-sm font-medium transition-all duration-200',
               filter === item.key
                 ? 'bg-card text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -108,14 +108,14 @@ export default function Library() {
       </div>
 
       {/* Search Bar */}
-      <div className="flex items-center gap-3 bg-secondary rounded-xl px-4 py-2.5 mb-6">
+      <div className="flex items-center gap-3 bg-secondary rounded-xl px-4 py-2.5 mb-5">
         <Search className="size-4 text-muted-foreground shrink-0" />
         <input
           type="text"
-          placeholder="搜索创作者..."
+          placeholder="搜索创作者或视频..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className="flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
         />
       </div>
 
@@ -148,7 +148,7 @@ export default function Library() {
 
       {/* Creator Grid */}
       {loading ? (
-        <div className="grid grid-cols-4 max-lg:grid-cols-3 max-md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-4 max-lg:grid-cols-3 max-sm:grid-cols-2 gap-5">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="bg-card rounded-[22px] aspect-square apple-skeleton" />
           ))}
@@ -160,7 +160,7 @@ export default function Library() {
           description={search ? '没有匹配的创作者' : '在上方输入框粘贴主页链接添加创作者'}
         />
       ) : (
-        <div className="grid grid-cols-4 max-lg:grid-cols-3 max-md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-4 max-lg:grid-cols-3 max-sm:grid-cols-2 gap-5">
           {filteredCreators.map((creator, i) => (
             <div
               key={creator.uid}
@@ -171,19 +171,9 @@ export default function Library() {
                 <span className="text-5xl font-bold text-white/90">{creator.nickname?.[0] || '?'}</span>
               </div>
               <div className="p-4">
-                <div className="font-semibold text-sm truncate">{creator.nickname}</div>
-                <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-                  <span className="flex items-center gap-1">
-                    <Film className="size-3" />
-                    {creator.asset_count || 0}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <FileText className="size-3" />
-                    {creator.transcript_completed_count || 0}
-                  </span>
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {creator.last_fetch_time
+                <div className="font-semibold text-[16px] truncate mb-1">{creator.nickname}</div>
+                <div className="text-[13px] text-muted-foreground">
+                  {creator.asset_count || 0} 个视频 · {creator.last_fetch_time
                     ? new Date(creator.last_fetch_time).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
                     : '未同步'}
                 </div>

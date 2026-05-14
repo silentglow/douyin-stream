@@ -24,7 +24,7 @@ function NavItem({
     <NavLink
       to={href}
       className={cn(
-        "flex flex-col items-center justify-center gap-1 py-2 px-4 min-w-[64px]",
+        "flex flex-col items-center justify-center gap-0.5 py-2 px-4 min-w-[64px]",
         "transition-colors duration-200",
         isActive ? "text-primary" : "text-muted-foreground"
       )}
@@ -32,7 +32,7 @@ function NavItem({
       <div className="relative">
         <Icon
           className={cn(
-            "size-6 transition-all duration-200",
+            "size-[22px] transition-all duration-200",
             isActive ? "stroke-[2.5px]" : "stroke-[1.5px]"
           )}
         />
@@ -43,7 +43,7 @@ function NavItem({
         )}
       </div>
       <span className={cn(
-        "text-[11px] font-medium",
+        "text-[10px] font-medium",
         isActive ? "text-primary" : "text-muted-foreground"
       )}>
         {label}

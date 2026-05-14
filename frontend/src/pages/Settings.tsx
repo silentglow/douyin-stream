@@ -251,7 +251,7 @@ export default function Settings() {
   function SettingsGroup({ title, children }: { title: string; children: React.ReactNode }) {
     return (
       <div className="mb-8">
-        <div className="text-[13px] font-semibold text-muted-foreground uppercase tracking-wide mb-2 px-3">
+        <div className="text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-2 px-3">
           {title}
         </div>
         <div className="bg-card rounded-[22px] shadow-[0_2px_12px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] overflow-hidden">
@@ -286,22 +286,22 @@ export default function Settings() {
             }
           }}
           className={cn(
-            "flex items-center px-4 py-3.5 cursor-pointer transition-colors hover:bg-secondary/50",
+            "flex items-center px-[18px] py-3.5 cursor-pointer transition-colors hover:bg-[rgba(128,128,128,0.04)]",
             danger && "text-destructive"
           )}
         >
-          <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-sm mr-3 shrink-0", iconBg)}>
+          <div className={cn("w-[30px] h-[30px] rounded-lg flex items-center justify-center text-sm mr-3.5 shrink-0", iconBg)}>
             {icon}
           </div>
           <span className="flex-1 text-[16px]">{label}</span>
-          {value !== undefined && !hasChildren && (
-            <span className="text-sm text-muted-foreground mr-1">{value}</span>
+          {value !== undefined && (
+            <span className="text-[15px] text-muted-foreground mr-1">{value}</span>
           )}
           {hasChildren && (
-            <ChevronRight className={cn("size-4 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
+            <ChevronRight className={cn("size-[14px] text-[#C7C7CC] transition-transform", isExpanded && "rotate-90")} />
           )}
           {!hasChildren && onClick && (
-            <ChevronRight className="size-4 text-muted-foreground" />
+            <ChevronRight className="size-[14px] text-[#C7C7CC]" />
           )}
         </div>
         {hasChildren && isExpanded && (
@@ -420,12 +420,12 @@ export default function Settings() {
     <div className="h-full p-7 px-8 max-sm:p-4 max-sm:pb-20 overflow-y-auto">
       <div className="text-[28px] font-bold mb-6 tracking-tight">设置</div>
 
-      <div className="max-w-2xl">
+      <div>
         {/* 账号配置 */}
         <SettingsGroup title="账号配置">
           <SettingsItem
-            icon={<Users className="size-4 text-orange-500" />}
-            iconBg="bg-orange-500/10"
+            icon={<Users className="size-4 text-[#FF9500]" />}
+            iconBg="bg-[rgba(255,159,10,0.12)]"
             label="抖音 Cookie"
             value={douyinReady ? `${(settings?.douyin_accounts || []).length} 个账号` : '未配置'}
           >
@@ -445,8 +445,8 @@ export default function Settings() {
           </SettingsItem>
 
           <SettingsItem
-            icon={<Users className="size-4 text-blue-500" />}
-            iconBg="bg-blue-500/10"
+            icon={<Users className="size-4 text-[#0A84FF]" />}
+            iconBg="bg-[rgba(10,132,255,0.12)]"
             label="B 站 Cookie"
             value={bilibiliReady ? `${(settings?.bilibili_accounts || []).length} 个账号` : '未配置'}
           >
@@ -466,8 +466,8 @@ export default function Settings() {
           </SettingsItem>
 
           <SettingsItem
-            icon={<KeyRound className="size-4 text-purple-500" />}
-            iconBg="bg-purple-500/10"
+            icon={<KeyRound className="size-4 text-[#AF52DE]" />}
+            iconBg="bg-[rgba(175,82,222,0.12)]"
             label="Qwen 账号池"
             value={qwenReady ? `${(settings?.qwen_accounts || []).length} 个账号` : '未配置'}
           >
@@ -491,24 +491,24 @@ export default function Settings() {
         {/* 全局偏好 */}
         <SettingsGroup title="全局偏好">
           <SettingsItem
-            icon={<Zap className="size-4 text-green-500" />}
-            iconBg="bg-green-500/10"
+            icon={<Zap className="size-4 text-[#30D158]" />}
+            iconBg="bg-[rgba(48,209,88,0.12)]"
             label="自动转写"
             value={
               <Switch checked={autoTranscribe} onCheckedChange={handleToggleAutoTranscribe} />
             }
           />
           <SettingsItem
-            icon={<Trash2 className="size-4 text-red-500" />}
-            iconBg="bg-red-500/10"
+            icon={<Trash2 className="size-4 text-[#FF453A]" />}
+            iconBg="bg-[rgba(255,69,58,0.12)]"
             label="转写后删除视频"
             value={
               <Switch checked={autoDeleteVideo} onCheckedChange={handleToggleAutoDelete} />
             }
           />
           <SettingsItem
-            icon={<FileText className="size-4 text-blue-500" />}
-            iconBg="bg-blue-500/10"
+            icon={<FileText className="size-4 text-[#0A84FF]" />}
+            iconBg="bg-[rgba(10,132,255,0.12)]"
             label="导出格式"
             value={EXPORT_FORMATS.find(f => f.value === exportFormat)?.label || exportFormat}
           >
@@ -534,8 +534,8 @@ export default function Settings() {
         {/* 系统 */}
         <SettingsGroup title="系统">
           <SettingsItem
-            icon={<Trash2 className="size-4 text-red-500" />}
-            iconBg="bg-red-500/10"
+            icon={<Trash2 className="size-4 text-[#FF453A]" />}
+            iconBg="bg-[rgba(255,69,58,0.12)]"
             label="清理不存在素材"
             onClick={async () => {
               try {
@@ -547,8 +547,8 @@ export default function Settings() {
             }}
           />
           <SettingsItem
-            icon={<Info className="size-4 text-teal-500" />}
-            iconBg="bg-teal-500/10"
+            icon={<Info className="size-4 text-[#5AC8FA]" />}
+            iconBg="bg-[rgba(90,200,250,0.12)]"
             label="关于"
             value="v2.0"
           />

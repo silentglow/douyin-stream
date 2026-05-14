@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Play, Heart, Star, Users, Zap, Link2, Plus, FileAudio, Trash2,
-  CheckCircle2, AlertTriangle, ArrowRight, Cloud,
+  CheckCircle2, AlertTriangle, Cloud,
 } from 'lucide-react';
 import { Widget } from '@/components/ui/Widget';
 import { WidgetGrid } from '@/components/layout/WidgetGrid';
@@ -38,12 +38,12 @@ const gradients = [
 ];
 
 /* ── 小组件 ── */
-function ProgressBar({ percent, color = C.blue }: { percent: number; color?: string }) {
+function ProgressBar({ percent, color = C.blue, gradient = false }: { percent: number; color?: string; gradient?: boolean }) {
   return (
-    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: C.bgWidgetSecondary }}>
+    <div className="h-1.5 rounded-[3px] overflow-hidden bg-secondary">
       <div
         className="h-full rounded-full transition-all duration-500 ease-out"
-        style={{ width: `${Math.min(percent, 100)}%`, background: color }}
+        style={{ width: `${Math.min(percent, 100)}%`, background: gradient ? `linear-gradient(90deg, ${color}, #AF52DE)` : color }}
       />
     </div>
   );
@@ -57,17 +57,17 @@ function StageIndicator({ stages, activeIndex }: { stages: string[]; activeIndex
           {i > 0 && (
             <div
               className="w-5 h-0.5 rounded-full"
-              style={{ background: i <= activeIndex ? C.blue : C.bgWidgetSecondary }}
+              style={{ background: i <= activeIndex ? C.blue : '#F2F2F7' }}
             />
           )}
           <div className="flex items-center gap-1">
             <div
               className="w-2 h-2 rounded-full"
-              style={{ background: i <= activeIndex ? C.blue : C.bgWidgetSecondary }}
+              style={{ background: i <= activeIndex ? C.blue : '#C7C7CC' }}
             />
             <span
               className="text-xs"
-              style={{ color: i <= activeIndex ? C.blue : C.textSecondary }}
+              style={{ color: C.textSecondary }}
             >
               {stage}
             </span>
@@ -82,7 +82,7 @@ function HealthDot({ healthy }: { healthy: boolean }) {
   const color = healthy ? C.green : C.red;
   return (
     <span
-      className="inline-block w-2.5 h-2.5 rounded-full mr-2"
+      className="inline-block w-2.5 h-2.5 rounded-full mr-1.5"
       style={{ background: color, boxShadow: `0 0 8px ${color}` }}
     />
   );
@@ -168,7 +168,7 @@ export default function Home() {
           {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
-              className="bg-white rounded-[22px] apple-skeleton"
+              className="bg-card rounded-[22px] apple-skeleton"
               style={{
                 gridColumn: i >= 6 ? 'span 4' : i >= 4 ? 'span 2' : 'span 1',
                 minHeight: i >= 4 ? 180 : i >= 4 ? 160 : 140,
@@ -181,8 +181,8 @@ export default function Home() {
   }
 
   return (
-    <div className="h-full p-6 max-sm:p-4 max-sm:pb-20 overflow-y-auto">
-      {/* 手机2列 / 平板3列 / 桌面4列 */}
+    <div className="h-full p-7 px-8 max-sm:p-4 max-sm:pb-20 overflow-y-auto">
+      <div className="text-[28px] font-bold mb-6 tracking-tight text-foreground">工作台</div>
       <WidgetGrid>
         {/* ── 行1: 4个 Small ── */}
         <Widget
@@ -191,8 +191,9 @@ export default function Home() {
           iconBg="bg-[rgba(10,132,255,0.12)]"
           title="运行中任务"
           tint="blue"
+          footer={`${activeCount} 个任务正在处理`}
         >
-          <div className="text-[34px] font-bold tracking-tight leading-none" style={{ color: C.textPrimary }}>
+          <div className="text-[34px] font-bold tracking-[-1px] leading-none text-foreground">
             {activeCount}
           </div>
         </Widget>
@@ -203,8 +204,9 @@ export default function Home() {
           iconBg="bg-[rgba(48,209,88,0.12)]"
           title="系统状态"
           tint="green"
+          footer={healthHealthy ? '所有服务运行中' : `${dashboard?.health?.total_anomaly_count || 0} 个异常`}
         >
-          <div className="flex items-center text-[22px] font-semibold" style={{ color: C.textPrimary }}>
+          <div className="flex items-center text-[22px] font-semibold text-foreground">
             <HealthDot healthy={healthHealthy} />
             {healthHealthy ? '正常' : `${dashboard?.health?.total_anomaly_count || 0} 个异常`}
           </div>
@@ -213,15 +215,13 @@ export default function Home() {
         <Widget
           size="small"
           icon={<Star className="size-4" style={{ color: C.purple }} />}
-          iconBg="bg-[rgba(175,82,222,0.12)]"
+          iconBg="bg-[rgba(10,132,255,0.12)]"
           title="Qwen 额度"
-          tint="purple"
+          tint="blue"
+          footer={`${dashboard?.quota_status?.accounts?.length || 0} 个账号可用`}
         >
-          <div className="text-[34px] font-bold tracking-tight leading-none" style={{ color: C.textPrimary }}>
+          <div className="text-[34px] font-bold tracking-[-1px] leading-none text-foreground">
             {Math.round(totalQuotaHours)}h
-          </div>
-          <div className="text-xs mt-1" style={{ color: C.textSecondary }}>
-            {(dashboard?.quota_status?.accounts?.length || 0)} 个账号可用
           </div>
         </Widget>
 
@@ -230,12 +230,10 @@ export default function Home() {
           icon={<Users className="size-4" style={{ color: C.orange }} />}
           iconBg="bg-[rgba(255,159,10,0.12)]"
           title="创作者"
+          footer={`${creators.length} 个创作者 · ${autoSyncCount} 个自动同步`}
         >
-          <div className="text-[34px] font-bold tracking-tight leading-none" style={{ color: C.textPrimary }}>
+          <div className="text-[34px] font-bold tracking-[-1px] leading-none text-foreground">
             {creators.length}
-          </div>
-          <div className="text-xs mt-1" style={{ color: C.textSecondary }}>
-            {creators.length} 个创作者 · {autoSyncCount} 个自动同步
           </div>
         </Widget>
 
@@ -246,17 +244,17 @@ export default function Home() {
             icon={<Zap className="size-4" style={{ color: C.blue }} />}
             iconBg="bg-[rgba(10,132,255,0.12)]"
             title="实时任务进度"
-            className="bg-gradient-to-br from-white to-[rgba(10,132,255,0.04)]"
+            className="bg-[linear-gradient(135deg,rgba(10,132,255,0.08),rgba(175,82,222,0.08))]"
           >
             <div className="flex justify-between items-center mb-2">
-              <span className="text-[17px] font-semibold truncate">
+              <span className="text-[17px] font-semibold truncate text-foreground">
                 {(() => { try { const p = JSON.parse(topTask.payload || '{}'); return p.msg || topTask.task_type || '任务'; } catch { return topTask.task_type || '任务'; } })()}
               </span>
               <span className="text-[15px] font-semibold" style={{ color: C.blue }}>
                 {Math.round(topTask.progress || 0)}%
               </span>
             </div>
-            <ProgressBar percent={topTask.progress || 0} />
+            <ProgressBar percent={topTask.progress || 0} gradient />
             <div className="text-[13px] mt-1.5" style={{ color: C.textSecondary }}>
               {topTask.status === 'RUNNING' ? '运行中' : topTask.status === 'PAUSED' ? '已暂停' : topTask.status}
               {' · 预计剩余 '}4{' 分钟 · 已下载 '}12{'/'}15{' 个视频'}
@@ -269,9 +267,9 @@ export default function Home() {
             })()} />
           </Widget>
         ) : (
-          <Widget size="large" icon={<Cloud className="size-4 text-[#C7C7CC]" />} iconBg="bg-[#F2F2F7]" title="实时任务进度">
+          <Widget size="large" icon={<Cloud className="size-4 text-[#C7C7CC]" />} iconBg="bg-secondary" title="实时任务进度">
             <div className="flex flex-col items-center justify-center py-4 gap-3">
-              <Cloud className="size-16 opacity-30" style={{ color: C.textSecondary }} />
+              <Cloud className="size-16 opacity-40" style={{ color: C.textSecondary }} />
               <div className="text-sm" style={{ color: C.textSecondary }}>系统空闲中</div>
               <button
                 onClick={() => navigate('/library')}
@@ -295,24 +293,25 @@ export default function Home() {
             {activeTasks.slice(0, 3).map((task) => (
               <div
                 key={task.task_id}
-                className="flex items-center gap-3 py-1.5"
-                style={{ borderBottom: '1px solid rgba(0,0,0,0.08)' }}
+                className="flex items-center gap-2.5 py-1.5 border-b border-border"
               >
                 <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: C.bgWidgetSecondary }}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-secondary"
                 >
-                  <Play className="size-4" style={{ color: C.blue }} />
+                  <Play className="size-[14px]" style={{ color: C.blue }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>
+                  <div className="text-sm font-medium truncate text-foreground">
                     {(() => { try { const p = JSON.parse(task.payload || '{}'); return p.msg || task.task_type; } catch { return task.task_type; } })()}
                   </div>
                   <div className="text-xs" style={{ color: C.textSecondary }}>
-                    {task.status === 'RUNNING' ? '运行中' : '已暂停'} · {Math.round(task.progress || 0)}%
+                    <span style={task.status === 'RUNNING' ? { color: C.green } : undefined}>
+                      {task.status === 'RUNNING' ? '同步中...' : '已暂停'}
+                    </span>
+                    {' · '}{Math.round(task.progress || 0)}%
                   </div>
                 </div>
-                <div className="w-16">
+                <div className="w-[60px]">
                   <ProgressBar percent={task.progress || 0} />
                 </div>
               </div>
@@ -321,11 +320,9 @@ export default function Home() {
               <div className="text-sm text-center py-4" style={{ color: C.textSecondary }}>暂无运行中任务</div>
             )}
           </div>
-          {activeTasks.length > 3 && (
-            <div className="text-xs mt-1" style={{ color: C.textSecondary }}>
-              还有 {activeTasks.length - 3} 个任务运行中
-            </div>
-          )}
+          <div className="text-xs mt-1" style={{ color: C.textSecondary }}>
+            {activeTasks.length > 3 ? `还有 ${activeTasks.length - 3} 个任务运行中` : activeTasks.length === 0 ? '暂无运行中任务' : '所有任务已显示'}
+          </div>
         </Widget>
 
         <Widget
@@ -338,8 +335,7 @@ export default function Home() {
             {recentActivity.slice(0, 3).map((act) => (
               <div
                 key={act.id}
-                className="flex items-center gap-3 py-1.5"
-                style={{ borderBottom: '1px solid rgba(0,0,0,0.08)' }}
+                className="flex items-center gap-2.5 py-1.5 border-b border-border"
               >
                 <div
                   className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
@@ -348,11 +344,11 @@ export default function Home() {
                   }}
                 >
                   {act.type === 'success'
-                    ? <CheckCircle2 className="size-3.5" style={{ color: C.green }} />
-                    : <AlertTriangle className="size-3.5" style={{ color: act.type === 'warning' ? C.orange : C.red }} />}
+                    ? <CheckCircle2 className="size-[13px]" style={{ color: C.green }} />
+                    : <AlertTriangle className="size-[13px]" style={{ color: act.type === 'warning' ? C.orange : C.red }} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm truncate" style={{ color: C.textPrimary }}>
+                  <div className="text-sm truncate text-foreground">
                     {act.text} {act.detail}
                   </div>
                 </div>
@@ -377,24 +373,15 @@ export default function Home() {
         >
           <div className="flex flex-wrap gap-3">
             {[
-              { icon: <Link2 className="size-4" />, label: '粘贴链接下载', onClick: handlePasteLink },
-              { icon: <Plus className="size-4" />, label: '添加创作者', onClick: () => navigate('/library') },
-              { icon: <FileAudio className="size-4" />, label: '本地转写', onClick: () => toast.info('本地转写功能开发中') },
-              { icon: <Trash2 className="size-4" />, label: '清理历史任务', onClick: () => toast.info('清理功能开发中') },
+              { icon: <Link2 className="size-[18px]" />, label: '粘贴链接下载', onClick: handlePasteLink },
+              { icon: <Plus className="size-[18px]" />, label: '添加创作者', onClick: () => navigate('/library') },
+              { icon: <FileAudio className="size-[18px]" />, label: '本地转写', onClick: () => toast.info('本地转写功能开发中') },
+              { icon: <Trash2 className="size-[18px]" />, label: '清理历史任务', onClick: () => toast.info('清理功能开发中') },
             ].map((btn) => (
               <button
                 key={btn.label}
                 onClick={btn.onClick}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl text-[15px] font-medium transition-all active:scale-[0.96]"
-                style={{ background: C.bgWidgetSecondary }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = C.blue;
-                  (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = C.bgWidgetSecondary;
-                  (e.currentTarget as HTMLButtonElement).style.color = '';
-                }}
+                className="flex items-center gap-2 px-[18px] py-3 rounded-xl text-[15px] font-medium transition-all active:scale-[0.97] bg-secondary hover:bg-primary hover:text-white"
               >
                 {btn.icon}
                 {btn.label}
@@ -415,8 +402,7 @@ export default function Home() {
             {creators.slice(0, 3).map((creator, i) => (
               <div
                 key={creator.uid}
-                className="flex items-center gap-3 py-1.5"
-                style={{ borderBottom: '1px solid rgba(0,0,0,0.08)' }}
+                className="flex items-center gap-2.5 py-1.5 border-b border-border"
               >
                 <div
                   className={cn('w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold text-white shrink-0 bg-gradient-to-br', gradients[i % gradients.length])}
@@ -424,17 +410,17 @@ export default function Home() {
                   {creator.nickname?.[0] || '?'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>
+                  <div className="text-sm font-medium truncate text-foreground">
                     {creator.nickname}
                   </div>
-                  <div className="text-xs" style={{ color: C.textSecondary }}>
+                  <div className="text-[13px]" style={{ color: C.textSecondary }}>
                     {creator.asset_count || 0} 个视频 ·
                     {creator.last_fetch_time
                       ? ` ${new Date(creator.last_fetch_time).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })} 同步`
                       : ' 未同步'}
                   </div>
                 </div>
-                <span className="text-xs shrink-0" style={{ color: C.textSecondary }}>
+                <span className="text-[13px] shrink-0" style={{ color: C.textSecondary }}>
                   {creator.sync_status === 'auto' || creator.sync_status === 'active' ? '自动同步' : '手动'}
                 </span>
               </div>
@@ -445,7 +431,6 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-1 text-xs mt-1" style={{ color: C.textSecondary }}>
             {creators.length} 个创作者 · 查看全部
-            <ArrowRight className="size-3 ml-1" />
           </div>
         </Widget>
 
@@ -462,10 +447,9 @@ export default function Home() {
               {failureSummary.buckets.slice(0, 2).map((b) => (
                 <div
                   key={b.error_type}
-                  className="flex items-center justify-between py-1.5"
-                  style={{ borderBottom: '1px solid rgba(0,0,0,0.08)' }}
+                  className="flex items-center justify-between py-1.5 border-b border-border"
                 >
-                  <span className="text-sm truncate" style={{ color: C.textPrimary }}>{b.error_type}</span>
+                  <span className="text-sm truncate text-foreground">{b.error_type}</span>
                   <span className="text-sm font-semibold" style={{ color: C.red }}>{b.count}</span>
                 </div>
               ))}

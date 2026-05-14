@@ -12,9 +12,9 @@ export function AppleEmptyState({
   action,
 }: AppleEmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 min-h-[400px]">
+    <div className="flex flex-col items-center justify-center py-[60px] min-h-[400px]">
       <div className="text-muted-foreground/40">{icon}</div>
-      <h3 className="text-[15px] font-semibold text-foreground mt-3">
+      <h3 className="text-[20px] font-semibold text-[#8E8E93] mt-3">
         {title}
       </h3>
       {description && (

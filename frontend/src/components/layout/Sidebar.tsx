@@ -22,7 +22,7 @@ function SidebarItem({
       to={href}
       className={({ isActive }) =>
         cn(
-          "group relative flex items-center gap-3 h-10 px-3 rounded-[10px] cursor-pointer select-none",
+          "group relative flex items-center gap-2.5 h-10 px-3 rounded-[10px] cursor-pointer select-none",
           "transition-all duration-200 spring-ease-subtle",
           isActive
             ? "bg-primary text-primary-foreground font-semibold"
@@ -35,7 +35,7 @@ function SidebarItem({
         <>
           <Icon
             className={cn(
-              "size-5 shrink-0 transition-colors duration-200",
+              "size-[22px] shrink-0 transition-colors duration-200",
               isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
             )}
           />
@@ -56,7 +56,7 @@ function ThemeToggle() {
       className="group flex items-center gap-3 h-10 px-3 rounded-[10px] cursor-pointer select-none transition-all duration-200 spring-ease-subtle hover:bg-secondary text-foreground font-medium w-full"
       aria-label={`当前主题: ${isDark ? '深色' : '浅色'}，点击切换`}
     >
-      {isDark ? <Moon className="size-5 text-muted-foreground group-hover:text-foreground" /> : <Sun className="size-5 text-muted-foreground group-hover:text-foreground" />}
+      {isDark ? <Moon className="size-[22px] text-muted-foreground group-hover:text-foreground" /> : <Sun className="size-[22px] text-muted-foreground group-hover:text-foreground" />}
       <span className="text-body">主题 · {isDark ? '深色' : '浅色'}</span>
     </button>
   );
@@ -91,7 +91,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <div className="w-8 h-8 rounded-[10px] bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
             <span className="text-white font-bold text-sm">M</span>
           </div>
-          <h1 className="text-title-3 font-semibold text-sidebar-foreground tracking-tight">Media Tools</h1>
+          <h1 className="text-[20px] font-bold text-sidebar-foreground tracking-tight">Media Tools</h1>
         </div>
 
         {/* Primary Nav */}

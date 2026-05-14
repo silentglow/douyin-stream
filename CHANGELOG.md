@@ -7,6 +7,28 @@
 
 ---
 
+## [2.4.0] - 2026-05-14
+
+### 🎨 UI — iOS Widget 风格前端像素级对齐
+
+基于 `frontend/public/prototype.html` 进行全站视觉重构，对齐 Apple 原生设计语言：
+
+- **工作台** (`Home.tsx`)：Small/Medium/Large 三种 Widget 尺寸；widget 数值字间距 `tracking-[-1px]`；进度条圆角 `rounded-[3px]`；活跃任务绿色"同步中..."状态文本；阶段指示器非激活色 `#F2F2F7`
+- **内容库** (`Library.tsx`)：搜索框字体 `text-[15px]`；分段控制器精确到 `p-[3px]` / `py-[7px]`；响应式断点统一为 `max-sm`
+- **设置页** (`Settings.tsx`)：项内边距 `px-[18px]`；value 文字 `text-[15px]`；icon 背景和颜色全部改用 Apple 原生 rgba 值（如 `rgba(255,159,10,0.12)`）；hover 背景 `rgba(128,128,128,0.04)`
+- **侧边栏** (`Sidebar.tsx`)：logo `text-[20px] font-bold`；导航图标 `size-[22px]`；间距 `gap-2.5`
+- **底部导航** (`BottomNav.tsx`)：标签 `text-[10px]`；图标 `size-[22px]`；间距 `gap-0.5`
+- **开关** (`switch.tsx`)：旋钮位置精确到 `left-[20px]`
+- **空状态** (`AppleEmptyState.tsx`)：标题 `text-[20px]` 颜色 `#8E8E93`；padding `py-[60px]`
+- **CSS 变量**：Apple teal `#5AC8FA`、dark warning `#FF9F0A`
+
+### 🔧 变更
+
+- **前端路由重构**：`/inbox` → `/home`（工作台）、`/creators` → `/library`（内容库），取消 `/discover`
+- **WidgetGrid**：移除 `sm:grid-cols-3`，仅保留 2 列/4 列断点
+
+---
+
 ## [2.3.0] - 2026-05-11
 
 ### 🎉 新增
