@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { type ReactNode } from 'react';
 
@@ -49,16 +50,17 @@ export function Widget({
   onClick,
 }: WidgetProps) {
   return (
-    <div
+    <motion.div
       onClick={onClick}
+      whileHover={{ scale: 0.98 }}
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       className={cn(
         'bg-white dark:bg-[#1C1C1E] rounded-[22px]',
         'shadow-[0_2px_12px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)]',
         'dark:shadow-[0_2px_12px_rgba(0,0,0,0.3),0_0_1px_rgba(255,255,255,0.04)]',
         'p-5 flex flex-col gap-3 relative overflow-hidden',
-        'cursor-pointer transition-all duration-200',
-        'hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)]',
-        'hover:scale-[0.98]',
+        'cursor-pointer',
         sizeClass[size],
         minHeightClass[size],
         tintMap[tint],
@@ -81,6 +83,6 @@ export function Widget({
       {footer && (
         <div className="text-xs text-[#8E8E93]">{footer}</div>
       )}
-    </div>
+    </motion.div>
   );
 }

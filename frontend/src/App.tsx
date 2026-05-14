@@ -2,7 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from 'next-themes';
 import AppLayout from './components/layout/AppLayout';
 import { Toaster } from '@/components/ui/sonner';
-import { useEffect, Component, type ReactNode, lazy } from 'react';
+import { SkeletonScreen } from '@/components/ui/SkeletonScreen';
+import { useEffect, Component, type ReactNode, lazy, Suspense } from 'react';
 import { useStore } from './store/useStore';
 
 // Lazy load pages for code splitting
@@ -66,9 +67,21 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/home" replace />} />
             <Route element={<AppLayout />}>
-              <Route path="/home" element={<Home />} />
-              <Route path="/library" element={<Library />} />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/home" element={
+                <Suspense fallback={<SkeletonScreen />}>
+                  <Home />
+                </Suspense>
+              } />
+              <Route path="/library" element={
+                <Suspense fallback={<SkeletonScreen />}>
+                  <Library />
+                </Suspense>
+              } />
+              <Route path="/settings" element={
+                <Suspense fallback={<SkeletonScreen />}>
+                  <Settings />
+                </Suspense>
+              } />
             </Route>
           </Routes>
           <Toaster />

@@ -5,6 +5,7 @@ import {
   CheckCircle2, AlertTriangle, ArrowRight, Cloud,
 } from 'lucide-react';
 import { Widget } from '@/components/ui/Widget';
+import { WidgetGrid } from '@/components/layout/WidgetGrid';
 import { useStore } from '@/store/useStore';
 import { getDashboard, type DashboardData } from '@/services/dashboard';
 import { getFailureSummary, type FailureSummary } from '@/services/tasks';
@@ -182,7 +183,7 @@ export default function Home() {
   return (
     <div className="h-full p-6 max-sm:p-4 max-sm:pb-20 overflow-y-auto">
       {/* 手机2列 / 平板3列 / 桌面4列 */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-sm:gap-3">
+      <WidgetGrid>
         {/* ── 行1: 4个 Small ── */}
         <Widget
           size="small"
@@ -474,7 +475,7 @@ export default function Home() {
             </div>
           </Widget>
         )}
-      </div>
+      </WidgetGrid>
     </div>
   );
 }
