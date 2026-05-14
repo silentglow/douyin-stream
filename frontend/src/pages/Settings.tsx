@@ -59,6 +59,7 @@ export default function Settings() {
   // Quota
   const [qwenRemainingHoursById, setQwenRemainingHoursById] = useState<Record<string, number>>({});
   const [isLoadingQwenStatus, setIsLoadingQwenStatus] = useState(false);
+  const [qwenStatusError, setQwenStatusError] = useState('');
 
   // Expand
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -78,17 +79,27 @@ export default function Settings() {
   }, [settings]);
 
   // Load Qwen quota
-  useEffect(() => {
+  const loadQwenStatus = useCallback(async () => {
     if (!settings?.status_summary.qwen_ready) return;
     setIsLoadingQwenStatus(true);
-    getQwenStatus().then((res) => {
+    setQwenStatusError('');
+    try {
+      const res = await getQwenStatus();
       const map: Record<string, number> = {};
       for (const a of res.accounts || []) {
-        map[a.accountId] = a.remaining_hours;
+        map[a.accountId] = a.remaining_hours ?? 0;
       }
       setQwenRemainingHoursById(map);
-    }).catch(() => {}).finally(() => setIsLoadingQwenStatus(false));
+    } catch {
+      setQwenStatusError('额度获取失败');
+    } finally {
+      setIsLoadingQwenStatus(false);
+    }
   }, [settings?.status_summary.qwen_ready]);
+
+  useEffect(() => {
+    loadQwenStatus();
+  }, [loadQwenStatus]);
 
   // ===== Actions =====
   const handleSaveQwen = useCallback(async () => {
@@ -373,8 +384,14 @@ export default function Settings() {
                   </div>
                   <div className="text-xs text-muted-foreground font-mono mt-0.5">
                     {account.id.slice(0, 12)}...
-                    {showQuota && qwenRemainingHoursById[account.id] !== undefined && (
-                      <span className="ml-2 text-primary">{qwenRemainingHoursById[account.id]}h</span>
+                    {showQuota && (
+                      <span className="ml-2 text-primary">
+                        {isLoadingQwenStatus
+                          ? '加载中...'
+                          : qwenStatusError
+                            ? '获取失败'
+                            : `${qwenRemainingHoursById[account.id] ?? '--'}h`}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -401,15 +418,25 @@ export default function Settings() {
         {showQuota && qwenReady && (
           <div className="flex items-center justify-between pt-2 border-t border-border/40">
             <span className="text-xs text-muted-foreground">
-              {isLoadingQwenStatus ? '加载额度中...' : '可领取今日额度'}
+              {isLoadingQwenStatus ? '加载额度中...' : qwenStatusError ? `额度: ${qwenStatusError}` : '可领取今日额度'}
             </span>
-            <button
-              onClick={handleClaimQuota}
-              disabled={isClaimingQuota}
-              className="px-3 py-1.5 bg-secondary rounded-lg text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-all active:scale-[0.96] disabled:opacity-50"
-            >
-              {isClaimingQuota ? <Loader2 className="size-3 animate-spin" /> : '领取'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadQwenStatus}
+                disabled={isLoadingQwenStatus}
+                className="px-3 py-1.5 bg-secondary rounded-lg text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-all active:scale-[0.96] disabled:opacity-50"
+                title="刷新额度"
+              >
+                {isLoadingQwenStatus ? <Loader2 className="size-3 animate-spin" /> : '刷新'}
+              </button>
+              <button
+                onClick={handleClaimQuota}
+                disabled={isClaimingQuota}
+                className="px-3 py-1.5 bg-secondary rounded-lg text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-all active:scale-[0.96] disabled:opacity-50"
+              >
+                {isClaimingQuota ? <Loader2 className="size-3 animate-spin" /> : '领取'}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -469,7 +496,10 @@ export default function Settings() {
             icon={<KeyRound className="size-4 text-[#AF52DE]" />}
             iconBg="bg-[rgba(175,82,222,0.12)]"
             label="Qwen 账号池"
-            value={qwenReady ? `${(settings?.qwen_accounts || []).length} 个账号` : '未配置'}
+            value={qwenReady ? (() => {
+              const total = Object.values(qwenRemainingHoursById).reduce((s, v) => s + v, 0);
+              return `${total}h / ${(settings?.qwen_accounts || []).length} 个账号`;
+            })() : '未配置'}
           >
             <AccountExpandable
               accounts={settings?.qwen_accounts || []}

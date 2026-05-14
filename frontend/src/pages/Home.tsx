@@ -375,7 +375,7 @@ export default function Home() {
             {[
               { icon: <Link2 className="size-[18px]" />, label: '粘贴链接下载', onClick: handlePasteLink },
               { icon: <Plus className="size-[18px]" />, label: '添加创作者', onClick: () => navigate('/library') },
-              { icon: <FileAudio className="size-[18px]" />, label: '本地转写', onClick: () => toast.info('本地转写功能开发中') },
+              { icon: <FileAudio className="size-[18px]" />, label: '本地转写', onClick: () => navigate('/library') },
               { icon: <Trash2 className="size-[18px]" />, label: '清理历史任务', onClick: () => toast.info('清理功能开发中') },
             ].map((btn) => (
               <button
