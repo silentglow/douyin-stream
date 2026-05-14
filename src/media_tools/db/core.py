@@ -64,11 +64,15 @@ _db_path: Optional[str] = None
 
 
 def get_db_path() -> str:
-    """Return the resolved DB path. Falls back to common.paths if init_db hasn't been called."""
+    """Return the resolved DB path. Falls back to project-root/data if init_db hasn't been called."""
     global _db_path
     if _db_path is None:
-        from media_tools.common.paths import get_db_path as _resolve_db_path
-        _db_path = str(_resolve_db_path())
+        # 不依赖 core.config / common.paths，从文件位置推导项目根目录
+        # src/media_tools/db/core.py -> project_root
+        project_root = Path(__file__).resolve().parents[3]
+        default = project_root / "data" / "media_tools.db"
+        default.parent.mkdir(parents=True, exist_ok=True)
+        _db_path = str(default)
     return _db_path
 
 
