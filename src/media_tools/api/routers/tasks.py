@@ -135,7 +135,7 @@ async def delete_task(task_id: str):
         if active_task is not None:
             set_cancel_event(task_id)
             try:
-                from media_tools.bilibili.core.downloader import cancel_download
+                from media_tools.platform.bilibili import cancel_download
                 cancel_download(task_id)
             except (RuntimeError, OSError, ImportError):
                 pass
@@ -177,7 +177,7 @@ async def cancel_task(task_id: str):
             raise HTTPException(status_code=409, detail=f"任务已处于 {status} 状态，无法取消")
 
         try:
-            from media_tools.bilibili.core.downloader import cancel_download
+            from media_tools.platform.bilibili import cancel_download
             cancel_download(task_id)
         except (RuntimeError, OSError, ImportError):
             pass

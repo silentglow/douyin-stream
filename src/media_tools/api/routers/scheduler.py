@@ -27,7 +27,7 @@ def _run_scan_all_following():
     """The actual job executed by the scheduler"""
     logger.info("Running scheduled task: full sync all following")
     try:
-        from media_tools.douyin.core.downloader import download_all
+        from media_tools.platform.douyin import download_all
         download_all(auto_confirm=True)
         logger.info("Scheduled task 'full sync all following' completed successfully.")
     except (OSError, RuntimeError, ImportError) as e:

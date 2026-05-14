@@ -119,7 +119,7 @@ def test_db_connection_commit_semantics():
 
 # BACKEND-004: 裸连接 + 连接泄漏
 @pytest.mark.parametrize("module_name", [
-    "media_tools.douyin.core.downloader",
+    "media_tools.platform.douyin",
     "media_tools.douyin.core.following_mgr",
     "media_tools.douyin.core.cleaner",
 ])

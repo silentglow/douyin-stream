@@ -15,15 +15,15 @@ from datetime import datetime
 from pathlib import Path
 import re
 
-from .f2_helper import get_f2_kwargs as _build_f2_kwargs
+from media_tools.douyin.core.f2_helper import get_f2_kwargs as _build_f2_kwargs
 from media_tools.logger import get_logger
 from media_tools.store.db import resolve_safe_path
 from media_tools.core.task_progress import Stage
-from .file_ops import _clean_video_title, _reorganize_files, _update_last_fetch_time
+from media_tools.douyin.core.file_ops import _clean_video_title, _reorganize_files, _update_last_fetch_time
 
 logger = get_logger('downloader')
 
-from .ui import (
+from media_tools.douyin.core.ui import (
     error,
     info,
     print_header,
@@ -32,8 +32,8 @@ from .ui import (
     warning,
     ProgressBar,
 )
-from .config_mgr import get_config
-from .following_mgr import list_users
+from media_tools.douyin.core.config_mgr import get_config
+from media_tools.douyin.core.following_mgr import list_users
 
 
 MIN_VIDEO_BYTES = 10240  # 10KB（与 pipeline/task_helpers.py 保持一致）
@@ -586,7 +586,7 @@ async def _download_with_stats(
     from f2.apps.douyin.handler import DouyinHandler
 
     # 导入进度追踪函数
-    from .cancel_registry import (
+    from media_tools.douyin.core.cancel_registry import (
         init_download_progress,
         update_stage,
         update_current_video,
@@ -1085,7 +1085,7 @@ def download_by_uid(uid, max_counts=None, skip_existing: bool = True, task_id: O
     Returns:
         是否成功
     """
-    from .following_mgr import get_user
+    from media_tools.douyin.core.following_mgr import get_user
 
     user = get_user(uid)
     if not user:

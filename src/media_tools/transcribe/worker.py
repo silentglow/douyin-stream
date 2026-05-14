@@ -258,7 +258,7 @@ async def run_pipeline_for_user(url: str, max_counts: int, update_progress_fn, d
     try:
         if platform == "bilibili":
             # B站使用 yt-dlp
-            from media_tools.bilibili.core.downloader import download_up_by_url as bilibili_download
+            from media_tools.platform.bilibili import download_up_by_url as bilibili_download
             dl_result = await asyncio.wait_for(
                 asyncio.to_thread(bilibili_download, url, max_counts, True, None, task_id),
                 timeout=600,

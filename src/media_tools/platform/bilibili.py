@@ -17,8 +17,8 @@ from media_tools.logger import get_logger
 
 from media_tools.bilibili.utils.cookies import get_bilibili_cookie_string
 from media_tools.bilibili.utils.naming import sanitize_filename
-from .temp_files import managed_temp_file
-from .task_control import (
+from media_tools.bilibili.core.temp_files import managed_temp_file
+from media_tools.bilibili.core.task_control import (
     PauseController,
     register_cancel_flag,
     cancel_download,

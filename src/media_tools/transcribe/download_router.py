@@ -56,11 +56,11 @@ def download_by_url(url: str, max_counts: Optional[int], disable_auto_transcribe
     platform = resolve_platform(url)
     raw: dict[str, Any]
     if platform == "bilibili":
-        from media_tools.bilibili.core.downloader import download_up_by_url
+        from media_tools.platform.bilibili import download_up_by_url
         raw = download_up_by_url(url, max_counts=max_counts, skip_existing=skip_existing, task_id=task_id, disable_auto_transcribe=disable_auto_transcribe)
     else:
         if is_aweme_url(url):
-            from media_tools.douyin.core.downloader import download_aweme_by_url
+            from media_tools.platform.douyin import download_aweme_by_url
             try:
                 loop = asyncio.get_running_loop()
             except RuntimeError:
@@ -72,6 +72,6 @@ def download_by_url(url: str, max_counts: Optional[int], disable_auto_transcribe
             else:
                 raw = asyncio.run(download_aweme_by_url(url))
         else:
-            from media_tools.douyin.core.downloader import download_by_url as douyin_download
+            from media_tools.platform.douyin import download_by_url as douyin_download
             raw = douyin_download(url, max_counts, disable_auto_transcribe, skip_existing, task_id=task_id)
     return DownloadResult.from_raw(raw)

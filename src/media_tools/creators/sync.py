@@ -267,7 +267,7 @@ class CreatorSyncWorker(BaseWorker):
         skip_existing: bool,
         last_result: dict[str, Any],
     ) -> list[str]:
-        from media_tools.bilibili.core.downloader import download_up_by_url
+        from media_tools.platform.bilibili import download_up_by_url
 
         mid = sec_user_id or uid.split(":", 1)[-1]
         url = f"https://space.bilibili.com/{mid}"
@@ -301,7 +301,7 @@ class CreatorSyncWorker(BaseWorker):
         interval: Optional[str],
         last_result: dict[str, Any],
     ) -> list[str]:
-        from media_tools.douyin.core.downloader import download_by_url
+        from media_tools.platform.douyin import download_by_url
 
         if sec_user_id.startswith("MS4w"):
             url = f"https://www.douyin.com/user/{sec_user_id}"
