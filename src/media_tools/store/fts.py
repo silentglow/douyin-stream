@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 def _ensure_fts_table(conn: sqlite3.Connection) -> None:
     """Create assets_fts FTS5 virtual table if it doesn't exist."""
-    from .core import get_table_columns
+    from .db import get_table_columns
 
     if get_table_columns(conn, "assets_fts"):
         return
