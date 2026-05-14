@@ -1,7 +1,7 @@
 """搜索 API 路由"""
 from fastapi import APIRouter, Query
 
-from media_tools.repositories.asset_repository import AssetRepository
+from media_tools.assets.repository import AssetRepository
 from media_tools.repositories.creator_repository import CreatorRepository
 from media_tools.repositories.task_repository import TaskRepository
 

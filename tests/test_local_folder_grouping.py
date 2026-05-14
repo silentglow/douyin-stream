@@ -73,9 +73,9 @@ def test_register_local_assets_writes_folder_path(tmp_path, monkeypatch) -> None
     f = sub / "a.mp3"
     f.write_bytes(b"ok")
 
-    monkeypatch.setattr("media_tools.services.local_asset_service.get_db_connection", lambda: conn)
+    monkeypatch.setattr("media_tools.assets.local.get_db_connection", lambda: conn)
 
-    from media_tools.services.local_asset_service import _register_local_assets
+    from media_tools.assets.local import _register_local_assets
     _register_local_assets([str(f)], delete_after=False, directory_root=str(root))
 
     row = conn.execute("SELECT folder_path FROM media_assets").fetchone()
@@ -118,7 +118,7 @@ def test_list_assets_returns_folder_path(monkeypatch) -> None:
     )
     conn.commit()
     monkeypatch.setattr("media_tools.api.routers.assets.get_db_connection", lambda: conn)
-    monkeypatch.setattr("media_tools.repositories.asset_repository.get_db_connection", lambda: conn)
+    monkeypatch.setattr("media_tools.assets.repository.get_db_connection", lambda: conn)
 
     rows = assets_router.list_assets(creator_uid="local:upload")
     assert rows[0]["folder_path"] == "chapter1"

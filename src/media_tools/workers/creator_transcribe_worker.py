@@ -14,7 +14,7 @@ from media_tools.core.config import get_runtime_setting_bool
 from media_tools.store.db import get_db_connection
 from media_tools.pipeline.worker import run_local_transcribe
 from media_tools.repositories.task_repository import TaskRepository
-from media_tools.services.asset_file_ops import _resolve_asset_video_file, get_source_url_column
+from media_tools.assets.file_ops import _resolve_asset_video_file, get_source_url_column
 from media_tools.services.cleanup import cleanup_paths_allowlist, cleanup_task_cache_dir
 from media_tools.workers.base import BaseWorker, register_worker
 

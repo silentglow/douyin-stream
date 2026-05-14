@@ -3,13 +3,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 from media_tools.common.paths import get_download_path, get_project_root
 from media_tools.store.db import get_db_connection, resolve_safe_path, resolve_query_value
-from media_tools.services.asset_file_ops import (
+from media_tools.assets.file_ops import (
     delete_asset_files,
     _resolve_asset_video_file,
 )
-from media_tools.services.asset_gc import cleanup_stale_assets
-from media_tools.services.local_asset_service import LOCAL_CREATOR_UID
-from media_tools.repositories.asset_repository import AssetRepository
+from media_tools.assets.gc import cleanup_stale_assets
+from media_tools.assets.local import LOCAL_CREATOR_UID
+from media_tools.assets.repository import AssetRepository
 from typing import Optional
 import sqlite3
 import logging

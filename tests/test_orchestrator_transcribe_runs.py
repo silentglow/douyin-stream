@@ -32,7 +32,7 @@ def db(tmp_path: Path):
         "media_tools.repositories.transcribe_run_repository.get_db_connection",
         return_value=conn,
     ), patch(
-        "media_tools.services.media_asset_service.get_db_connection",
+        "media_tools.assets.service.get_db_connection",
         return_value=conn,
     ):
         yield conn
@@ -90,7 +90,7 @@ async def test_first_attempt_creates_run_and_marks_saved(
 
     # 让 asset_id 解析命中 DB（aweme 正则不会命中 'asset-OK'）
     with patch(
-        "media_tools.services.media_asset_service.MediaAssetService.find_asset_id_for_video_path",
+        "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
         return_value="asset-OK",
     ), patch("media_tools.pipeline.orchestrator.run_real_flow", fake_flow):
         result = await orch._transcribe_single_video(video)
@@ -137,7 +137,7 @@ async def test_existing_resumable_run_is_reused_not_recreated(
 
     caplog.set_level("INFO")
     with patch(
-        "media_tools.services.media_asset_service.MediaAssetService.find_asset_id_for_video_path",
+        "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
         return_value="asset-RESUME",
     ), patch("media_tools.pipeline.orchestrator.run_real_flow", fake_flow):
         result = await orch._transcribe_single_video(video)
@@ -176,7 +176,7 @@ async def test_failure_marks_run_failed_with_current_stage(
         raise RuntimeError("network reset")
 
     with patch(
-        "media_tools.services.media_asset_service.MediaAssetService.find_asset_id_for_video_path",
+        "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
         return_value="asset-FAIL",
     ), patch("media_tools.pipeline.orchestrator.run_real_flow", side_effect=flow_that_advances_then_fails):
         result = await orch._transcribe_single_video(video)
@@ -212,7 +212,7 @@ async def test_no_asset_id_skips_run_creation_and_still_runs_flow(
     ))
 
     with patch(
-        "media_tools.services.media_asset_service.MediaAssetService.find_asset_id_for_video_path",
+        "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
         return_value=None,
     ), patch("media_tools.pipeline.orchestrator.run_real_flow", fake_flow):
         result = await orch._transcribe_single_video(video)
@@ -278,7 +278,7 @@ async def test_failure_then_resume_end_to_end(
         )
 
     with patch(
-        "media_tools.services.media_asset_service.MediaAssetService.find_asset_id_for_video_path",
+        "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
         return_value="asset-E2E",
     ), patch("media_tools.pipeline.orchestrator.run_real_flow", side_effect=flaky_flow):
         # 第一次：失败

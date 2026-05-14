@@ -52,8 +52,8 @@ def _build_in_memory_db() -> sqlite3.Connection:
 @pytest.fixture
 def db():
     conn = _build_in_memory_db()
-    with patch("media_tools.services.media_asset_service.get_db_connection", return_value=conn), patch(
-        "media_tools.services.media_asset_service.update_fts_for_asset", return_value=None
+    with patch("media_tools.assets.service.get_db_connection", return_value=conn), patch(
+        "media_tools.assets.service.update_fts_for_asset", return_value=None
     ):
         yield conn
     conn.close()
@@ -65,7 +65,7 @@ def _row(conn: sqlite3.Connection, asset_id: str) -> dict:
 
 
 def test_mark_downloaded_inserts_then_updates(db: sqlite3.Connection) -> None:
-    from media_tools.services.media_asset_service import MediaAssetService
+    from media_tools.assets.service import MediaAssetService
 
     MediaAssetService.mark_downloaded(
         asset_id="a1",
@@ -97,7 +97,7 @@ def test_mark_downloaded_inserts_then_updates(db: sqlite3.Connection) -> None:
 
 
 def test_mark_transcribe_failed_aweme_path(db: sqlite3.Connection) -> None:
-    from media_tools.services.media_asset_service import MediaAssetService
+    from media_tools.assets.service import MediaAssetService
 
     db.execute(
         "INSERT INTO media_assets (asset_id, creator_uid, title, video_path, video_status, transcript_status, create_time, update_time) "
@@ -133,7 +133,7 @@ def test_mark_transcribe_failed_aweme_path(db: sqlite3.Connection) -> None:
 
 
 def test_mark_transcribe_failed_like_path_for_local_files(db: sqlite3.Connection) -> None:
-    from media_tools.services.media_asset_service import MediaAssetService
+    from media_tools.assets.service import MediaAssetService
 
     db.execute(
         "INSERT INTO media_assets (asset_id, creator_uid, title, video_path, video_status, transcript_status, create_time, update_time) "
@@ -153,7 +153,7 @@ def test_mark_transcribe_failed_like_path_for_local_files(db: sqlite3.Connection
 
 
 def test_mark_transcribe_completed_clears_errors(db: sqlite3.Connection, tmp_path: Path) -> None:
-    from media_tools.services.media_asset_service import MediaAssetService
+    from media_tools.assets.service import MediaAssetService
 
     db.execute(
         """
@@ -183,7 +183,7 @@ def test_mark_transcribe_completed_clears_errors(db: sqlite3.Connection, tmp_pat
 
 
 def test_find_pending_to_transcribe_filters(db: sqlite3.Connection) -> None:
-    from media_tools.services.media_asset_service import MediaAssetService
+    from media_tools.assets.service import MediaAssetService
 
     seed = [
         # asset_id, creator, status, error_type, platform

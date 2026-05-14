@@ -550,7 +550,7 @@ def _sync_media_assets(uid: str, nickname: str, folder_name: str):
                                 break
 
                 # 统一使用 MediaAssetService 入库，与 Bilibili 保持一致
-                from media_tools.services.media_asset_service import MediaAssetService
+                from media_tools.assets.service import MediaAssetService
                 MediaAssetService.mark_downloaded(
                     asset_id=aweme_id,
                     creator_uid=uid,

@@ -3,8 +3,5 @@
 # Backward compatibility: modules moved to scheduler/ during restructure
 from media_tools.scheduler import ops as task_ops  # noqa: F401
 
-# Backward compatibility: modules that will move to assets/ during restructure
-from media_tools.services import media_asset_service  # noqa: F401
-
 # Backward compatibility: modules that will move to accounts/ during restructure
 from media_tools.services import qwen_status  # noqa: F401

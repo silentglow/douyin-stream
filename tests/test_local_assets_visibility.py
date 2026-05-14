@@ -10,7 +10,7 @@ class LocalAssetsVisibilityTests(unittest.TestCase):
     def test_local_transcribe_registers_assets_under_local_creator(self) -> None:
         from media_tools.api.routers import creators as creators_router
         from media_tools.api.routers import assets as assets_router
-        from media_tools.services.local_asset_service import LOCAL_CREATOR_UID, _register_local_assets
+        from media_tools.assets.local import LOCAL_CREATOR_UID, _register_local_assets
 
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
@@ -62,14 +62,14 @@ class LocalAssetsVisibilityTests(unittest.TestCase):
         tmp_file = Path("/tmp/local_asset_test.mp3")
         tmp_file.write_bytes(b"ok")
 
-        with patch("media_tools.services.local_asset_service.get_db_connection", return_value=conn), patch(
+        with patch("media_tools.assets.local.get_db_connection", return_value=conn), patch(
             "media_tools.api.routers.creators.get_db_connection",
             return_value=conn,
         ), patch(
             "media_tools.api.routers.assets.get_db_connection",
             return_value=conn,
         ), patch(
-            "media_tools.repositories.asset_repository.get_db_connection",
+            "media_tools.assets.repository.get_db_connection",
             return_value=conn,
         ), patch(
             "media_tools.repositories.creator_repository.get_db_connection",

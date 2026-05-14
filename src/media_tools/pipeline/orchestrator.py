@@ -150,7 +150,7 @@ class OrchestratorV2:
             current_account_id: Optional[str] = None
 
             # 第三阶段：解析 asset_id，三段式 fallback；找不到也允许继续跑（只是没续传能力）
-            from media_tools.services.media_asset_service import MediaAssetService
+            from media_tools.assets.service import MediaAssetService
             asset_id_for_run = MediaAssetService.find_asset_id_for_video_path(video_path)
 
             # 将 asset_id 嵌入输出标题，防止不同视频因标题截断后互相覆盖
@@ -161,7 +161,7 @@ class OrchestratorV2:
             # DB 级断点续传：检查该 asset 是否已有成功的 run（跨账号去重）
             if asset_id_for_run:
                 from media_tools.services.transcribe_run_service import TranscribeRunService
-                from media_tools.services.asset_update_service import AssetUpdateService
+                from media_tools.assets.service import AssetUpdateService
                 saved = TranscribeRunService.check_saved(asset_id_for_run)
                 if saved:
                     saved_path, saved_account_id = saved
@@ -343,7 +343,7 @@ class OrchestratorV2:
 
             if result.success:
                 # 同步更新数据库
-                from media_tools.services.asset_update_service import AssetUpdateService
+                from media_tools.assets.service import AssetUpdateService
                 AssetUpdateService.mark_transcribe_completed(
                     video_path, result.transcript_path, Path(self.config.output_dir)
                 )
@@ -372,8 +372,8 @@ class OrchestratorV2:
             else:
                 # 不可重试或已达最大次数
                 # 同步把失败信息写回 media_assets，让 UI/查询能基于 DB 真相源
-                from media_tools.services.asset_update_service import AssetUpdateService
-                from media_tools.services.cloud_cleanup_service import CloudCleanupService
+                from media_tools.assets.service import AssetUpdateService
+                from media_tools.assets.gc import CloudCleanupService
                 AssetUpdateService.mark_transcribe_failed(
                     video_path,
                     result.error_type.value,
@@ -470,7 +470,7 @@ class OrchestratorV2:
                     error_type=error_type,
                 )
                 # transcribe_with_retry 抛出异常时（理论上不会，但兜底）也要写回 DB
-                from media_tools.services.asset_update_service import AssetUpdateService
+                from media_tools.assets.service import AssetUpdateService
                 AssetUpdateService.mark_transcribe_failed(
                     video_path,
                     error_type.value,

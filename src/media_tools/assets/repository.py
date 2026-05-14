@@ -5,7 +5,7 @@ import sqlite3
 from typing import Any, Optional, Union
 
 from media_tools.store.db import get_db_connection, get_table_columns
-from media_tools.services.asset_file_ops import get_source_url_column
+from media_tools.assets.file_ops import get_source_url_column
 
 
 class AssetRepository:

@@ -30,7 +30,7 @@ from media_tools.douyin.core.cancel_registry import set_cancel_event, clear_canc
 from media_tools.common.paths import get_download_path, get_project_root
 from media_tools.store.db import get_db_connection
 from media_tools.repositories.task_repository import TaskRepository
-from media_tools.repositories.asset_repository import AssetRepository
+from media_tools.assets.repository import AssetRepository
 from media_tools.core.config import get_runtime_setting_bool
 
 # WebSocket
@@ -45,7 +45,7 @@ from media_tools.scheduler.state import (
     _active_tasks,
 )
 from media_tools.scheduler.progress import build_pipeline_progress
-from media_tools.services.transcript_reconciler import reconcile_transcripts
+from media_tools.assets.reconciler import reconcile_transcripts
 from media_tools.services.file_browser import select_folder, scan_directory
 from media_tools.services.cleanup import cleanup_paths_allowlist
 
@@ -348,7 +348,7 @@ async def retry_failed_assets(req: RetryFailedAssetsRequest):
       - 跨任务、跨时间都能聚合——"这个创作者所有失败的"、"所有 quota 错误的"
     """
     try:
-        from media_tools.services.media_asset_service import MediaAssetService
+        from media_tools.assets.service import MediaAssetService
 
         limit = req.limit or 1000
         rows = MediaAssetService.find_pending_to_transcribe(

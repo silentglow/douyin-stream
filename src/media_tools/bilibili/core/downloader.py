@@ -107,7 +107,7 @@ def _persist_bilibili_assets_to_db(
     if not new_files:
         return
 
-    from media_tools.services.media_asset_service import MediaAssetService
+    from media_tools.assets.service import MediaAssetService
     from media_tools.bilibili.utils.naming import build_bilibili_creator_uid, build_bilibili_asset_id
 
     new_files_resolved = {str(Path(p).resolve()): p for p in new_files}

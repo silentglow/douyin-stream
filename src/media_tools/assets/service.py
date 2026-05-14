@@ -1,35 +1,22 @@
 from __future__ import annotations
-"""media_assets 表的统一访问服务。
-
-历史上 media_assets 由 4 处分别 INSERT/UPDATE（douyin downloader、本地上传、扫盘 worker、
-transcript reconciler），导致失败状态从未被任何一处写入。本服务把"转写完成 / 转写失败 /
-按状态发现待重试"等关键写入和查询集中起来，让 media_assets 真正成为业务真相源。
-
-不强制其它写入点立即迁移；orchestrator 优先切到本服务，新功能（如 B 站入库、
-retry-failed-assets API）直接基于本服务构建。
-"""
+"""assets 域服务：media_assets 表的统一访问与状态更新。"""
 
 import re
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from media_tools.store.db import get_db_connection, update_fts_for_asset
 from media_tools.logger import get_logger
 
 logger = get_logger(__name__)
 
-
 _AWEME_ID_RE = re.compile(r"\d{15,}")
 
 
 def _resolve_asset_id_from_video_path(video_path: Path) -> Optional[str]:
-    """根据视频文件名启发式定位 asset_id。
-
-    抖音 aweme 文件名带 15+ 位数字，命中即返回；本地上传等无 aweme 的视频返回 None，
-    调用方需要走 video_path / title 的 LIKE 兜底匹配。
-    """
+    """根据视频文件名启发式定位 asset_id。"""
     matches = _AWEME_ID_RE.findall(video_path.name)
     return matches[0] if matches else None
 
@@ -37,16 +24,9 @@ def _resolve_asset_id_from_video_path(video_path: Path) -> Optional[str]:
 class MediaAssetService:
     """media_assets 表的写入与发现层"""
 
-    # ---------- 解析 ----------
-
     @staticmethod
     def find_asset_id_for_video_path(video_path: Path) -> Optional[str]:
-        """三段式 fallback 找出视频对应的 asset_id。
-
-        1) 文件名带 15+ 位数字 -> 抖音 aweme
-        2) DB 里按 video_path / title 模糊匹配
-        3) 找不到返回 None（调用方应允许"无 asset_id 也能跑"）
-        """
+        """三段式 fallback 找出视频对应的 asset_id。"""
         guessed = _resolve_asset_id_from_video_path(video_path)
         if guessed:
             return guessed
@@ -67,8 +47,6 @@ class MediaAssetService:
             logger.warning(f"find_asset_id_for_video_path({video_path}) 失败: {e}")
             return None
 
-    # ---------- 写入：下载入库 ----------
-
     @staticmethod
     def mark_downloaded(
         *,
@@ -82,7 +60,7 @@ class MediaAssetService:
         duration: Optional[int] = None,
         video_status: str = "downloaded",
     ) -> None:
-        """新视频下载完成后入库。已存在则只更新 video_path / source_platform / status。"""
+        """新视频下载完成后入库。"""
         now = datetime.now().isoformat()
         try:
             with get_db_connection() as conn:
@@ -117,11 +95,8 @@ class MediaAssetService:
         except sqlite3.Error as e:
             logger.warning(f"mark_downloaded({asset_id}) 失败: {e}")
 
-    # ---------- 写入：转写生命周期 ----------
-
     @staticmethod
     def mark_transcribe_running(asset_id: str, task_id: Optional[str] = None) -> None:
-        """转写开始时记录 last_task_id；不强制使用，目前主要给 retry-failed-assets 复用。"""
         if not asset_id:
             return
         try:
@@ -247,8 +222,6 @@ class MediaAssetService:
         except sqlite3.Error as e:
             logger.warning(f"mark_transcribe_failed({video_path}) 失败: {e}")
 
-    # ---------- 发现：按状态查待处理 ----------
-
     @staticmethod
     def find_pending_to_transcribe(
         *,
@@ -258,12 +231,6 @@ class MediaAssetService:
         only_failed: bool = False,
         limit: int = 1000,
     ) -> list[dict[str, Any]]:
-        """按业务真相源找应该被（重新）转写的视频。
-
-        - only_failed=True 时只取 transcript_status='failed' 的；否则同时包含 'pending' / 'none'
-        - error_types 仅在 only_failed=True 时生效
-        - 仅返回 video_status IN ('downloaded', 'pending') 的资产
-        """
         clauses: list[str] = ["video_status IN ('downloaded', 'pending')"]
         params: list[Any] = []
 
@@ -303,3 +270,43 @@ class MediaAssetService:
         except sqlite3.Error as e:
             logger.warning(f"find_pending_to_transcribe 失败: {e}")
             return []
+
+
+class AssetUpdateService:
+    """media_assets 转写状态的统一更新入口（含 preview 提取）。"""
+
+    @staticmethod
+    def mark_transcribe_completed(
+        video_path: Path,
+        transcript_path: Optional[Path],
+        output_dir: Path,
+    ) -> None:
+        try:
+            from media_tools.pipeline.preview import extract_transcript_preview, extract_transcript_text
+
+            preview = extract_transcript_preview(transcript_path) if transcript_path else ""
+            full_text = extract_transcript_text(transcript_path) if transcript_path else ""
+            MediaAssetService.mark_transcribe_completed(
+                video_path=video_path,
+                transcript_path=transcript_path,
+                output_dir=output_dir,
+                preview=preview,
+                full_text=full_text,
+            )
+        except (OSError, ValueError) as e:
+            logger.warning(f"更新 media_assets 转写状态失败: {e}")
+
+    @staticmethod
+    def mark_transcribe_failed(
+        video_path: Path,
+        error_type: str,
+        error_message: str,
+    ) -> None:
+        try:
+            MediaAssetService.mark_transcribe_failed(
+                video_path=video_path,
+                error_type=error_type,
+                error_message=error_message,
+            )
+        except (OSError, ValueError) as e:
+            logger.warning(f"写回 media_assets 失败状态失败: {e}")

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from media_tools.common.paths import get_download_path, get_project_root
 from media_tools.store.db import resolve_safe_path
-from media_tools.services.local_asset_service import LOCAL_CREATOR_UID
+from media_tools.assets.local import LOCAL_CREATOR_UID
 
 logger = logging.getLogger(__name__)
 

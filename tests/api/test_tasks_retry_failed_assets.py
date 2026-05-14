@@ -81,7 +81,7 @@ def _build_db_with_failed_assets(rows: list[tuple[str, str, str, str, str | None
 
 def test_retry_failed_assets_dispatches_for_existing_files(tmp_path: Path) -> None:
     from media_tools.api.routers import tasks as tasks_router
-    from media_tools.services import media_asset_service as svc
+    from media_tools.assets import service as svc
 
     fp_ok = tmp_path / "ok.mp4"
     fp_ok.write_bytes(b"x")
@@ -124,7 +124,7 @@ def test_retry_failed_assets_dispatches_for_existing_files(tmp_path: Path) -> No
 
 def test_retry_failed_assets_filters_by_creator_and_error_type(tmp_path: Path) -> None:
     from media_tools.api.routers import tasks as tasks_router
-    from media_tools.services import media_asset_service as svc
+    from media_tools.assets import service as svc
 
     for name in ("a.mp4", "b.mp4", "c.mp4"):
         (tmp_path / name).write_bytes(b"x")
@@ -156,7 +156,7 @@ def test_retry_failed_assets_filters_by_creator_and_error_type(tmp_path: Path) -
 
 def test_retry_failed_assets_returns_409_when_no_files_on_disk(tmp_path: Path) -> None:
     from media_tools.api.routers import tasks as tasks_router
-    from media_tools.services import media_asset_service as svc
+    from media_tools.assets import service as svc
 
     conn = _build_db_with_failed_assets([
         ("missing", "u1", "failed", "missing.mp4", "auth"),
@@ -178,7 +178,7 @@ def test_retry_failed_assets_returns_409_when_no_files_on_disk(tmp_path: Path) -
 
 def test_retry_failed_assets_409_when_no_failed_at_all(tmp_path: Path) -> None:
     from media_tools.api.routers import tasks as tasks_router
-    from media_tools.services import media_asset_service as svc
+    from media_tools.assets import service as svc
 
     conn = _build_db_with_failed_assets([])  # nothing failed
 

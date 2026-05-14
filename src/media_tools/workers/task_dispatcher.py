@@ -12,7 +12,7 @@ from media_tools.api.schemas import (
 from media_tools.repositories.task_repository import TaskRepository
 from media_tools.scheduler.ops import notify_task_update
 from media_tools.scheduler.state import _register_background_task
-from media_tools.services.local_asset_service import _register_local_assets
+from media_tools.assets.local import _register_local_assets
 from media_tools.workers.pipeline_worker import PipelineWorker, DownloadWorker
 from media_tools.workers.full_sync_worker import FullSyncWorker
 from media_tools.workers.local_transcribe_worker import LocalTranscribeWorker
