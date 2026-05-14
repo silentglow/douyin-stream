@@ -30,8 +30,6 @@ async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, d
         effective_concurrency = config.concurrency
     output_root = Path(config.output_dir).resolve()
 
-    success_count = 0
-    failed_count = 0
     total = len(valid_paths)
     await call_progress(
         update_progress_fn,
@@ -47,146 +45,118 @@ async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, d
     success_paths: list[str] = []
     failed_paths: list[str] = []
 
-    semaphore = asyncio.Semaphore(effective_concurrency)
-    completed_count = 0
+    _pb_done = 0
 
-    async def _run_one(video_path: Path):
-        title = video_path.stem[:60]
-        async with semaphore:
-            # 拿到并发槽时再报当前进度，避免一次创建 N 个任务时全部上报 (0/total)
-            started = completed_count
-            progress = 0.02 + 0.93 * (started / total) if total > 0 else 0.02
-            create_managed_task(
-                call_progress(
-                    update_progress_fn,
-                    progress,
-                    f"正在转写 ({started}/{total}) · {title}",
-                    stage="transcribe",
-                    pipeline_progress={"transcribe": {"done": int(started), "total": int(total), "current_title": title}},
-                )
-            )
-            return await orchestrator.transcribe_with_retry(video_path)
-
-    tasks = [asyncio.create_task(_run_one(p)) for p in valid_paths]
-
-    try:
-        for finished in asyncio.as_completed(tasks):
-            title = ""
-            try:
-                r = await finished
-                video_path = r.video_path if getattr(r, "video_path", None) else Path("")
-                title = video_path.stem[:60] if video_path else ""
-
-                if getattr(r, "success", False):
-                    success_count += 1
-                    transcript_path = getattr(r, "transcript_path", None)
-                    transcript_name = ""
-                    preview = ""
-                    full_text = ""
-                    if transcript_path:
-                        tp = Path(transcript_path)
-                        try:
-                            transcript_name = str(tp.resolve().relative_to(output_root))
-                        except ValueError:
-                            transcript_name = str(tp.name)
-                        preview = extract_transcript_preview(str(tp))
-                        full_text = extract_transcript_text(str(tp))
-                    try:
-                        with get_db_connection() as conn:
-                            asset_id = local_asset_id(video_path)
-                            conn.execute(
-                                """
-                                UPDATE media_assets
-                                SET transcript_path = ?, transcript_status = 'completed', transcript_preview = ?, transcript_text = ?, update_time = CURRENT_TIMESTAMP
-                                WHERE asset_id = ?
-                                """,
-                                (transcript_name, preview, full_text, asset_id),
-                            )
-                            # 在同一连接里同步 FTS，避免主事务回滚时 FTS 索引漂移
-                            try:
-                                title_row = conn.execute(
-                                    "SELECT title FROM media_assets WHERE asset_id = ?",
-                                    (asset_id,),
-                                ).fetchone()
-                                conn.execute(
-                                    "INSERT OR REPLACE INTO assets_fts(asset_id, title, transcript_text) VALUES (?, ?, ?)",
-                                    (asset_id, title_row["title"] if title_row else "", full_text or ""),
-                                )
-                            except sqlite3.Error as fts_err:
-                                logger.error(f"FTS索引更新失败 (asset={asset_id}): {fts_err}")
-                            conn.commit()
-                    except sqlite3.Error as db_err:
-                        logger.error(f"DB更新失败 (asset={local_asset_id(video_path)}): {db_err}")
-
-                    success_paths.append(str(video_path))
-                    subtasks.append({"title": title or "未知", "status": "completed"})
-
-                    if delete_after and video_path and video_path.exists():
-                        transcript_path = getattr(r, "transcript_path", None)
-                        if transcript_path and Path(transcript_path).exists():
-                            try:
-                                video_path.unlink()
-                            except FileNotFoundError:
-                                pass
-                            except OSError as e:
-                                logger.error(f"删除视频失败 (DB已更新): {video_path}, {e}")
-                        else:
-                            logger.warning(f"跳过删除源视频：转录文件不存在或已丢失 ({transcript_path})")
-                else:
-                    failed_count += 1
-                    failed_paths.append(str(video_path))
-                    err_type = getattr(getattr(r, "error_type", None), "value", "") or ""
-                    err_msg = getattr(r, "error", None)
-                    attempts = getattr(r, "attempts", None)
-                    error_text = ""
-                    if err_type and err_type != "unknown":
-                        error_text = f"{err_type}: {err_msg}" if err_msg else err_type
-                    else:
-                        error_text = str(err_msg) if err_msg else "unknown"
-                    if attempts and isinstance(attempts, int) and attempts > 1:
-                        error_text = f"{error_text} (attempts={attempts})"
-                    subtasks.append(
-                        {
-                            "title": title or "未知",
-                            "status": "failed",
-                            "error": error_text,
-                            "error_type": err_type or None,
-                            "attempts": attempts,
-                            "video_path": str(video_path) if video_path else None,
-                        }
-                    )
-            except Exception as exc:
-                failed_count += 1
-                subtasks.append({"title": title or "未知", "status": "failed", "error": f"exception: {type(exc).__name__}: {exc}"})
-
-            completed = success_count + failed_count
-            completed_count = completed
-            progress = 0.02 + 0.93 * (completed / total) if total > 0 else 0.02
-            msg = f"正在转写 ({completed}/{total}) · {title}" if title else f"正在转写 ({completed}/{total})"
-            await call_progress(
+    def _progress_callback(current: int, total_cb: int, video_path: Path, status: str, account_id: Optional[str] = None):
+        nonlocal _pb_done
+        if current == 1 and total_cb == 1:
+            _pb_done += 1
+        progress = 0.02 + 0.93 * (_pb_done / total) if total > 0 else 0.02
+        transcribe_info: dict[str, Any] = {"done": _pb_done, "total": total}
+        if account_id:
+            transcribe_info["account_id"] = account_id
+        create_managed_task(
+            call_progress(
                 update_progress_fn,
                 progress,
-                msg,
+                status,
                 stage="transcribe",
-                pipeline_progress={"transcribe": {"done": int(completed), "total": int(total), "current_title": title}},
+                pipeline_progress={"transcribe": transcribe_info},
             )
-    finally:
-        for t in tasks:
-            if not t.done():
-                t.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+        )
+
+    orchestrator.on_progress = _progress_callback
+
+    report = await orchestrator.transcribe_batch(valid_paths, resume=False)
+
+    # 批量处理额外 DB 更新（preview / text / FTS）和删除
+    for item in report.results:
+        video_path_str = item.get("video_path", "")
+        success = item.get("success", False)
+        video_path = Path(video_path_str) if video_path_str else None
+
+        if success and video_path:
+            transcript_path = item.get("transcript_path")
+            if transcript_path:
+                tp = Path(transcript_path)
+                try:
+                    transcript_name = str(tp.resolve().relative_to(output_root))
+                except ValueError:
+                    transcript_name = str(tp.name)
+                preview = extract_transcript_preview(str(tp))
+                full_text = extract_transcript_text(str(tp))
+                try:
+                    with get_db_connection() as conn:
+                        asset_id = local_asset_id(video_path)
+                        conn.execute(
+                            """
+                            UPDATE media_assets
+                            SET transcript_preview = ?, transcript_text = ?, update_time = CURRENT_TIMESTAMP
+                            WHERE asset_id = ?
+                            """,
+                            (preview, full_text, asset_id),
+                        )
+                        try:
+                            title_row = conn.execute(
+                                "SELECT title FROM media_assets WHERE asset_id = ?",
+                                (asset_id,),
+                            ).fetchone()
+                            conn.execute(
+                                "INSERT OR REPLACE INTO assets_fts(asset_id, title, transcript_text) VALUES (?, ?, ?)",
+                                (asset_id, title_row["title"] if title_row else "", full_text or ""),
+                            )
+                        except sqlite3.Error as fts_err:
+                            logger.error(f"FTS索引更新失败 (asset={asset_id}): {fts_err}")
+                        conn.commit()
+                except sqlite3.Error as db_err:
+                    logger.error(f"DB更新失败 (asset={local_asset_id(video_path)}): {db_err}")
+
+            success_paths.append(str(video_path))
+            subtasks.append({"title": video_path.stem, "status": "completed"})
+
+            if delete_after and video_path.exists():
+                if transcript_path and Path(transcript_path).exists():
+                    try:
+                        video_path.unlink()
+                    except FileNotFoundError:
+                        pass
+                    except OSError as e:
+                        logger.error(f"删除视频失败: {video_path}, {e}")
+                else:
+                    logger.warning(f"跳过删除源视频：转录文件不存在或已丢失 ({transcript_path})")
+        else:
+            if video_path:
+                failed_paths.append(str(video_path))
+            err_type = item.get("error_type", "")
+            err_msg = item.get("error")
+            attempts = item.get("attempts")
+            error_text = ""
+            if err_type and err_type != "unknown":
+                error_text = f"{err_type}: {err_msg}" if err_msg else err_type
+            else:
+                error_text = str(err_msg) if err_msg else "unknown"
+            if attempts and isinstance(attempts, int) and attempts > 1:
+                error_text = f"{error_text} (attempts={attempts})"
+            subtasks.append({
+                "title": video_path.stem if video_path else "未知",
+                "status": "failed",
+                "error": error_text,
+                "error_type": err_type or None,
+                "attempts": attempts,
+                "video_path": str(video_path) if video_path else None,
+            })
 
     await call_progress(
         update_progress_fn,
         0.98,
         f"转写完成，正在汇总 {total} 个结果...",
         stage="transcribe",
-        pipeline_progress={"transcribe": {"done": int(success_count + failed_count), "total": int(total)}},
+        pipeline_progress={"transcribe": {"done": total, "total": total}},
     )
 
     return {
-        "success_count": success_count,
-        "failed_count": failed_count,
+        "success_count": report.success,
+        "failed_count": report.failed,
         "total": total,
         "subtasks": subtasks,
         "success_paths": success_paths,
