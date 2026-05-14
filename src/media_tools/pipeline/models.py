@@ -8,8 +8,8 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from .error_types import ErrorType
-from ..transcribe.runtime import ensure_dir
+from media_tools.pipeline.error_types import ErrorType
+from media_tools.transcribe.runtime import ensure_dir
 
 logger = logging.getLogger(__name__)
 
