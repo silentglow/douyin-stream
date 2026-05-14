@@ -356,19 +356,28 @@ class AppConfig:
     def validate(self) -> list[str]:
         """验证所有配置项，返回错误列表"""
         errors = []
-        
+
         if self.concurrency < 1:
             errors.append("concurrency 必须大于 0")
-        
+
         if self.concurrency > 100:
             errors.append("concurrency 建议不超过 100")
-        
+
+        if self.pipeline_export_format not in ("md", "docx", "pdf", "srt", "txt"):
+            errors.append(f"不支持的导出格式: {self.pipeline_export_format}")
+
         if not self.db_path.parent.exists():
             errors.append(f"数据库目录不存在: {self.db_path.parent}")
-        
+
         if not self.download_path.exists():
             errors.append(f"下载目录不存在: {self.download_path}")
-        
+
+        output = Path(self.pipeline_output_dir)
+        try:
+            output.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            errors.append(f"无法创建输出目录 {output}: {e}")
+
         return errors
 
     # === Configuration description ===
@@ -381,6 +390,7 @@ class AppConfig:
                 "auto_transcribe": self.auto_transcribe,
                 "auto_delete": self.auto_delete,
                 "api_key_set": bool(self.api_key),
+                "export_format": self.pipeline_export_format,
             },
             "static": {
                 "download_path": str(self.download_path),
@@ -397,7 +407,6 @@ class AppConfig:
                 "pipeline_output_dir": self.pipeline_output_dir,
                 "pipeline_delete_after_export": self.pipeline_delete_after_export,
                 "pipeline_account_id_set": bool(self.pipeline_account_id),
-                "auto_delete": self.auto_delete,
             },
         }
 

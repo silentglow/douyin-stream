@@ -498,8 +498,6 @@ def _sync_media_assets(uid: str, nickname: str, folder_name: str):
                     for word in chinese_words:
                         keyword_lookup.setdefault(word, []).append(f"{folder_name}/{f.name}")
 
-            now = datetime.now().isoformat()
-
             # 方法0：先构建 aweme_id -> local_filename 的精确映射
             # _rename_videos_in_downloads 已在重命名时写入此字段
             local_filename_map: dict[str, str] = {}
@@ -551,22 +549,17 @@ def _sync_media_assets(uid: str, nickname: str, folder_name: str):
                             if video_path:
                                 break
 
-                # 插入或更新 media_assets 表
-                cursor.execute("""
-                    INSERT OR IGNORE INTO media_assets
-                    (asset_id, creator_uid, title, duration, video_path, video_status, create_time, update_time)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    aweme_id, uid, desc, duration, video_path, video_status, now, now
-                ))
-
-                # 如果已经存在，则在状态/路径发生变化时更新（允许 downloaded -> corrupt_file）
-                cursor.execute("""
-                    UPDATE media_assets
-                    SET video_path = ?, video_status = ?, update_time = ?
-                    WHERE asset_id = ?
-                      AND (COALESCE(video_status, '') != ? OR COALESCE(video_path, '') != ?)
-                """, (video_path, video_status, now, aweme_id, video_status, video_path)
+                # 统一使用 MediaAssetService 入库，与 Bilibili 保持一致
+                from media_tools.services.media_asset_service import MediaAssetService
+                MediaAssetService.mark_downloaded(
+                    asset_id=aweme_id,
+                    creator_uid=uid,
+                    title=desc,
+                    video_path=video_path,
+                    source_platform="douyin",
+                    folder_path=folder_name,
+                    duration=duration,
+                    video_status=video_status,
                 )
     except (sqlite3.Error, OSError) as e:
         logger.error(f"同步 media_assets 失败: {e}")
