@@ -19,7 +19,7 @@ def test_rehydrate_qwen_accounts_updates_auth_state_paths(monkeypatch) -> None:
         ("a2", "qwen", "", "r", "active", ""),
     )
     conn.commit()
-    monkeypatch.setattr("media_tools.api.routers.settings.get_db_connection", lambda: conn)
+    monkeypatch.setattr("media_tools.repositories.account_repository.get_db_connection", lambda: conn)
 
     called: list[tuple[str, str]] = []
 

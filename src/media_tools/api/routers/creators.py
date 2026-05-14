@@ -2,7 +2,7 @@ import asyncio
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from media_tools.common.paths import get_download_path, get_project_root
-from media_tools.db.core import get_db_connection, resolve_safe_path, resolve_query_value, get_table_columns
+from media_tools.db.core import get_db_connection, resolve_safe_path, resolve_query_value
 from media_tools.repositories.creator_repository import CreatorRepository
 from media_tools.repositories.asset_repository import AssetRepository
 from media_tools.services.bilibili_nickname import fetch_bilibili_nickname
@@ -135,49 +135,11 @@ def list_creators(
     limit = resolve_query_value(limit, 100)
     offset = resolve_query_value(offset, 0)
     try:
-        with get_db_connection() as conn:
-            conn.row_factory = sqlite3.Row
-            creator_columns = get_table_columns(conn, "creators")
-            platform_select = "c.platform" if "platform" in creator_columns else "'douyin' AS platform"
-            platform_group = ", c.platform" if "platform" in creator_columns else ""
-            homepage_select = "COALESCE(NULLIF(c.homepage_url, ''), CASE WHEN c.platform = 'douyin' THEN 'https://www.douyin.com/user/' || c.sec_user_id ELSE '' END) AS homepage_url" if "homepage_url" in creator_columns else "'' AS homepage_url"
-            homepage_group = ", c.homepage_url" if "homepage_url" in creator_columns else ""
-            cursor = conn.execute("""
-                SELECT
-                    c.uid,
-                    c.nickname,
-                    c.sec_user_id,
-                    {platform_select},
-                    c.sync_status,
-                    c.avatar,
-                    c.bio,
-                    {homepage_select},
-                    c.last_fetch_time,
-                    COUNT(ma.asset_id) AS asset_count,
-                    COALESCE(SUM(CASE WHEN ma.video_status = 'downloaded' THEN 1 ELSE 0 END), 0) AS downloaded_videos_count,
-                    COALESCE(SUM(CASE WHEN ma.transcript_status = 'completed' THEN 1 ELSE 0 END), 0) AS transcript_completed_count,
-                    COALESCE(SUM(CASE WHEN ma.transcript_status = 'completed' AND (ma.is_read = 0 OR ma.is_read IS NULL) THEN 1 ELSE 0 END), 0) AS unread_completed_count,
-                    COALESCE(SUM(CASE WHEN ma.transcript_status IN ('pending', 'none') AND ma.video_status IN ('downloaded', 'pending') THEN 1 ELSE 0 END), 0) AS transcript_pending_count,
-                    COALESCE(SUM(CASE WHEN ma.transcript_status = 'failed' AND ma.video_status IN ('downloaded', 'pending') THEN 1 ELSE 0 END), 0) AS transcript_failed_count
-                FROM creators c
-                LEFT JOIN media_assets ma ON ma.creator_uid = c.uid
-                GROUP BY c.uid, c.nickname, c.sec_user_id{platform_group}, c.sync_status, c.avatar, c.bio{homepage_group}, c.last_fetch_time
-                ORDER BY
-                    CASE WHEN c.last_fetch_time IS NULL THEN 1 ELSE 0 END,
-                    c.last_fetch_time DESC,
-                    c.nickname COLLATE NOCASE ASC
-                LIMIT ? OFFSET ?
-            """.format(
-                platform_select=platform_select,
-                platform_group=platform_group,
-                homepage_select=homepage_select,
-                homepage_group=homepage_group,
-            ), (limit, offset))
-            creators = [dict(row) for row in cursor.fetchall()]
-            for creator in creators:
-                folder_name = _get_creator_folder_name(creator)
-                creator.update(_get_cached_creator_disk_counts(folder_name))
-            return creators
+        creators = CreatorRepository.list_with_stats(limit=limit, offset=offset)
+        for creator in creators:
+            folder_name = _get_creator_folder_name(creator)
+            creator.update(_get_cached_creator_disk_counts(folder_name))
+        return creators
     except sqlite3.Error:
         logger.exception("list_creators failed")
         raise HTTPException(status_code=500, detail="获取创作者列表失败")
@@ -205,57 +167,12 @@ async def create_creator(req: CreatorCreateRequest):
                 logger.warning(f"获取B站昵称失败: {e}")
                 # 使用 mid 作为后备
 
-            with get_db_connection() as conn:
-                creator_columns = get_table_columns(conn, "creators")
-                # 先检查是否存在
-                cursor = conn.execute("SELECT uid FROM creators WHERE uid = ?", (uid,))
-                exists = cursor.fetchone() is not None
-
-                if exists:
-                    # 已存在则更新
-                    if "homepage_url" in creator_columns:
-                        conn.execute(
-                            (
-                                "UPDATE creators SET sec_user_id = ?, nickname = ?, homepage_url = ?"
-                                + (", platform = 'bilibili'" if "platform" in creator_columns else "")
-                                + " WHERE uid = ?"
-                            ),
-                            (parsed.mid, nickname, homepage_url, uid),
-                        )
-                    else:
-                        conn.execute(
-                            (
-                                "UPDATE creators SET sec_user_id = ?, nickname = ?"
-                                + (", platform = 'bilibili'" if "platform" in creator_columns else "")
-                                + " WHERE uid = ?"
-                            ),
-                            (parsed.mid, nickname, uid),
-                        )
-                else:
-                    # 不存在则插入
-                    if "homepage_url" in creator_columns and "platform" in creator_columns:
-                        conn.execute(
-                            "INSERT INTO creators (uid, sec_user_id, nickname, homepage_url, platform, sync_status) VALUES (?, ?, ?, ?, 'bilibili', 'active')",
-                            (uid, parsed.mid, nickname, homepage_url),
-                        )
-                    elif "homepage_url" in creator_columns:
-                        conn.execute(
-                            "INSERT INTO creators (uid, sec_user_id, nickname, homepage_url, sync_status) VALUES (?, ?, ?, ?, 'active')",
-                            (uid, parsed.mid, nickname, homepage_url),
-                        )
-                    elif "platform" in creator_columns:
-                        conn.execute(
-                            "INSERT INTO creators (uid, sec_user_id, nickname, platform, sync_status) VALUES (?, ?, ?, 'bilibili', 'active')",
-                            (uid, parsed.mid, nickname),
-                        )
-                    else:
-                        conn.execute(
-                            "INSERT INTO creators (uid, sec_user_id, nickname, sync_status) VALUES (?, ?, ?, 'active')",
-                            (uid, parsed.mid, nickname),
-                        )
-                conn.commit()
-
-                created = not exists
+            created = CreatorRepository.upsert_bilibili_creator(
+                uid=uid,
+                sec_user_id=parsed.mid,
+                nickname=nickname,
+                homepage_url=homepage_url,
+            )
 
             return {
                 "status": "created" if created else "exists",
@@ -285,35 +202,14 @@ async def create_creator(req: CreatorCreateRequest):
 @router.delete("/{uid}")
 def delete_creator(uid: str):
     try:
-        with get_db_connection() as conn:
-            conn.row_factory = sqlite3.Row
-            conn.execute("BEGIN IMMEDIATE")
-
-            # Check if creator exists
-            cursor = conn.execute("SELECT nickname FROM creators WHERE uid = ?", (uid,))
-            creator = cursor.fetchone()
-            if not creator:
-                raise HTTPException(status_code=404, detail="Creator not found")
-
-            nickname = creator['nickname']
-
-            # Find all assets for this creator
-            cursor = conn.execute("SELECT asset_id, video_path, transcript_path FROM media_assets WHERE creator_uid = ?", (uid,))
-            assets = cursor.fetchall()
-
-            # Phase 1: DB deletes first (inside transaction)
-            asset_ids = [str(a['asset_id']) for a in assets if a['asset_id']]
-            if asset_ids:
-                placeholders = ",".join("?" * len(asset_ids))
-                conn.execute(f"DELETE FROM assets_fts WHERE asset_id IN ({placeholders})", asset_ids)
-            conn.execute("DELETE FROM media_assets WHERE creator_uid = ?", (uid,))
-            conn.execute("DELETE FROM creators WHERE uid = ?", (uid,))
-            conn.commit()
+        nickname, assets = CreatorRepository.delete_with_assets(uid)
+        if nickname is None:
+            raise HTTPException(status_code=404, detail="Creator not found")
 
         # Phase 2: Delete files after DB commit (outside transaction)
         for asset in assets:
-            video_path = asset['video_path']
-            transcript_name = asset['transcript_path']
+            video_path = asset.get('video_path')
+            transcript_name = asset.get('transcript_path')
 
             # Delete video file
             if video_path:

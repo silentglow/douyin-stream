@@ -118,6 +118,7 @@ def test_list_assets_returns_folder_path(monkeypatch) -> None:
     )
     conn.commit()
     monkeypatch.setattr("media_tools.api.routers.assets.get_db_connection", lambda: conn)
+    monkeypatch.setattr("media_tools.repositories.asset_repository.get_db_connection", lambda: conn)
 
     rows = assets_router.list_assets(creator_uid="local:upload")
     assert rows[0]["folder_path"] == "chapter1"

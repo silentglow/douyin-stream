@@ -5,11 +5,11 @@ from media_tools.common.paths import get_download_path, get_project_root
 from media_tools.db.core import get_db_connection, resolve_safe_path, resolve_query_value
 from media_tools.services.asset_file_ops import (
     delete_asset_files,
-    get_source_url_column,
     _resolve_asset_video_file,
 )
 from media_tools.services.asset_gc import cleanup_stale_assets
 from media_tools.services.local_asset_service import LOCAL_CREATOR_UID
+from media_tools.repositories.asset_repository import AssetRepository
 from typing import Optional
 import sqlite3
 import logging
@@ -19,6 +19,7 @@ from pathlib import Path
 
 router = APIRouter(prefix="/api/v1/assets", tags=["assets"], redirect_slashes=False)
 logger = logging.getLogger(__name__)
+
 
 @router.get("")
 def list_assets(
@@ -38,8 +39,6 @@ def list_assets(
     - silent=false（默认）：数据库错误抛 500
     - silent=true：数据库错误返回空列表（兼容旧版）
     """
-    import sqlite3
-
     limit = resolve_query_value(limit, 100)
     offset = resolve_query_value(offset, 0)
     transcript_status = resolve_query_value(transcript_status, None)
@@ -55,39 +54,18 @@ def list_assets(
         status_filter = list(dict.fromkeys(status_filter))
 
     try:
-        with get_db_connection() as conn:
-            conn.row_factory = sqlite3.Row
-            base_sql = (
-                "SELECT asset_id, creator_uid, title, video_status, transcript_status, "
-                "transcript_path, transcript_preview, folder_path, is_read, is_starred, "
-                "transcript_error_type, transcript_last_error, transcript_retry_count, "
-                "transcript_failed_at, source_platform, last_task_id, "
-                "create_time, update_time FROM media_assets"
-            )
-
-            where_clauses: list[str] = []
-            params: list = []
-            if creator_uid:
-                where_clauses.append("creator_uid = ?")
-                params.append(creator_uid)
-            if status_filter:
-                placeholders = ",".join(["?"] * len(status_filter))
-                where_clauses.append(f"transcript_status IN ({placeholders})")
-                params.extend(status_filter)
-
-            sql = base_sql
-            if where_clauses:
-                sql += " WHERE " + " AND ".join(where_clauses)
-            sql += " ORDER BY update_time DESC LIMIT ? OFFSET ?"
-            params.extend([limit, offset])
-
-            cursor = conn.execute(sql, params)
-            return [dict(row) for row in cursor.fetchall()]
+        return AssetRepository.list_with_filters(
+            creator_uid=creator_uid,
+            status_filter=status_filter or None,
+            limit=limit,
+            offset=offset,
+        )
     except (sqlite3.Error, OSError, RuntimeError) as e:
         logger.exception(f"list_assets 错误: creator_uid={creator_uid}, limit={limit}, offset={offset}")
         if silent:
             return []
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/search")
 def search_assets(q: str = Query(..., min_length=1, max_length=200)):
@@ -97,30 +75,7 @@ def search_assets(q: str = Query(..., min_length=1, max_length=200)):
         cleaned = "".join(c for c in q if c.isprintable() or c.isspace()).strip()
         if not cleaned:
             return []
-        # 2) 双引号转义后整体包成 FTS5 phrase + 末尾 prefix 匹配；
-        #    包成 phrase 后 OR / AND / NEAR / * / : 等保留语义都被当字面字符处理
-        safe_q = cleaned.replace('"', '""')
-        fts_query = f'"{safe_q}"*'
-
-        with get_db_connection() as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                """
-                SELECT a.asset_id, a.creator_uid, a.title, a.video_status, a.transcript_status,
-                       a.transcript_path, a.transcript_preview, a.folder_path, a.is_read, a.is_starred,
-                       a.create_time, a.update_time,
-                       CASE WHEN LOWER(a.title) LIKE LOWER(?) THEN 'title' ELSE 'content' END AS match_type
-                FROM media_assets a
-                INNER JOIN assets_fts f ON a.asset_id = f.asset_id
-                WHERE assets_fts MATCH ?
-                ORDER BY
-                  CASE WHEN LOWER(a.title) LIKE LOWER(?) THEN 0 ELSE 1 END,
-                  a.update_time DESC
-                LIMIT 50
-                """,
-                (f"%{cleaned}%", fts_query, f"%{cleaned}%"),
-            )
-            return [dict(row) for row in cursor.fetchall()]
+        return AssetRepository.search_fts(cleaned)
     except (sqlite3.Error, OSError, RuntimeError) as e:
         logger.exception("search_assets failed")
         raise HTTPException(status_code=500, detail=str(e))
@@ -137,25 +92,19 @@ def export_transcripts(asset_ids: list[str]):
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
         used_filenames: set[str] = set()
-        with get_db_connection() as conn:
-            conn.row_factory = sqlite3.Row
-            placeholders = ','.join('?' * len(asset_ids))
-            cursor = conn.execute(
-                f"SELECT asset_id, title, transcript_path FROM media_assets WHERE asset_id IN ({placeholders}) AND transcript_path IS NOT NULL",
-                asset_ids
-            )
-            for row in cursor.fetchall():
-                transcript_file = resolve_safe_path(transcripts_dir, row['transcript_path'])
-                if transcript_file and transcript_file.exists():
-                    suffix = transcript_file.suffix or ".md"
-                    stem = f"{row['title'] or row['asset_id']}"
-                    # 清理文件名
-                    stem = ''.join(c for c in stem if c not in '<>:"/\\|?*').strip() or str(row['asset_id'])
-                    filename = f"{stem}{suffix}"
-                    if filename in used_filenames:
-                        filename = f"{stem}-{row['asset_id']}{suffix}"
-                    used_filenames.add(filename)
-                    zf.writestr(filename, transcript_file.read_bytes())
+        rows = AssetRepository.find_by_ids_for_export(asset_ids)
+        for row in rows:
+            transcript_file = resolve_safe_path(transcripts_dir, row['transcript_path'])
+            if transcript_file and transcript_file.exists():
+                suffix = transcript_file.suffix or ".md"
+                stem = f"{row['title'] or row['asset_id']}"
+                # 清理文件名
+                stem = ''.join(c for c in stem if c not in '<>:"/\\|?*').strip() or str(row['asset_id'])
+                filename = f"{stem}{suffix}"
+                if filename in used_filenames:
+                    filename = f"{stem}-{row['asset_id']}{suffix}"
+                used_filenames.add(filename)
+                zf.writestr(filename, transcript_file.read_bytes())
 
     buffer.seek(0)
     return StreamingResponse(
@@ -168,17 +117,13 @@ def export_transcripts(asset_ids: list[str]):
 @router.get("/{asset_id}/transcript")
 def get_transcript(asset_id: str):
     try:
-        with get_db_connection() as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute("SELECT transcript_path FROM media_assets WHERE asset_id = ?", (asset_id,))
-            row = cursor.fetchone()
+        transcript_path = AssetRepository.get_transcript_path(asset_id)
 
-        if not row or not row["transcript_path"]:
+        if not transcript_path:
             raise HTTPException(status_code=404, detail="Transcript not found in database")
 
-        transcript_name = row["transcript_path"]
         transcripts_dir = get_project_root() / "transcripts"
-        transcript_file = resolve_safe_path(transcripts_dir, transcript_name)
+        transcript_file = resolve_safe_path(transcripts_dir, transcript_path)
 
         if not transcript_file or not transcript_file.exists():
             raise HTTPException(status_code=404, detail="Transcript file not found on disk")
@@ -196,21 +141,15 @@ def get_transcript(asset_id: str):
     except (OSError, ValueError, RuntimeError) as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.delete("/{asset_id}")
 def delete_asset(asset_id: str):
     try:
         with get_db_connection() as conn:
-            conn.row_factory = sqlite3.Row
             # 开启事务，文件删除失败可回滚
             conn.execute("BEGIN IMMEDIATE")
 
-            source_url_select = get_source_url_column(conn)
-            cursor = conn.execute(
-                f"SELECT creator_uid, {source_url_select} video_path, transcript_path FROM media_assets WHERE asset_id = ?",
-                (asset_id,),
-            )
-            row = cursor.fetchone()
-
+            row = AssetRepository.find_for_deletion(asset_id)
             if not row:
                 raise HTTPException(status_code=404, detail="Asset not found")
 
@@ -222,8 +161,7 @@ def delete_asset(asset_id: str):
                 raise HTTPException(status_code=500, detail=f"删除文件失败: {failed[0]}")
 
             # Phase 3: Delete from database (后删DB)
-            conn.execute("DELETE FROM assets_fts WHERE asset_id = ?", (asset_id,))
-            conn.execute("DELETE FROM media_assets WHERE asset_id = ?", (asset_id,))
+            AssetRepository.delete_with_fts(asset_id, conn=conn)
             conn.commit()
 
             return {"status": "success", "message": f"Asset {asset_id} deleted successfully"}
@@ -235,32 +173,23 @@ def delete_asset(asset_id: str):
     except (sqlite3.Error, RuntimeError) as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 class AssetMarkRequest(BaseModel):
     is_read: Optional[bool] = None
     is_starred: Optional[bool] = None
 
+
 @router.patch("/{asset_id}/mark")
 def mark_asset(asset_id: str, req: AssetMarkRequest):
     """标记素材为已读/收藏"""
-    updates: list[str] = []
-    params: list = []
-    if req.is_read is not None:
-        updates.append("is_read = ?")
-        params.append(req.is_read)
-    if req.is_starred is not None:
-        updates.append("is_starred = ?")
-        params.append(req.is_starred)
-    if not updates:
+    if req.is_read is None and req.is_starred is None:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    updates.append("update_time = CURRENT_TIMESTAMP")
-    params.append(asset_id)
-
-    with get_db_connection() as conn:
-        cursor = conn.execute(f"UPDATE media_assets SET {', '.join(updates)} WHERE asset_id = ?", params)
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Asset not found")
-        conn.commit()
+    rowcount = AssetRepository.mark_asset(
+        asset_id, is_read=req.is_read, is_starred=req.is_starred
+    )
+    if rowcount == 0:
+        raise HTTPException(status_code=404, detail="Asset not found")
     return {"status": "success"}
 
 
@@ -285,25 +214,9 @@ def bulk_mark_assets(req: BulkAssetMarkRequest):
     if req.is_read is None and req.is_starred is None:
         raise HTTPException(status_code=400, detail="至少指定 is_read 或 is_starred")
 
-    set_clauses = []
-    set_params: list = []
-    if req.is_read is not None:
-        set_clauses.append("is_read = ?")
-        set_params.append(req.is_read)
-    if req.is_starred is not None:
-        set_clauses.append("is_starred = ?")
-        set_params.append(req.is_starred)
-    set_clauses.append("update_time = CURRENT_TIMESTAMP")
-
-    updated = 0
-    with get_db_connection() as conn:
-        for start in range(0, len(req.ids), 500):
-            chunk = req.ids[start:start + 500]
-            placeholders = ",".join("?" * len(chunk))
-            sql = f"UPDATE media_assets SET {', '.join(set_clauses)} WHERE asset_id IN ({placeholders})"
-            cursor = conn.execute(sql, (*set_params, *chunk))
-            updated += cursor.rowcount
-        conn.commit()
+    updated = AssetRepository.bulk_mark(
+        req.ids, is_read=req.is_read, is_starred=req.is_starred
+    )
     return {"status": "success", "updated": updated}
 
 
@@ -332,36 +245,10 @@ def bulk_delete_assets(req: BulkAssetDeleteRequest):
     rows_to_clean: list[dict] = []
     deleted = 0
     with get_db_connection() as conn:
-        conn.row_factory = sqlite3.Row
-        source_url_select = get_source_url_column(conn)
-
         try:
             conn.execute("BEGIN IMMEDIATE")
-
-            for start in range(0, len(req.ids), 500):
-                chunk = req.ids[start:start + 500]
-                placeholders = ",".join("?" * len(chunk))
-                cursor = conn.execute(
-                    f"SELECT asset_id, creator_uid, {source_url_select} video_path, transcript_path FROM media_assets WHERE asset_id IN ({placeholders})",
-                    chunk,
-                )
-                for row in cursor.fetchall():
-                    rows_to_clean.append({
-                        "creator_uid": row["creator_uid"],
-                        "source_url": row["source_url"],
-                        "video_path": row["video_path"],
-                        "transcript_path": row["transcript_path"],
-                    })
-
-                conn.execute(
-                    f"DELETE FROM assets_fts WHERE asset_id IN ({placeholders})",
-                    chunk,
-                )
-                cursor = conn.execute(
-                    f"DELETE FROM media_assets WHERE asset_id IN ({placeholders})",
-                    chunk,
-                )
-                deleted += cursor.rowcount
+            rows_to_clean = AssetRepository.find_for_bulk_deletion(req.ids)
+            deleted = AssetRepository.bulk_delete_with_fts(req.ids, conn=conn)
             conn.commit()
         except sqlite3.Error:
             conn.rollback()
@@ -390,10 +277,7 @@ def cleanup_missing_assets():
 
     deleted = 0
     with get_db_connection() as conn:
-        conn.row_factory = sqlite3.Row
-        source_url_select = get_source_url_column(conn)
-        cursor = conn.execute(f"SELECT asset_id, creator_uid, {source_url_select} video_path, transcript_path FROM media_assets")
-        rows = cursor.fetchall()
+        rows = AssetRepository.list_all_for_cleanup()
 
         for row in rows:
             asset_id = row["asset_id"]

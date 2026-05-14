@@ -68,6 +68,12 @@ class LocalAssetsVisibilityTests(unittest.TestCase):
         ), patch(
             "media_tools.api.routers.assets.get_db_connection",
             return_value=conn,
+        ), patch(
+            "media_tools.repositories.asset_repository.get_db_connection",
+            return_value=conn,
+        ), patch(
+            "media_tools.repositories.creator_repository.get_db_connection",
+            return_value=conn,
         ):
             _register_local_assets([str(tmp_file)], delete_after=False)
             creators = creators_router.list_creators()

@@ -31,7 +31,8 @@ def test_add_qwen_account_sets_auth_state_path(monkeypatch) -> None:
         "CREATE TABLE Accounts_Pool(account_id TEXT PRIMARY KEY, platform TEXT, cookie_data TEXT, remark TEXT, status TEXT DEFAULT 'active', auth_state_path TEXT DEFAULT '')"
     )
     conn.commit()
-    monkeypatch.setattr("media_tools.api.routers.settings.get_db_connection", lambda: conn)
+    monkeypatch.setattr("media_tools.repositories.account_repository.get_db_connection", lambda: conn)
+    monkeypatch.setattr("media_tools.repositories.account_repository.get_db_connection", lambda: conn)
 
     called = {}
 
@@ -74,7 +75,7 @@ def test_add_qwen_account_returns_validation_ok_when_snapshot_succeeds(monkeypat
         "CREATE TABLE Accounts_Pool(account_id TEXT PRIMARY KEY, platform TEXT, cookie_data TEXT, remark TEXT, status TEXT DEFAULT 'active', auth_state_path TEXT DEFAULT '')"
     )
     conn.commit()
-    monkeypatch.setattr("media_tools.api.routers.settings.get_db_connection", lambda: conn)
+    monkeypatch.setattr("media_tools.repositories.account_repository.get_db_connection", lambda: conn)
 
     monkeypatch.setattr("media_tools.api.routers.settings.save_qwen_cookie_string", lambda *args, **kwargs: {})  # noqa: ARG005
 
@@ -108,7 +109,7 @@ def test_add_qwen_account_sets_status_expired_only_on_auth_error(monkeypatch) ->
         "CREATE TABLE Accounts_Pool(account_id TEXT PRIMARY KEY, platform TEXT, cookie_data TEXT, remark TEXT, status TEXT DEFAULT 'active', auth_state_path TEXT DEFAULT '')"
     )
     conn.commit()
-    monkeypatch.setattr("media_tools.api.routers.settings.get_db_connection", lambda: conn)
+    monkeypatch.setattr("media_tools.repositories.account_repository.get_db_connection", lambda: conn)
     monkeypatch.setattr("media_tools.api.routers.settings.save_qwen_cookie_string", lambda *args, **kwargs: {})  # noqa: ARG005
 
     async def _auth_fail_snapshot(*args, **kwargs):  # noqa: ANN001,ARG001
@@ -136,7 +137,7 @@ def test_add_qwen_account_does_not_set_status_expired_on_network_error(monkeypat
         "CREATE TABLE Accounts_Pool(account_id TEXT PRIMARY KEY, platform TEXT, cookie_data TEXT, remark TEXT, status TEXT DEFAULT 'active', auth_state_path TEXT DEFAULT '')"
     )
     conn.commit()
-    monkeypatch.setattr("media_tools.api.routers.settings.get_db_connection", lambda: conn)
+    monkeypatch.setattr("media_tools.repositories.account_repository.get_db_connection", lambda: conn)
     monkeypatch.setattr("media_tools.api.routers.settings.save_qwen_cookie_string", lambda *args, **kwargs: {})  # noqa: ARG005
 
     async def _network_fail_snapshot(*args, **kwargs):  # noqa: ANN001,ARG001
@@ -169,7 +170,7 @@ def test_qwen_status_returns_remaining_hours_from_db(monkeypatch) -> None:
         ("a1", "qwen", "tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", "r", "active", "data/auth/qwen-storage-state-a1.json"),
     )
     conn.commit()
-    monkeypatch.setattr("media_tools.api.routers.settings.get_db_connection", lambda: conn)
+    monkeypatch.setattr("media_tools.repositories.account_repository.get_db_connection", lambda: conn)
 
     async def _fake_get_qwen_account_status():
         return {
@@ -201,7 +202,7 @@ def test_qwen_status_does_not_fail_when_single_account_snapshot_errors(monkeypat
         ("a1", "qwen", "tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", "r", "active", "data/auth/qwen-storage-state-a1.json"),
     )
     conn.commit()
-    monkeypatch.setattr("media_tools.api.routers.settings.get_db_connection", lambda: conn)
+    monkeypatch.setattr("media_tools.repositories.account_repository.get_db_connection", lambda: conn)
 
     async def _fake_get_qwen_account_status():
         return {
@@ -235,7 +236,7 @@ def test_qwen_claim_iterates_db_accounts(monkeypatch) -> None:
         ("a1", "qwen", "tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", "r", "active", "data/auth/qwen-storage-state-a1.json"),
     )
     conn.commit()
-    monkeypatch.setattr("media_tools.api.routers.settings.get_db_connection", lambda: conn)
+    monkeypatch.setattr("media_tools.repositories.account_repository.get_db_connection", lambda: conn)
 
     called = {"count": 0}
 

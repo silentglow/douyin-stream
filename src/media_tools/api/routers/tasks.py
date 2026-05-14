@@ -30,6 +30,7 @@ from media_tools.douyin.core.cancel_registry import set_cancel_event, clear_canc
 from media_tools.common.paths import get_download_path, get_project_root
 from media_tools.db.core import get_db_connection
 from media_tools.repositories.task_repository import TaskRepository
+from media_tools.repositories.asset_repository import AssetRepository
 from media_tools.core.config import get_runtime_setting_bool
 
 # WebSocket
@@ -479,20 +480,8 @@ async def trigger_creator_transcribe(req: CreatorTranscribeRequest):
         "directory_root": None,
         "creator_uid": req.uid,
     })
-    file_count = 0
     try:
-        with get_db_connection() as conn:
-            cursor = conn.execute(
-                """SELECT COUNT(1)
-                   FROM media_assets
-                   WHERE creator_uid = ?
-                     AND video_status IN ('downloaded', 'pending')
-                     AND transcript_status IN ('pending', 'none', 'failed')""",
-                (req.uid,),
-            )
-            row = cursor.fetchone()
-            if row:
-                file_count = int(row[0] or 0)
+        file_count = AssetRepository.count_pending_transcribe_by_creator(req.uid)
     except (sqlite3.Error, OSError, ValueError):
         file_count = 0
 

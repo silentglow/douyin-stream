@@ -10,9 +10,9 @@ from media_tools.transcribe.auth_state import has_qwen_auth_state, save_qwen_coo
 from media_tools.transcribe.db_account_pool import build_qwen_auth_state_path_for_account
 from media_tools.transcribe.quota import get_quota_snapshot, remaining_hours_from_snapshot
 from media_tools.douyin.core.config_mgr import get_config
-from media_tools.db.core import get_db_connection
 from media_tools.core.config import get_runtime_setting, get_runtime_setting_int, get_runtime_setting_bool, set_runtime_setting
 from media_tools.services.qwen_status import get_qwen_account_status, claim_qwen_quota
+from media_tools.repositories.account_repository import AccountRepository
 
 router = APIRouter(prefix="/api/v1/settings", tags=["settings"], redirect_slashes=False)
 logger = logging.getLogger(__name__)
@@ -46,20 +46,9 @@ class RemarkRequest(BaseModel):
 
 @router.get("")
 def get_settings():
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-
-        # Get douyin accounts
-        cursor.execute("SELECT account_id, status, last_used, remark, create_time FROM Accounts_Pool WHERE platform='douyin'")
-        accounts = [{"id": row[0], "status": row[1], "last_used": row[2], "remark": row[3] or "", "create_time": row[4] or ""} for row in cursor.fetchall()]
-
-        # Get qwen accounts
-        cursor.execute("SELECT account_id, status, last_used, remark, create_time FROM Accounts_Pool WHERE platform='qwen'")
-        qwen_accounts = [{"id": row[0], "status": row[1], "last_used": row[2], "remark": row[3] or "", "create_time": row[4] or ""} for row in cursor.fetchall()]
-
-        # Get bilibili accounts
-        cursor.execute("SELECT account_id, status, last_used, remark, create_time FROM Accounts_Pool WHERE platform='bilibili'")
-        bilibili_accounts = [{"id": row[0], "status": row[1], "last_used": row[2], "remark": row[3] or "", "create_time": row[4] or ""} for row in cursor.fetchall()]
+    accounts = AccountRepository.list_by_platform("douyin")
+    qwen_accounts = AccountRepository.list_by_platform("qwen")
+    bilibili_accounts = AccountRepository.list_by_platform("bilibili")
 
     concurrency = get_runtime_setting_int("concurrency", 10)
     auto_delete = get_runtime_setting_bool("auto_delete", True)
@@ -118,12 +107,7 @@ def add_douyin_account(req: DouyinAccountRequest):
     try:
         cookie = _validate_cookie_string(req.cookie_string)
         account_id = str(uuid.uuid4())
-        with get_db_connection() as conn:
-            conn.execute(
-                "INSERT INTO Accounts_Pool (account_id, platform, cookie_data, remark) VALUES (?, ?, ?, ?)",
-                (account_id, "douyin", cookie, req.remark)
-            )
-            conn.commit()
+        AccountRepository.create(account_id, "douyin", cookie, req.remark)
         return {"status": "success", "account_id": account_id}
     except HTTPException:
         raise
@@ -133,12 +117,9 @@ def add_douyin_account(req: DouyinAccountRequest):
 @router.delete("/douyin/{account_id}")
 def delete_douyin_account(account_id: str):
     try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM Accounts_Pool WHERE account_id=? AND platform='douyin'", (account_id,))
-            if cursor.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Account not found")
-            conn.commit()
+        rowcount = AccountRepository.delete(account_id, "douyin")
+        if rowcount == 0:
+            raise HTTPException(status_code=404, detail="Account not found")
         return {"status": "success"}
     except HTTPException:
         raise
@@ -148,15 +129,9 @@ def delete_douyin_account(account_id: str):
 @router.put("/douyin/{account_id}/remark")
 def update_douyin_account_remark(account_id: str, req: RemarkRequest):
     try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE Accounts_Pool SET remark=? WHERE account_id=? AND platform='douyin'",
-                (req.remark, account_id),
-            )
-            if cursor.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Account not found")
-            conn.commit()
+        rowcount = AccountRepository.update_remark(account_id, "douyin", req.remark)
+        if rowcount == 0:
+            raise HTTPException(status_code=404, detail="Account not found")
         return {"status": "success"}
     except HTTPException:
         raise
@@ -168,12 +143,7 @@ def add_bilibili_account(req: BilibiliAccountRequest):
     try:
         cookie = _validate_cookie_string(req.cookie_string)
         account_id = str(uuid.uuid4())
-        with get_db_connection() as conn:
-            conn.execute(
-                "INSERT INTO Accounts_Pool (account_id, platform, cookie_data, remark) VALUES (?, ?, ?, ?)",
-                (account_id, "bilibili", cookie, req.remark),
-            )
-            conn.commit()
+        AccountRepository.create(account_id, "bilibili", cookie, req.remark)
         return {"status": "success", "account_id": account_id}
     except HTTPException:
         raise
@@ -183,14 +153,9 @@ def add_bilibili_account(req: BilibiliAccountRequest):
 @router.delete("/bilibili/accounts/{account_id}")
 def delete_bilibili_account(account_id: str):
     try:
-        with get_db_connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM Accounts_Pool WHERE account_id=? AND platform='bilibili'",
-                (account_id,),
-            )
-            if cursor.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Account not found")
-            conn.commit()
+        rowcount = AccountRepository.delete(account_id, "bilibili")
+        if rowcount == 0:
+            raise HTTPException(status_code=404, detail="Account not found")
         return {"status": "success"}
     except HTTPException:
         raise
@@ -200,15 +165,9 @@ def delete_bilibili_account(account_id: str):
 @router.put("/bilibili/accounts/{account_id}/remark")
 def update_bilibili_account_remark(account_id: str, req: RemarkRequest):
     try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE Accounts_Pool SET remark=? WHERE account_id=? AND platform='bilibili'",
-                (req.remark, account_id),
-            )
-            if cursor.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Account not found")
-            conn.commit()
+        rowcount = AccountRepository.update_remark(account_id, "bilibili", req.remark)
+        if rowcount == 0:
+            raise HTTPException(status_code=404, detail="Account not found")
         return {"status": "success"}
     except HTTPException:
         raise
@@ -291,12 +250,10 @@ async def add_qwen_account(req: QwenAccountRequest):
             if et == ErrorType.AUTH:
                 status = "expired"
 
-        with get_db_connection() as conn:
-            conn.execute(
-                "INSERT INTO Accounts_Pool (account_id, platform, cookie_data, remark, auth_state_path, status) VALUES (?, ?, ?, ?, ?, ?)",
-                (account_id, "qwen", req.cookie_string, req.remark, str(auth_state_path), status),
-            )
-            conn.commit()
+        AccountRepository.create(
+            account_id, "qwen", req.cookie_string, req.remark,
+            auth_state_path=str(auth_state_path), status=status,
+        )
         return {"status": "success", "account_id": account_id, "validation": validation}
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -305,25 +262,14 @@ async def add_qwen_account(req: QwenAccountRequest):
 def update_qwen_account_cookie(account_id: str, req: QwenCookieUpdateRequest):
     try:
         cookie = _validate_cookie_string(req.cookie_string)
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            row = cursor.execute(
-                "SELECT auth_state_path FROM Accounts_Pool WHERE account_id=? AND platform='qwen'",
-                (account_id,),
-            ).fetchone()
-            if not row:
-                raise HTTPException(status_code=404, detail="Account not found")
+        existing_path = AccountRepository.get_auth_state_path(account_id, "qwen")
+        auth_state_path = Path(existing_path) if existing_path else build_qwen_auth_state_path_for_account(account_id)
 
-            existing_path = str(row[0] or "")
-            auth_state_path = Path(existing_path) if existing_path.strip() else build_qwen_auth_state_path_for_account(account_id)
+        save_qwen_cookie_string(cookie, auth_state_path, sync_db=False)
 
-            save_qwen_cookie_string(cookie, auth_state_path, sync_db=False)
-
-            cursor.execute(
-                "UPDATE Accounts_Pool SET cookie_data=?, status='active', auth_state_path=? WHERE account_id=? AND platform='qwen'",
-                (cookie, str(auth_state_path), account_id),
-            )
-            conn.commit()
+        AccountRepository.update_cookie_and_status(
+            account_id, "qwen", cookie, auth_state_path=str(auth_state_path), status="active",
+        )
 
         return {"status": "success", "account_id": account_id}
     except HTTPException:
@@ -334,9 +280,7 @@ def update_qwen_account_cookie(account_id: str, req: QwenCookieUpdateRequest):
 @router.delete("/qwen/accounts/{account_id}")
 def delete_qwen_account(account_id: str):
     try:
-        with get_db_connection() as conn:
-            conn.execute("DELETE FROM Accounts_Pool WHERE account_id=? AND platform='qwen'", (account_id,))
-            conn.commit()
+        AccountRepository.delete(account_id, "qwen")
         return {"status": "success"}
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -344,66 +288,59 @@ def delete_qwen_account(account_id: str):
 @router.post("/qwen/accounts/rehydrate")
 def rehydrate_qwen_accounts():
     try:
-        with get_db_connection() as conn:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute(
-                "SELECT account_id, cookie_data, auth_state_path FROM Accounts_Pool WHERE platform='qwen'",
-            ).fetchall()
+        rows = AccountRepository.list_qwen_with_cookie()
 
-            results: list[dict[str, str]] = []
-            updated = 0
-            skipped = 0
-            failed = 0
+        results: list[dict[str, str]] = []
+        updated = 0
+        skipped = 0
+        failed = 0
 
-            for row in rows:
-                account_id = str(row["account_id"] or "")
-                cookie_data = str(row["cookie_data"] or "").strip()
-                existing_path = str(row["auth_state_path"] or "").strip()
-                auth_state_path = Path(existing_path) if existing_path else build_qwen_auth_state_path_for_account(account_id)
+        for row in rows:
+            account_id = str(row.get("account_id") or "").strip()
+            cookie_data = str(row.get("cookie_data") or "").strip()
+            existing_path = str(row.get("auth_state_path") or "").strip()
+            auth_state_path = Path(existing_path) if existing_path else build_qwen_auth_state_path_for_account(account_id)
 
-                if not cookie_data:
-                    skipped += 1
-                    results.append(
-                        {
-                            "account_id": account_id,
-                            "status": "skipped",
-                            "reason": "empty-cookie",
-                            "auth_state_path": str(auth_state_path),
-                        }
-                    )
-                    continue
-
-                try:
-                    save_qwen_cookie_string(cookie_data, auth_state_path, sync_db=False)
-                except (ValueError, OSError, sqlite3.Error) as exc:
-                    failed += 1
-                    results.append(
-                        {
-                            "account_id": account_id,
-                            "status": "failed",
-                            "reason": str(exc),
-                            "auth_state_path": str(auth_state_path),
-                        }
-                    )
-                    continue
-
-                updated += 1
+            if not cookie_data:
+                skipped += 1
                 results.append(
                     {
                         "account_id": account_id,
-                        "status": "updated",
-                        "reason": "",
+                        "status": "skipped",
+                        "reason": "empty-cookie",
                         "auth_state_path": str(auth_state_path),
                     }
                 )
+                continue
 
-                if not existing_path:
-                    conn.execute(
-                        "UPDATE Accounts_Pool SET auth_state_path=?, status='active' WHERE account_id=? AND platform='qwen'",
-                        (str(auth_state_path), account_id),
-                    )
+            try:
+                save_qwen_cookie_string(cookie_data, auth_state_path, sync_db=False)
+            except (ValueError, OSError, sqlite3.Error) as exc:
+                failed += 1
+                results.append(
+                    {
+                        "account_id": account_id,
+                        "status": "failed",
+                        "reason": str(exc),
+                        "auth_state_path": str(auth_state_path),
+                    }
+                )
+                continue
 
-            conn.commit()
+            updated += 1
+            results.append(
+                {
+                    "account_id": account_id,
+                    "status": "updated",
+                    "reason": "",
+                    "auth_state_path": str(auth_state_path),
+                }
+            )
+
+            if not existing_path:
+                AccountRepository.update_auth_state_path(
+                    account_id, "qwen", str(auth_state_path), status="active",
+                )
 
         return {
             "status": "success",
@@ -420,12 +357,9 @@ def rehydrate_qwen_accounts():
 @router.put("/qwen/accounts/{account_id}/remark")
 def update_qwen_account_remark(account_id: str, req: RemarkRequest):
     try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("UPDATE Accounts_Pool SET remark=? WHERE account_id=? AND platform='qwen'", (req.remark, account_id))
-            if cursor.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Account not found")
-            conn.commit()
+        rowcount = AccountRepository.update_remark(account_id, "qwen", req.remark)
+        if rowcount == 0:
+            raise HTTPException(status_code=404, detail="Account not found")
         return {"status": "success"}
     except HTTPException:
         raise
