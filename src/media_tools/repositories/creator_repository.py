@@ -20,7 +20,7 @@ class CreatorRepository:
             return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
-    def find_by_id(uid: str) -> Optional[Dict[str, Any]]:
+    def find_by_id(uid: str) -> Optional[dict[str, Any]]:
         """按 ID 查询创作者"""
         with get_db_connection() as conn:
             cursor = conn.execute(

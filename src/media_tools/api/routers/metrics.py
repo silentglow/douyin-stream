@@ -8,6 +8,8 @@ import logging
 import sqlite3
 import time
 
+from typing import Any
+
 from fastapi import APIRouter
 
 from media_tools.api.websocket_manager import manager as ws_manager

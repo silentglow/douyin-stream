@@ -198,7 +198,7 @@ class OrchestratorV2:
 
                 # 第三阶段：为这次尝试创建 run。失败时即便 mark_failed 也不影响主流程。
                 run_id: Optional[str] = None
-                resumable_run: Optional[Dict[str, Any]] = None
+                resumable_run: Optional[dict[str, Any]] = None
                 if asset_id_for_run:
                     run_id, resumable_run = TranscribeRunService.find_or_create_run(
                         asset_id=asset_id_for_run,

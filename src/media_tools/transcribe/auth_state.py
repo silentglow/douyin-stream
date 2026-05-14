@@ -8,6 +8,7 @@ import json
 import sqlite3
 
 from media_tools.douyin.utils.auth_parser import AuthParser
+from media_tools.core.config import get_db_path
 from media_tools.logger import get_logger
 
 from .config import load_config
@@ -151,7 +152,7 @@ def is_valid_qwen_storage_state(value: object) -> bool:
     )
 
 
-def normalize_qwen_storage_state(value: object) -> Optional[Dict[str, Any]]:
+def normalize_qwen_storage_state(value: object) -> Optional[dict[str, Any]]:
     if not isinstance(value, dict):
         return None
 
@@ -194,7 +195,7 @@ def normalize_qwen_storage_state(value: object) -> Optional[Dict[str, Any]]:
     return {"cookies": normalized_cookies, "origins": normalized_origins}
 
 
-def read_qwen_storage_state_file(auth_state_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
+def read_qwen_storage_state_file(auth_state_path: Union[str, Path]) -> Optional[dict[str, Any]]:
     path = _normalized_path(auth_state_path)
     try:
         parsed = json.loads(path.read_text(encoding="utf-8"))
@@ -204,7 +205,7 @@ def read_qwen_storage_state_file(auth_state_path: Union[str, Path]) -> Optional[
     return normalized if normalized is not None and is_valid_qwen_storage_state(normalized) else None
 
 
-def load_qwen_storage_state_from_db(db_path: str | Optional[Path] = None) -> Optional[Dict[str, Any]]:
+def load_qwen_storage_state_from_db(db_path: str | Optional[Path] = None) -> Optional[dict[str, Any]]:
     configured_path = db_path if db_path is not None else get_db_path()
     resolved_db_path = Path(configured_path).expanduser().resolve()
     if not resolved_db_path.exists():

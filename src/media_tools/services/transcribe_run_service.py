@@ -51,7 +51,7 @@ class TranscribeRunService:
         asset_id: str,
         video_path: str,
         account_id: str,
-    ) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
+    ) -> tuple[Optional[str], Optional[dict[str, Any]]]:
         """查找可续传的 run 或创建新 run。
 
         Returns:
@@ -61,7 +61,7 @@ class TranscribeRunService:
             return None, None
 
         # 先查可续传 run
-        resumable_run: Optional[Dict[str, Any]] = None
+        resumable_run: Optional[dict[str, Any]] = None
         try:
             resumable_run = TranscribeRunRepository.find_resumable(asset_id, account_id)
         except Exception as exc:

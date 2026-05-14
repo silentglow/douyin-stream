@@ -18,7 +18,7 @@ class VideoInfo:
         author_id: str,
         duration: int = 0,
         cover_url: str = "",
-        metadata: Dict[str, Any] = None,
+        metadata: dict[str, Any] = None,
     ):
         self.aweme_id = aweme_id
         self.title = title
@@ -39,7 +39,7 @@ class VideoFetcher(ABC):
         uid: str,
         max_counts: int = 50,
         interval: Optional[str] = None,
-    ) -> List[VideoInfo]:
+    ) -> list[VideoInfo]:
         """获取用户视频列表"""
         pass
     
@@ -73,7 +73,7 @@ class VideoStorage(ABC):
         pass
     
     @abstractmethod
-    def list_existing(self, author_id: str) -> List[str]:
+    def list_existing(self, author_id: str) -> list[str]:
         """列出已存在的视频 ID"""
         pass
     
@@ -92,7 +92,7 @@ class VideoMetadataStore(ABC):
         pass
     
     @abstractmethod
-    def get_metadata(self, aweme_id: str) -> Optional[Dict[str, Any]]:
+    def get_metadata(self, aweme_id: str) -> Optional[dict[str, Any]]:
         """获取视频元数据"""
         pass
     
@@ -128,6 +128,6 @@ class Downloader(ABC):
         pass
     
     @abstractmethod
-    def get_progress(self, task_id: str) -> Optional[Dict[str, Any]]:
+    def get_progress(self, task_id: str) -> Optional[dict[str, Any]]:
         """获取下载进度"""
         pass

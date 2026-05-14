@@ -21,7 +21,7 @@ class AssetRepository:
             return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
-    def find_by_id(asset_id: str) -> Optional[Dict[str, Any]]:
+    def find_by_id(asset_id: str) -> Optional[dict[str, Any]]:
         """按 ID 查询素材"""
         with get_db_connection() as conn:
             cursor = conn.execute(

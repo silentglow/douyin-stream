@@ -103,7 +103,7 @@ class TaskRepository:
     # ---------- READ ----------
 
     @staticmethod
-    def find_by_id(task_id: str) -> Optional[Dict[str, Any]]:
+    def find_by_id(task_id: str) -> Optional[dict[str, Any]]:
         """按 ID 查询任务"""
         with get_db_connection() as conn:
             cursor = conn.execute("SELECT * FROM task_queue WHERE task_id = ?", (task_id,))

@@ -24,7 +24,7 @@ class AppError(Exception):
 
     status_code: int = 400
 
-    def __init__(self, code: str, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, code: str, message: str, details: Optional[dict[str, Any]] = None):
         self.code = code
         self.message = message
         self.details = details or {}

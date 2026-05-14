@@ -71,7 +71,7 @@ def sanitize_folder_name(name: str) -> str:
     return name
 
 
-def load_config() -> Dict[str, Any]:
+def load_config() -> dict[str, Any]:
     """加载配置文件"""
     if not CONFIG_PATH.exists():
         return {}

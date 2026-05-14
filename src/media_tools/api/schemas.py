@@ -46,7 +46,7 @@ class PipelineRequest(BaseModel):
 
 
 class BatchPipelineRequest(BaseModel):
-    video_urls: List[str]
+    video_urls: list[str]
     auto_delete: Optional[bool] = None
 
     @field_validator("video_urls")
@@ -60,7 +60,7 @@ class BatchPipelineRequest(BaseModel):
 
 
 class DownloadBatchRequest(BaseModel):
-    video_urls: List[str]
+    video_urls: list[str]
 
     @field_validator("video_urls")
     @classmethod
@@ -87,7 +87,7 @@ class FullSyncRequest(BaseModel):
 
 
 class LocalTranscribeRequest(BaseModel):
-    file_paths: List[str]
+    file_paths: list[str]
     delete_after: Optional[bool] = None
     directory_root: Optional[str] = None
 
@@ -157,13 +157,13 @@ class RetryFailedAssetsRequest(BaseModel):
     """
     creator_uid: Optional[str] = Field(default=None, max_length=200)
     platform: Optional[str] = Field(default=None, max_length=40)
-    error_types: Optional[List[str]] = None
+    error_types: Optional[list[str]] = None
     limit: Optional[int] = Field(default=None, ge=1, le=5000)
     delete_after: Optional[bool] = None
 
     @field_validator("error_types")
     @classmethod
-    def _check_error_types(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+    def _check_error_types(cls, v: Optional[list[str]]) -> Optional[list[str]]:
         if v is None:
             return v
         if len(v) > 20:

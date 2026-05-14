@@ -15,7 +15,7 @@ class AuthParser:
     def __init__(self):
         self.rules = self._load_rules()
 
-    def _load_rules(self) -> Dict[str, Any]:
+    def _load_rules(self) -> dict[str, Any]:
         if not RULES_PATH.exists():
             return {}
         try:
@@ -27,7 +27,7 @@ class AuthParser:
 
     def parse_cookie(
         self, raw_data: str, rule_name: str = "douyin"
-    ) -> Tuple[bool, str, Dict[str, str]]:
+    ) -> Tuple[bool, str, dict[str, str]]:
         """解析 Cookie 字符串并验证"""
         rule = self.rules.get(rule_name, {})
         if not rule or rule.get("type") != "cookie":
@@ -65,7 +65,7 @@ class AuthParser:
 
     def parse_json(
         self, raw_data: str, rule_name: str = "custom_json"
-    ) -> Tuple[bool, str, Dict[str, str]]:
+    ) -> Tuple[bool, str, dict[str, str]]:
         """解析 JSON 并提取映射字段"""
         rule = self.rules.get(rule_name, {})
         if not rule or rule.get("type") != "json":
@@ -90,7 +90,7 @@ class AuthParser:
 
     def parse_text(
         self, raw_data: str, rule_name: str = "custom_text"
-    ) -> Tuple[bool, str, Dict[str, str]]:
+    ) -> Tuple[bool, str, dict[str, str]]:
         """解析纯文本并提取正则字段"""
         rule = self.rules.get(rule_name, {})
         if not rule or rule.get("type") != "text":

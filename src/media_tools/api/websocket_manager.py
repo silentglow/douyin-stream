@@ -15,7 +15,7 @@ _STALE_CONNECTION_TIMEOUT = 120
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: list[WebSocket] = []
         self._connect_times: dict[int, float] = {}
         self._last_activity: dict[int, float] = {}
         self._stats = {"connected": 0, "disconnected": 0, "broadcast_success": 0, "broadcast_failed": 0}

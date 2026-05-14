@@ -50,7 +50,7 @@ class TranscribeRunRepository:
         return run_id
 
     @staticmethod
-    def find_resumable(asset_id: str, account_id: str) -> Optional[Dict[str, Any]]:
+    def find_resumable(asset_id: str, account_id: str) -> Optional[dict[str, Any]]:
         """查找该 asset 在该 account 上可以续做的 run。
 
         命中条件：gen_record_id 已持久化，且：
@@ -88,7 +88,7 @@ class TranscribeRunRepository:
     def update_stage(
         run_id: str,
         stage: str,
-        extra: Optional[Dict[str, Any]] = None,
+        extra: Optional[dict[str, Any]] = None,
     ) -> None:
         """推进 stage，并可选地写入 record_id / gen_record_id / batch_id 等附加字段。"""
         extra = extra or {}
@@ -136,7 +136,7 @@ class TranscribeRunRepository:
             )
 
     @staticmethod
-    def get(run_id: str) -> Optional[Dict[str, Any]]:
+    def get(run_id: str) -> Optional[dict[str, Any]]:
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute(
@@ -145,7 +145,7 @@ class TranscribeRunRepository:
         return dict(row) if row else None
 
     @staticmethod
-    def find_saved_for_asset(asset_id: str) -> Optional[Dict[str, Any]]:
+    def find_saved_for_asset(asset_id: str) -> Optional[dict[str, Any]]:
         """查询某个 asset 是否已经有成功落盘的 run。用于跨任务去重。
 
         仅返回 transcript_path 非空的有效记录，避免空文件/损坏文件被判定为成功。

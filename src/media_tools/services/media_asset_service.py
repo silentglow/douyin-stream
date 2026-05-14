@@ -254,7 +254,7 @@ class MediaAssetService:
         *,
         creator_uid: Optional[str] = None,
         platform: Optional[str] = None,
-        error_types: Optional[List[str]] = None,
+        error_types: Optional[list[str]] = None,
         only_failed: bool = False,
         limit: int = 1000,
     ) -> list[dict[str, Any]]:

@@ -222,7 +222,7 @@ async def run_real_flow(
     )
     log = _make_flow_logger(input_path.name)
 
-    def _checkpoint(stage: str, extra: Optional[Dict[str, Any]] = None) -> None:
+    def _checkpoint(stage: str, extra: Optional[dict[str, Any]] = None) -> None:
         if not run_id:
             return
         try:
