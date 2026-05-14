@@ -325,7 +325,8 @@ async def upload_file_to_oss(
             raise ValueError(f"Token missing required key: {key}")
     
     callback = on_progress or (lambda _event: None)
-    mode = (upload_mode or os.environ.get("QWEN_OSS_UPLOAD_MODE", "multipart")).strip().lower()
+    from media_tools.core.config import get_app_config
+    mode = (upload_mode or get_app_config().qwen_oss_upload_mode).strip().lower()
     if mode not in {"multipart", "auto", "direct"}:
         raise ValueError(f"Unsupported OSS upload mode: {mode}")
 

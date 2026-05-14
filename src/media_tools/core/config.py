@@ -322,6 +322,27 @@ class AppConfig:
         """Pipeline 默认账号 ID"""
         return _get_env_str("PIPELINE_ACCOUNT_ID", "")
 
+    @property
+    def bilibili_proxy(self) -> str:
+        """B站下载代理"""
+        return _get_env_str("BILIBILI_PROXY", "")
+
+    @property
+    def qwen_oss_upload_mode(self) -> str:
+        """通义千问 OSS 上传模式 (multipart, auto, direct)。优先从 SystemSettings 读取，fallback 到环境变量。"""
+        db_value = get_runtime_setting("qwen_oss_upload_mode", "")
+        if db_value in ("multipart", "auto", "direct"):
+            return db_value
+        return _get_env_str("QWEN_OSS_UPLOAD_MODE", "multipart").lower()
+
+    @property
+    def task_stale_minutes(self) -> int:
+        """任务超时判定时间（分钟）。支持 MEDIA_TOOLS_TASK_STALE_MINUTES 环境变量覆盖。"""
+        env_val = _get_env_int("MEDIA_TOOLS_TASK_STALE_MINUTES", 0)
+        if env_val > 0:
+            return env_val
+        return get_runtime_setting_int("task_stale_minutes", 20)
+
     # --- Compatibility aliases (deprecated, kept for transition) ---
 
     @property

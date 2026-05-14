@@ -1,13 +1,11 @@
 import asyncio
 import json
 import logging
-import os
 import sqlite3
 from datetime import datetime, timedelta
 from typing import Optional
 from media_tools.api.websocket_manager import manager
 from media_tools.db.core import get_db_connection
-from media_tools.core.config import get_runtime_setting_int
 from media_tools.services.auto_retry import schedule_auto_retry
 from media_tools.repositories.task_repository import _merge_task_payload, _merge_payload_from_db
 
@@ -17,14 +15,8 @@ UPLOAD_STAGE_STALE_MINUTES = 30
 
 
 def get_task_stale_minutes() -> int:
-    raw = os.environ.get("MEDIA_TOOLS_TASK_STALE_MINUTES", "").strip()
-    if raw:
-        try:
-            minutes = int(raw)
-            return minutes if minutes > 0 else DEFAULT_TASK_STALE_MINUTES
-        except ValueError:
-            return DEFAULT_TASK_STALE_MINUTES
-    return get_runtime_setting_int("task_stale_minutes", DEFAULT_TASK_STALE_MINUTES)
+    from media_tools.core.config import get_app_config
+    return get_app_config().task_stale_minutes
 
 
 def _extract_payload_pipeline_stage(payload: Optional[str]) -> str:

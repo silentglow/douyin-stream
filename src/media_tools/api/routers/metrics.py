@@ -41,12 +41,17 @@ def _collect_task_counts() -> dict[str, int]:
 
 def _collect_account_pool_stats() -> dict:
     try:
-        from media_tools.pipeline.orchestrator import OrchestratorV2
+        from media_tools.services.account_pool_service import AccountPoolService
         from media_tools.pipeline.config import load_pipeline_config
         config = load_pipeline_config()
-        orchestrator = OrchestratorV2(config=config)
-        if orchestrator._account_pool is not None:
-            return orchestrator._account_pool.get_stats()
+        service = AccountPoolService(
+            auth_state_path=None,
+            default_account_id=config.pipeline_account_id,
+        )
+        service.resolve_accounts()
+        pool = service.account_pool
+        if pool is not None:
+            return pool.get_stats()
     except Exception as e:
         logger.warning(f"metrics: collect account pool stats failed: {e}")
     return {}
