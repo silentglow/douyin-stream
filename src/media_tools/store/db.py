@@ -163,6 +163,8 @@ def init_db(db_path: Optional[str] = None) -> None:
     if db_path:
         _db_path = str(db_path)
 
+    _invalidate_table_columns_cache()
+
     from .schema import init_schema
     from .migrations import run_migrations
 
