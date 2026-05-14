@@ -335,6 +335,153 @@ logs/                       # 唯一日志根
 - 前端日志如需保留，通过 API 写入后端统一日志，或单独配置到 `logs/frontend/`
 - 日志轮转策略：`app.log` 和 `app.jsonl` 按天轮转，保留 7 天
 
+## 数据库层重组
+
+### 数据库现状
+
+`db/core.py` 713 行，承担了以下全部职责：
+
+| 职责 | 问题 |
+|------|------|
+| 连接管理（`get_db`, `get_db_connection`, `DBConnection`） | 两套机制并存（FastAPI dependency vs 上下文管理器），线程缓存逻辑过度设计 |
+| 10 张表的 `CREATE TABLE IF NOT EXISTS` | 全部塞在 `init_db()` 一个函数里，380+ 行 |
+| 27 个 `_ensure_column` 补丁调用 | "打补丁"式 schema 演进，没有版本管理，启动时反复检查 |
+| 22 个 `CREATE INDEX` | 与表定义分离，难以对应 |
+| 3 个迁移函数 | `_migrate_legacy_auth_files`、`_migrate_legacy_artifacts`、`_migrate_single_file` 混在 db 文件里 |
+| 状态枚举（`VIDEO_STATUS_MAP` 等） | 应该在模型层，不应该在 db 层 |
+| 路径工具 re-export | `from .path_utils import ...` 不应该在 db/core.py 里做 |
+| `repositories/` 1420 行 raw SQL | 同样查询模式重复写多次（如 asset_repository 中 SELECT 列列表重复 5 次） |
+
+### 数据库新结构
+
+```
+store/
+├── __init__.py
+├── db.py                  # 简化：只保留连接管理（< 100 行）
+├── models.py              # Pydantic/dataclass 模型 + 状态枚举（从 db/core.py 移出）
+├── fts.py                 # 全文搜索（保留）
+├── path_utils.py          # 路径工具（从 db/core.py 移出）
+│
+├── schema/                # 表定义（替代 init_db 的大函数）
+│   ├── __init__.py        # schema 初始化入口
+│   ├── creators.py        # creators 表
+│   ├── assets.py          # media_assets 表
+│   ├── tasks.py           # task_queue 表
+│   ├── auth.py            # auth_credentials 表
+│   ├── accounts.py        # Accounts_Pool 表
+│   ├── settings.py        # SystemSettings 表
+│   ├── scheduled.py       # scheduled_tasks 表
+│   ├── video_meta.py      # video_metadata 表
+│   ├── user_info.py       # user_info_web 表
+│   └── transcribe.py      # transcribe_runs 表
+│
+└── migrations/            # 迁移脚本（替代 _ensure_column）
+    ├── __init__.py
+    ├── 001_init.py        # 初始 schema（对应现有 CREATE TABLE）
+    ├── 002_add_columns.py # 合并现有 _ensure_column 的变更
+    └── runner.py          # 迁移执行器（读取 schema_version 表，只执行未应用的迁移）
+```
+
+### 关键改进
+
+**1. init_db 拆分**
+
+原 `init_db()` 380+ 行 → 拆为 `schema/*.py`，每张表一个文件：
+
+```python
+# store/schema/assets.py
+
+def create_table(conn: sqlite3.Connection) -> None:
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS media_assets (
+        asset_id TEXT PRIMARY KEY,
+        creator_uid TEXT,
+        ...
+    )
+    """)
+
+def create_indexes(conn: sqlite3.Connection) -> None:
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_media_assets_creator ON media_assets(creator_uid)")
+    ...
+```
+
+**2. 取代 _ensure_column**
+
+引入 `schema_version` 表记录已应用的迁移版本，启动时只执行未应用的迁移：
+
+```python
+# store/migrations/002_add_columns.py
+version = 2
+
+def apply(conn: sqlite3.Connection) -> None:
+    conn.execute("ALTER TABLE task_queue ADD COLUMN cancel_requested INTEGER DEFAULT 0")
+    conn.execute("ALTER TABLE task_queue ADD COLUMN auto_retry INTEGER DEFAULT 0")
+    ...
+```
+
+删除全部 27 个 `_ensure_column` 调用。
+
+**3. 连接管理简化**
+
+原 `DBConnection` 类（线程缓存、连接计数、监控）→ 简化为单一 `get_db()` generator：
+
+```python
+# store/db.py（目标 < 100 行）
+import sqlite3
+from contextlib import contextmanager
+
+@contextmanager
+def get_db():
+    conn = sqlite3.connect(DB_PATH, timeout=15.0)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    try:
+        yield conn
+        conn.commit()
+    except:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+```
+
+**4. 状态枚举归位**
+
+`VIDEO_STATUS_MAP`、`TRANSCRIPT_STATUS_MAP`、`TASK_STATUS_MAP` 及转换函数 → 移至各域的 `models.py`：
+
+```python
+# assets/models.py
+class VideoStatus(str, Enum):
+    PENDING = "pending"
+    DOWNLOADING = "downloading"
+    DOWNLOADED = "downloaded"
+    FAILED = "failed"
+```
+
+**5. repository 瘦身**
+
+- 同样 SELECT 列列表提取为常量，不再重复写
+- 公共查询模式（如分页、排序）提取为辅助函数
+- 每个 repository 随业务域迁移（`assets/repository.py`、`scheduler/repository.py` 等）
+
+### repository SQL 重复问题示例
+
+`asset_repository.py` 中这行 SELECT 重复了 5 次：
+
+```python
+"SELECT asset_id, creator_uid, title, video_status, transcript_status, transcript_path, transcript_preview, folder_path, is_read, is_starred, create_time, update_time FROM media_assets ..."
+```
+
+改进：
+
+```python
+# assets/repository.py
+_ASSET_COLUMNS = "asset_id, creator_uid, title, video_status, transcript_status, transcript_path, transcript_preview, folder_path, is_read, is_starred, create_time, update_time"
+
+def list_by_creator(conn, creator_uid: str, limit: int = 100):
+    return conn.execute(f"SELECT {_ASSET_COLUMNS} FROM media_assets WHERE creator_uid = ? ORDER BY create_time DESC LIMIT ?", (creator_uid, limit))
+```
+
 ## 测试重组
 
 测试目录镜像源码结构：
