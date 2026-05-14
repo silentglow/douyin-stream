@@ -39,7 +39,7 @@ async def test_handle_auto_retry_restarts_failed_task() -> None:
 
     start_worker = AsyncMock()
     with patch("media_tools.services.auto_retry.get_db_connection", return_value=conn), patch(
-        "media_tools.api.routers.tasks._start_task_worker",
+        "media_tools.workers.task_dispatcher._start_task_worker",
         new=start_worker,
     ):
         await auto_retry_module.handle_auto_retry("t1")

@@ -101,7 +101,7 @@ async def handle_auto_retry(task_id: str) -> None:
                 logger.info(f"任务 {task_id} 状态已变更，跳过自动重试")
                 return
 
-        from media_tools.api.routers.tasks import _start_task_worker
+        from media_tools.workers.task_dispatcher import _start_task_worker
 
         await _start_task_worker(task_id, task_type, original_params)
     except (sqlite3.Error, OSError, RuntimeError, asyncio.TimeoutError):
