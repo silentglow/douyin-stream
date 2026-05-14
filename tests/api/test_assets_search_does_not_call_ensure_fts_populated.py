@@ -46,7 +46,7 @@ def test_assets_search_does_not_call_ensure_fts_populated() -> None:
     )
     conn.commit()
 
-    with patch("media_tools.db.core.ensure_fts_populated", side_effect=_fake_ensure), patch(
+    with patch("media_tools.store.db.ensure_fts_populated", side_effect=_fake_ensure), patch(
         "media_tools.api.routers.assets.get_db_connection",
         return_value=conn,
     ):
