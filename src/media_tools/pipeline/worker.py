@@ -2,7 +2,7 @@ import asyncio
 import inspect
 import sqlite3
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 from media_tools.logger import get_logger
 from media_tools.db.core import local_asset_id
 from media_tools.pipeline.task_helpers import call_progress, create_managed_task, filter_supported_media_paths
@@ -14,7 +14,6 @@ async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, d
     """转写本地视频文件（不经过下载步骤）"""
     from media_tools.pipeline.config import load_pipeline_config
     from media_tools.pipeline.orchestrator import create_orchestrator
-    from media_tools.core.config import get_project_root
 
     valid_paths = filter_supported_media_paths(file_paths)
 
@@ -79,10 +78,6 @@ async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, d
             transcript_path = item.get("transcript_path")
             if transcript_path:
                 tp = Path(transcript_path)
-                try:
-                    transcript_name = str(tp.resolve().relative_to(output_root))
-                except ValueError:
-                    transcript_name = str(tp.name)
                 preview = extract_transcript_preview(str(tp))
                 full_text = extract_transcript_text(str(tp))
                 try:

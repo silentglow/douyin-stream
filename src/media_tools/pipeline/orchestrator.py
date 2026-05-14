@@ -10,24 +10,20 @@ from __future__ import annotations
 """
 
 import asyncio
-import json
 import logging
 import os
-import re
-import sqlite3
 import time
 from pathlib import Path
-from typing import Dict, Optional, Callable, Awaitable, Any, Union
+from typing import Optional, Callable, Any
 
 from media_tools.transcribe.flow import run_real_flow
-from media_tools.transcribe.runtime import get_export_config, ensure_dir, now_stamp
+from media_tools.transcribe.runtime import get_export_config
 from media_tools.transcribe.config import load_config as load_transcribe_config
 from media_tools.pipeline.config import load_pipeline_config
 from media_tools.core.config import AppConfig
-from media_tools.pipeline.helpers import _clean_title_for_export, _lookup_video_title, _lookup_creator_folder
+from media_tools.pipeline.helpers import _lookup_video_title, _lookup_creator_folder
 from media_tools.pipeline.error_types import ErrorType, classify_error
-from media_tools.pipeline.models import RetryConfig, VideoState, PipelineResultV2, BatchReport
-from media_tools.db.core import get_db_connection
+from media_tools.pipeline.models import RetryConfig, PipelineResultV2, BatchReport
 
 # 配置日志记录器
 logger = logging.getLogger(__name__)
@@ -443,7 +439,6 @@ class OrchestratorV2:
         effective = self._account_pool_service.effective_concurrency or self.config.concurrency
         semaphore = asyncio.Semaphore(max(1, effective))
         completed_count = 0
-        total_pending = len(pending_paths)
 
         async def _process_with_semaphore(video_path: Path) -> PipelineResultV2:
             nonlocal completed_count
