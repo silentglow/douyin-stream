@@ -57,7 +57,7 @@ _db_path: Optional[str] = None
 def get_db_path() -> str:
     global _db_path
     if _db_path is None:
-        project_root = Path(__file__).resolve().parents[2]
+        project_root = Path(__file__).resolve().parents[3]
         default = project_root / "data" / "media_tools.db"
         default.parent.mkdir(parents=True, exist_ok=True)
         _db_path = str(default)
