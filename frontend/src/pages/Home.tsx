@@ -171,7 +171,7 @@ export default function Home() {
               className="bg-card rounded-[22px] apple-skeleton"
               style={{
                 gridColumn: i >= 6 ? 'span 4' : i >= 4 ? 'span 2' : 'span 1',
-                minHeight: i >= 4 ? 180 : i >= 4 ? 160 : 140,
+                minHeight: i >= 6 ? 180 : i >= 4 ? 160 : 140,
               }}
             />
           ))}
@@ -193,7 +193,7 @@ export default function Home() {
           tint="blue"
           footer={`${activeCount} 个任务正在处理`}
         >
-          <div className="text-[34px] font-bold tracking-[-1px] leading-none text-foreground">
+          <div className="text-display text-foreground">
             {activeCount}
           </div>
         </Widget>
@@ -206,7 +206,7 @@ export default function Home() {
           tint="green"
           footer={healthHealthy ? '所有服务运行中' : `${dashboard?.health?.total_anomaly_count || 0} 个异常`}
         >
-          <div className="flex items-center text-[22px] font-semibold text-foreground">
+          <div className="flex items-center text-title-2 text-foreground">
             <HealthDot healthy={healthHealthy} />
             {healthHealthy ? '正常' : `${dashboard?.health?.total_anomaly_count || 0} 个异常`}
           </div>
@@ -220,7 +220,7 @@ export default function Home() {
           tint="blue"
           footer={`${dashboard?.quota_status?.accounts?.length || 0} 个账号可用`}
         >
-          <div className="text-[34px] font-bold tracking-[-1px] leading-none text-foreground">
+          <div className="text-display text-foreground">
             {Math.round(totalQuotaHours)}h
           </div>
         </Widget>
@@ -232,7 +232,7 @@ export default function Home() {
           title="创作者"
           footer={`${creators.length} 个创作者 · ${autoSyncCount} 个自动同步`}
         >
-          <div className="text-[34px] font-bold tracking-[-1px] leading-none text-foreground">
+          <div className="text-display text-foreground">
             {creators.length}
           </div>
         </Widget>
@@ -247,10 +247,10 @@ export default function Home() {
             className="bg-[linear-gradient(135deg,rgba(10,132,255,0.08),rgba(175,82,222,0.08))]"
           >
             <div className="flex justify-between items-center mb-2">
-              <span className="text-[17px] font-semibold truncate text-foreground">
+              <span className="text-title-3 truncate text-foreground">
                 {(() => { try { const p = JSON.parse(topTask.payload || '{}'); return p.msg || topTask.task_type || '任务'; } catch { return topTask.task_type || '任务'; } })()}
               </span>
-              <span className="text-[15px] font-semibold" style={{ color: C.blue }}>
+              <span className="text-body font-semibold" style={{ color: C.blue }}>
                 {Math.round(topTask.progress || 0)}%
               </span>
             </div>
@@ -304,7 +304,7 @@ export default function Home() {
                   <div className="text-sm font-medium truncate text-foreground">
                     {(() => { try { const p = JSON.parse(task.payload || '{}'); return p.msg || task.task_type; } catch { return task.task_type; } })()}
                   </div>
-                  <div className="text-xs" style={{ color: C.textSecondary }}>
+                  <div className="text-caption" style={{ color: C.textSecondary }}>
                     <span style={task.status === 'RUNNING' ? { color: C.green } : undefined}>
                       {task.status === 'RUNNING' ? '同步中...' : '已暂停'}
                     </span>
@@ -381,7 +381,7 @@ export default function Home() {
               <button
                 key={btn.label}
                 onClick={btn.onClick}
-                className="flex items-center gap-2 px-[18px] py-3 rounded-xl text-[15px] font-medium transition-all active:scale-[0.97] bg-secondary hover:bg-primary hover:text-white"
+                className="flex items-center gap-2 px-[18px] py-3 rounded-xl text-body font-medium transition-all active:scale-[0.97] bg-secondary hover:bg-primary hover:text-white"
               >
                 {btn.icon}
                 {btn.label}
@@ -454,7 +454,7 @@ export default function Home() {
                 </div>
               ))}
             </div>
-            <div className="text-xs mt-1" style={{ color: C.textSecondary }}>
+            <div className="text-caption mt-1" style={{ color: C.textSecondary }}>
               过去 {failureSummary.window_days} 天共 {failureSummary.total_failed} 次失败
             </div>
           </Widget>

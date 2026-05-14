@@ -9,14 +9,14 @@ import { addCreator, triggerCreatorDownload } from '@/lib/api';
 import { selectFolder, scanDirectory, triggerLocalTranscribe } from '@/lib/api';
 
 const gradients = [
-  'from-[#667eea] to-[#764ba2]',
-  'from-[#f093fb] to-[#f5576c]',
-  'from-[#4facfe] to-[#00f2fe]',
-  'from-[#43e97b] to-[#38f9d7]',
-  'from-[#fa709a] to-[#fee140]',
-  'from-[#a8edea] to-[#fed6e3]',
-  'from-[#ff9a9e] to-[#fecfef]',
-  'from-[#667eea] to-[#764ba2]',
+  'from-[#5E9CEA] to-[#7B8CDE]',
+  'from-[#E88B8B] to-[#D97B9E]',
+  'from-[#6BC4A6] to-[#5DB8C8]',
+  'from-[#E8A96E] to-[#E8C46E]',
+  'from-[#B8A0D9] to-[#9BA5D9]',
+  'from-[#8BC4E0] to-[#7BB0D9]',
+  'from-[#E0A0A0] to-[#D9B0B0]',
+  'from-[#A0D9C0] to-[#90C8B0]',
 ];
 
 function getGradient(index: number) {
@@ -193,7 +193,7 @@ export default function Library() {
           placeholder="搜索创作者或视频..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
+          className="flex-1 bg-transparent text-body outline-none placeholder:text-muted-foreground"
         />
       </div>
 
@@ -232,9 +232,9 @@ export default function Library() {
 
       {/* Scanned Files Panel */}
       {localTranscribeOpen && scannedFiles.length > 0 && (
-        <div className="bg-card rounded-[22px] shadow-[0_2px_12px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] p-5 mb-6">
+        <div className="bg-card rounded-[22px] apple-shadow-widget p-5 mb-6">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-[15px] font-semibold">扫描到 {scannedFiles.length} 个文件</div>
+            <div className="text-body font-semibold">扫描到 {scannedFiles.length} 个文件</div>
             <button
               onClick={() => {
                 setLocalTranscribeOpen(false);
@@ -263,7 +263,7 @@ export default function Library() {
             ))}
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[13px] text-muted-foreground">已选择 {selectedFiles.size} 个</span>
+            <span className="text-caption text-muted-foreground">已选择 {selectedFiles.size} 个</span>
             <div className="flex gap-2">
               <button
                 onClick={() => {
@@ -297,15 +297,15 @@ export default function Library() {
       {hasLocalAssets && (
         <div className="mb-5">
           <div
-            className="bg-card rounded-[22px] shadow-[0_2px_12px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)] active:scale-[0.97] flex items-center gap-4 px-5 py-4"
+            className="bg-card rounded-[22px] apple-shadow-widget overflow-hidden cursor-pointer transition-all duration-200 active:scale-[0.97] flex items-center gap-4 px-5 py-4"
             onClick={() => navigate('/library/local:upload')}
           >
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#34A853] to-[#34C759] flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#6BC4A6] to-[#5DB8A0] flex items-center justify-center shrink-0">
               <FileAudio className="size-6 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-[16px] truncate">本地素材</div>
-              <div className="text-[13px] text-muted-foreground">
+              <div className="font-semibold text-body truncate">本地素材</div>
+              <div className="text-caption text-muted-foreground">
                 {localAssetCount} 个文件
               </div>
             </div>
@@ -334,7 +334,7 @@ export default function Library() {
             return (
               <div
                 key={creator.uid}
-                className="bg-card rounded-[22px] shadow-[0_2px_12px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)] active:scale-[0.97] group"
+                className="bg-card rounded-[22px] apple-shadow-widget overflow-hidden cursor-pointer transition-all duration-200 active:scale-[0.97] group"
                 onClick={() => navigate(`/library/${encodeURIComponent(creator.uid)}`)}
               >
                 <div className={cn('aspect-square bg-gradient-to-br flex items-center justify-center relative', getGradient(i))}>
@@ -353,8 +353,8 @@ export default function Library() {
                   </button>
                 </div>
                 <div className="p-4">
-                  <div className="font-semibold text-[16px] truncate mb-1">{creator.nickname}</div>
-                  <div className="text-[13px] text-muted-foreground">
+                  <div className="font-semibold text-body truncate mb-1">{creator.nickname}</div>
+                  <div className="text-caption text-muted-foreground">
                     {creator.asset_count || 0} 个视频 · {creator.last_fetch_time
                       ? new Date(creator.last_fetch_time).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
                       : '未同步'}

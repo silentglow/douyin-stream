@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, RefreshCw, Loader2, FileText, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '@/store/useStore';
 import { getAssetsByCreator, getAssetTranscript } from '@/lib/api';
 import { triggerCreatorDownload } from '@/lib/api';
@@ -19,7 +20,7 @@ const C = {
 function StatusBadge({ status, error }: { status: string; error?: string | null }) {
   if (status === 'COMPLETED') {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#34C759]">
+      <span className="inline-flex items-center gap-1 text-small text-[#34C759]">
         <CheckCircle2 className="size-3" />
         已转写
       </span>
@@ -27,7 +28,7 @@ function StatusBadge({ status, error }: { status: string; error?: string | null 
   }
   if (status === 'FAILED' || error) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#FF3B30]">
+      <span className="inline-flex items-center gap-1 text-small text-[#FF3B30]">
         <AlertTriangle className="size-3" />
         失败
       </span>
@@ -35,14 +36,14 @@ function StatusBadge({ status, error }: { status: string; error?: string | null 
   }
   if (status === 'PENDING' || status === 'queued') {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#8E8E93]">
+      <span className="inline-flex items-center gap-1 text-small text-[#8E8E93]">
         <Clock className="size-3" />
         待转写
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#FF9500]">
+    <span className="inline-flex items-center gap-1 text-small text-[#FF9500]">
       <Loader2 className="size-3 animate-spin" />
       {status}
     </span>
@@ -122,7 +123,7 @@ export default function CreatorDetail() {
         </button>
         <div className="flex-1 min-w-0">
           <div className="text-title-1 font-bold tracking-tight truncate">{isLocal ? '本地素材' : creator.nickname}</div>
-          <div className="text-[13px] text-muted-foreground">
+          <div className="text-caption text-muted-foreground">
             {assets.length} 个文件 · {assets.filter((a) => a.transcript_status === 'COMPLETED').length} 个已转写
           </div>
         </div>
@@ -149,14 +150,14 @@ export default function CreatorDetail() {
         <div className="flex flex-col items-center justify-center py-[60px]">
           <FileText className="size-8 text-muted-foreground/40 mb-3" />
           <div className="text-[20px] font-semibold text-[#8E8E93]">还没有素材</div>
-          <div className="text-[13px] text-muted-foreground mt-1">{isLocal ? '在 Library 页面点击「本地转写」添加文件' : '点击上方「同步」按钮获取视频'}</div>
+          <div className="text-caption text-muted-foreground mt-1">{isLocal ? '在 Library 页面点击「本地转写」添加文件' : '点击上方「同步」按钮获取视频'}</div>
         </div>
       ) : (
         <div className="space-y-3">
           {assets.map((asset) => (
             <div
               key={asset.asset_id}
-              className="bg-card rounded-[18px] shadow-[0_2px_12px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] p-4 flex items-center gap-3 cursor-pointer transition-all hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)] active:scale-[0.98]"
+              className="bg-card rounded-[18px] apple-shadow-widget p-4 flex items-center gap-3 cursor-pointer transition-all active:scale-[0.98]"
               onClick={() => {
                 if (asset.transcript_status === 'COMPLETED' && asset.transcript_path) {
                   handleViewTranscript(asset);
@@ -171,14 +172,14 @@ export default function CreatorDetail() {
                 <div className="flex items-center gap-2 mt-0.5">
                   <StatusBadge status={asset.transcript_status} error={asset.transcript_last_error} />
                   {asset.create_time && (
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-small text-muted-foreground">
                       {new Date(asset.create_time).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
                     </span>
                   )}
                 </div>
               </div>
               {asset.transcript_status === 'COMPLETED' && (
-                <span className="text-[11px] text-muted-foreground shrink-0">查看转写</span>
+                <span className="text-small text-muted-foreground shrink-0">查看转写</span>
               )}
             </div>
           ))}
@@ -186,38 +187,48 @@ export default function CreatorDetail() {
       )}
 
       {/* Transcript Modal */}
-      {viewingAsset && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={() => setViewingAsset(null)}
-        >
-          <div
-            className="bg-card rounded-t-[22px] sm:rounded-[22px] w-full sm:w-full sm:max-w-2xl sm:mx-4 max-h-[85vh] flex flex-col shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+      <AnimatePresence>
+        {viewingAsset && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+            onClick={() => setViewingAsset(null)}
           >
-            <div className="flex items-center justify-between p-5 border-b border-border/40">
-              <h3 className="text-[17px] font-semibold truncate pr-4">{viewingAsset.title || '转写内容'}</h3>
-              <button
-                onClick={() => setViewingAsset(null)}
-                className="p-1.5 rounded-lg hover:bg-secondary transition-colors shrink-0"
-              >
-                <ArrowLeft className="size-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-5">
-              {transcriptLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <div className="prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap text-[15px] leading-relaxed">
-                  {transcriptContent || '暂无转写内容'}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="bg-card rounded-t-[22px] sm:rounded-[22px] w-full sm:w-full sm:max-w-2xl sm:mx-4 max-h-[85vh] flex flex-col shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-5 border-b border-border/40">
+                <h3 className="text-title-3 truncate pr-4">{viewingAsset.title || '转写内容'}</h3>
+                <button
+                  onClick={() => setViewingAsset(null)}
+                  className="p-1.5 rounded-lg hover:bg-secondary transition-colors shrink-0"
+                >
+                  <ArrowLeft className="size-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-5">
+                {transcriptLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap text-body leading-relaxed">
+                    {transcriptContent || '暂无转写内容'}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

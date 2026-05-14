@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   KeyRound, Users, Loader2, ChevronRight, Trash2, FileText, Zap, Info, X,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '@/store/useStore';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
@@ -208,7 +209,7 @@ export default function Settings() {
     } catch {
       setAutoTranscribe(!value);
     }
-  }, []);
+  }, [autoDeleteVideo, exportFormat]);
 
   const handleToggleAutoDelete = useCallback(async (value: boolean) => {
     setAutoDeleteVideo(value);
@@ -218,7 +219,7 @@ export default function Settings() {
     } catch {
       setAutoDeleteVideo(!value);
     }
-  }, []);
+  }, [autoTranscribe, exportFormat]);
 
   const handleChangeExportFormat = useCallback(async (format: string) => {
     setExportFormat(format);
@@ -227,7 +228,7 @@ export default function Settings() {
     } catch {
       // revert on error
     }
-  }, []);
+  }, [autoDeleteVideo, autoTranscribe]);
 
   const handleClaimQuota = useCallback(async () => {
     setIsClaimingQuota(true);
@@ -270,10 +271,10 @@ export default function Settings() {
   function SettingsGroup({ title, children }: { title: string; children: React.ReactNode }) {
     return (
       <div className="mb-8">
-        <div className="text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-2 px-3">
+        <div className="text-caption font-semibold text-[#8E8E93] uppercase tracking-wide mb-2 px-3">
           {title}
         </div>
-        <div className="bg-card rounded-[22px] shadow-[0_2px_12px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div className="bg-card rounded-[22px] apple-shadow-widget overflow-hidden">
           {children}
         </div>
       </div>
@@ -312,9 +313,9 @@ export default function Settings() {
           <div className={cn("w-[30px] h-[30px] rounded-lg flex items-center justify-center text-sm mr-3.5 shrink-0", iconBg)}>
             {icon}
           </div>
-          <span className="flex-1 text-[16px]">{label}</span>
+          <span className="flex-1 text-body">{label}</span>
           {value !== undefined && (
-            <span className="text-[15px] text-muted-foreground mr-1">{value}</span>
+            <span className="text-body text-muted-foreground mr-1">{value}</span>
           )}
           {hasChildren && (
             <ChevronRight className={cn("size-[14px] text-[#C7C7CC] transition-transform", isExpanded && "rotate-90")} />
@@ -323,11 +324,21 @@ export default function Settings() {
             <ChevronRight className="size-[14px] text-[#C7C7CC]" />
           )}
         </div>
-        {hasChildren && isExpanded && (
-          <div className="px-4 pb-4 border-t border-border/40">
-            {children}
-          </div>
-        )}
+        <AnimatePresence>
+          {hasChildren && isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ type: 'tween', duration: 0.25, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 pb-4 border-t border-border/40">
+                {children}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -392,7 +403,7 @@ export default function Settings() {
                   </div>
                   <div className="text-xs text-muted-foreground font-mono mt-0.5">
                     {account.id.slice(0, 12)}...
-                    {showQuota && (
+                    {showQuota ? (
                       <span className="ml-2 text-primary">
                         {isLoadingQwenStatus
                           ? '加载中...'
@@ -400,12 +411,14 @@ export default function Settings() {
                             ? '获取失败'
                             : `${qwenRemainingHoursById[account.id] ?? '--'}h`}
                       </span>
+                    ) : (
+                      <span className="ml-2 text-muted-foreground">[无额度]</span>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={cn(
-                    "text-[11px] font-semibold px-2 py-0.5 rounded-full",
+                    "text-small font-semibold px-2 py-0.5 rounded-full",
                     account.status === 'active' ? 'bg-success/12 text-success' : 'bg-warning/14 text-warning'
                   )}>
                     {account.status === 'active' ? '可用' : account.status === 'inactive' ? '停用' : account.status === 'expired' ? '过期' : account.status}
@@ -453,7 +466,7 @@ export default function Settings() {
 
   return (
     <div className="h-full p-7 px-8 max-sm:p-4 max-sm:pb-20 overflow-y-auto">
-      <div className="text-[28px] font-bold mb-6 tracking-tight">设置</div>
+      <div className="text-title-1 mb-6">设置</div>
 
       <div>
         {/* 账号配置 */}
@@ -521,7 +534,7 @@ export default function Settings() {
               onAdd={handleSaveQwen}
               onDelete={(id) => setConfirmDelete({ type: 'qwen', id, name: 'Qwen账号' })}
               placeholder="粘贴 tongyi/qianwen Cookie"
-              showQuota
+              showQuota={true}
             />
           </SettingsItem>
         </SettingsGroup>
@@ -594,39 +607,54 @@ export default function Settings() {
       </div>
 
       {/* Delete Confirm Dialog */}
-      {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-card rounded-[22px] p-6 w-full max-w-sm mx-4 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">删除确认</h3>
-              <button onClick={() => setConfirmDelete(null)} className="p-1 rounded-lg hover:bg-secondary">
-                <X className="size-4" />
-              </button>
-            </div>
-            <p className="text-sm text-muted-foreground mb-6">
-              确定要删除「{confirmDelete.name}」吗？此操作不可撤销。
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setConfirmDelete(null)}
-                className="flex-1 py-2.5 rounded-xl bg-secondary text-sm font-medium hover:bg-secondary/80 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={() => {
-                  if (confirmDelete.type === 'douyin') handleDeleteDouyin(confirmDelete.id);
-                  else if (confirmDelete.type === 'bilibili') handleDeleteBilibili(confirmDelete.id);
-                  else if (confirmDelete.type === 'qwen') handleDeleteQwen(confirmDelete.id);
-                }}
-                className="flex-1 py-2.5 rounded-xl bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 transition-colors"
-              >
-                删除
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {confirmDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            onClick={() => setConfirmDelete(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="bg-card rounded-[22px] p-6 w-full max-w-sm mx-4 shadow-xl"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">删除确认</h3>
+                <button onClick={() => setConfirmDelete(null)} className="p-1 rounded-lg hover:bg-secondary">
+                  <X className="size-4" />
+                </button>
+              </div>
+              <p className="text-sm text-muted-foreground mb-6">
+                确定要删除「{confirmDelete.name}」吗？此操作不可撤销。
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDelete(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-secondary text-sm font-medium hover:bg-secondary/80 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirmDelete.type === 'douyin') handleDeleteDouyin(confirmDelete.id);
+                    else if (confirmDelete.type === 'bilibili') handleDeleteBilibili(confirmDelete.id);
+                    else if (confirmDelete.type === 'qwen') handleDeleteQwen(confirmDelete.id);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 transition-colors"
+                >
+                  删除
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -24,7 +24,7 @@ function Card({
           : "border-border/60 bg-card",
         "text-card-foreground",
         "apple-shadow-sm",
-        hoverable && "hover:apple-shadow-md hover:-translate-y-0.5",
+        hoverable && "hover:-translate-y-0.5",
         "transition-all duration-300 spring-ease-subtle",
         "has-[>img:first-child]:pt-0",
         "data-[size=sm]:gap-3 data-[size=sm]:p-4",

@@ -20,7 +20,7 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
           "after:absolute after:left-[2px] after:top-[2px] after:h-[26px] after:w-[26px] after:rounded-full",
           "after:bg-white after:shadow-sm",
           "after:transition-all after:duration-200",
-          checked && "bg-[#34C759] after:left-[20px] after:shadow-md",
+          checked && "bg-[#34C759] after:left-[22px] after:shadow-md",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
           "active:scale-[0.97]",
           className

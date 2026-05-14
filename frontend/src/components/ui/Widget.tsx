@@ -32,10 +32,10 @@ const sizeClass = {
   large: 'col-span-2 sm:col-span-3 lg:col-span-4',
 };
 
-const minHeightClass = {
-  small: 'min-h-[140px]',
-  medium: 'min-h-[160px]',
-  large: 'min-h-[180px]',
+const aspectClass = {
+  small: 'aspect-square',
+  medium: 'aspect-[2/1]',
+  large: 'aspect-[2/1] lg:aspect-[4/2]',
 };
 
 export function Widget({
@@ -57,15 +57,12 @@ export function Widget({
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       className={cn(
         'bg-card',
-        'shadow-[0_2px_12px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)]',
-        'dark:shadow-[0_2px_12px_rgba(0,0,0,0.3),0_0_1px_rgba(255,255,255,0.04)]',
-        'hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)]',
-        'dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.4)]',
+        'apple-shadow-widget',
         'p-5 max-sm:p-4 flex flex-col gap-3 relative overflow-hidden',
         'rounded-[22px] max-sm:rounded-[18px]',
         'cursor-pointer',
         sizeClass[size],
-        minHeightClass[size],
+        aspectClass[size],
         tintMap[tint],
         className,
       )}
