@@ -60,7 +60,7 @@ def test_creator_transcribe_cleanup_retry_deletes_allowlisted_and_updates_payloa
     conn.commit()
 
     with patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
-        "media_tools.repositories.task_repository.get_db_connection",
+        "media_tools.scheduler.repository.get_db_connection",
         return_value=conn,
     ), patch.object(tasks_router, "get_download_path", return_value=downloads_root), patch.object(
         tasks_router, "get_project_root", return_value=project_root

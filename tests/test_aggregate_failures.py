@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from media_tools.db import core as db_core
-from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
+from media_tools.transcribe.repository import TranscribeRunRepository
 
 
 @pytest.fixture

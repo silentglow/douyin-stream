@@ -42,7 +42,7 @@ class TaskPayloadRetryTests(unittest.IsolatedAsyncioTestCase):
         )
         conn.commit()
 
-        from media_tools.services import task_ops
+        from media_tools.scheduler import ops as task_ops
 
         with patch("media_tools.scheduler.ops.get_db_connection", return_value=conn), patch(
             "media_tools.scheduler.ops.notify_task_update",

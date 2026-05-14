@@ -86,7 +86,7 @@ async def test_complete_task_partial_failed_does_not_trigger_auto_retry(monkeypa
     因为重跑会让已成功的子任务白费一次（外部 API 调用 + 写盘）。
     用户可以通过 UI"只重试失败子任务"入口手动重新调度。
     """
-    from media_tools.services import task_ops
+    from media_tools.scheduler import ops as task_ops
 
     # 准备一个空 SQLite，让 _complete_task 内部的 SQL 能跑通
     db_path = tmp_path / "test.db"
@@ -146,7 +146,7 @@ async def test_complete_task_partial_failed_does_not_trigger_auto_retry(monkeypa
 @pytest.mark.asyncio
 async def test_complete_task_failed_still_triggers_auto_retry(monkeypatch, tmp_path):
     """对照组：FAILED 状态仍然触发 auto_retry，证明 PARTIAL_FAILED 的特殊行为是有意为之。"""
-    from media_tools.services import task_ops
+    from media_tools.scheduler import ops as task_ops
 
     db_path = tmp_path / "test.db"
     monkeypatch.setattr("media_tools.common.paths.get_db_path", lambda: db_path)

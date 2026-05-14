@@ -92,7 +92,7 @@ def test_retry_failed_assets_dispatches_for_existing_files(tmp_path: Path) -> No
     ])
 
     with patch.object(svc, "get_db_connection", return_value=conn), patch(
-        "media_tools.repositories.task_repository.get_db_connection", return_value=conn
+        "media_tools.scheduler.repository.get_db_connection", return_value=conn
     ), patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
         "media_tools.scheduler.dispatcher.notify_task_update"
     ), patch.object(tasks_router, "get_download_path", return_value=tmp_path), patch(
@@ -136,7 +136,7 @@ def test_retry_failed_assets_filters_by_creator_and_error_type(tmp_path: Path) -
     ])
 
     with patch.object(svc, "get_db_connection", return_value=conn), patch(
-        "media_tools.repositories.task_repository.get_db_connection", return_value=conn
+        "media_tools.scheduler.repository.get_db_connection", return_value=conn
     ), patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
         "media_tools.scheduler.dispatcher.notify_task_update"
     ), patch.object(tasks_router, "get_download_path", return_value=tmp_path), patch(
@@ -163,7 +163,7 @@ def test_retry_failed_assets_returns_409_when_no_files_on_disk(tmp_path: Path) -
     ])
 
     with patch.object(svc, "get_db_connection", return_value=conn), patch(
-        "media_tools.repositories.task_repository.get_db_connection", return_value=conn
+        "media_tools.scheduler.repository.get_db_connection", return_value=conn
     ), patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
         "media_tools.scheduler.dispatcher.notify_task_update"
     ), patch.object(tasks_router, "get_download_path", return_value=tmp_path):
@@ -183,7 +183,7 @@ def test_retry_failed_assets_409_when_no_failed_at_all(tmp_path: Path) -> None:
     conn = _build_db_with_failed_assets([])  # nothing failed
 
     with patch.object(svc, "get_db_connection", return_value=conn), patch(
-        "media_tools.repositories.task_repository.get_db_connection", return_value=conn
+        "media_tools.scheduler.repository.get_db_connection", return_value=conn
     ), patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
         "media_tools.scheduler.dispatcher.notify_task_update"
     ), patch.object(tasks_router, "get_download_path", return_value=tmp_path):

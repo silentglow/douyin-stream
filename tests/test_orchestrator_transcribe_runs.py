@@ -18,7 +18,7 @@ from media_tools.db.core import init_db
 from media_tools.transcribe.error_types import ErrorType
 from media_tools.transcribe.models import AccountPool
 from media_tools.transcribe.service import OrchestratorV2
-from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
+from media_tools.transcribe.repository import TranscribeRunRepository
 from media_tools.transcribe.flow import FlowResult
 
 
@@ -29,7 +29,7 @@ def db(tmp_path: Path):
     conn = sqlite3.connect(db_file, check_same_thread=False, isolation_level=None)
     conn.row_factory = sqlite3.Row
     with patch(
-        "media_tools.repositories.transcribe_run_repository.get_db_connection",
+        "media_tools.transcribe.repository.get_db_connection",
         return_value=conn,
     ), patch(
         "media_tools.assets.service.get_db_connection",

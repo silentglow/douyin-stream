@@ -7,7 +7,7 @@ def test_task_repository_patch_payload_merges_fields(tmp_path, monkeypatch) -> N
     import sqlite3
     from contextlib import contextmanager
 
-    from media_tools.repositories.task_repository import TaskRepository
+    from media_tools.scheduler.repository import TaskRepository
 
     db_path = tmp_path / "t.db"
     conn = sqlite3.connect(str(db_path))
@@ -33,7 +33,7 @@ def test_task_repository_patch_payload_merges_fields(tmp_path, monkeypatch) -> N
     def _get_conn():  # noqa: ANN001
         yield conn
 
-    monkeypatch.setattr("media_tools.repositories.task_repository.get_db_connection", _get_conn)
+    monkeypatch.setattr("media_tools.scheduler.repository.get_db_connection", _get_conn)
 
     TaskRepository.create("t1", "local_transcribe", {"a": 1})
     TaskRepository.patch_payload("t1", {"b": 2})

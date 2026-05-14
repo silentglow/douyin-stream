@@ -91,7 +91,7 @@ def test_task_history_injects_pipeline_progress_into_payload() -> None:
     conn.commit()
 
     with patch("media_tools.api.routers.tasks.get_db_connection", return_value=conn), patch(
-        "media_tools.repositories.task_repository.get_db_connection", return_value=conn
+        "media_tools.scheduler.repository.get_db_connection", return_value=conn
     ):
         client = TestClient(app)
         resp = client.get("/api/v1/tasks/history")
@@ -158,7 +158,7 @@ def test_task_status_injects_pipeline_progress_into_payload() -> None:
     conn.commit()
 
     with patch("media_tools.api.routers.tasks.get_db_connection", return_value=conn), patch(
-        "media_tools.repositories.task_repository.get_db_connection", return_value=conn
+        "media_tools.scheduler.repository.get_db_connection", return_value=conn
     ):
         client = TestClient(app)
         resp_1 = client.get("/api/v1/tasks/t1")

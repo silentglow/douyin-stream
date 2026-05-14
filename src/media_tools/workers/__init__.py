@@ -5,7 +5,8 @@ from .aweme_recover_worker import AwemeRecoverWorker  # noqa: F401
 from .creator_transcribe_worker import CreatorTranscribeWorker  # noqa: F401
 from .full_sync_worker import FullSyncWorker  # noqa: F401
 from .local_transcribe_worker import LocalTranscribeWorker  # noqa: F401
-from .pipeline_worker import PipelineWorker, DownloadWorker  # noqa: F401
+from .pipeline_worker import PipelineWorker  # noqa: F401
+from media_tools.download.worker import DownloadWorker  # noqa: F401
 from .transcribe import transcribe_files  # noqa: F401
 
 from media_tools.scheduler.base import BaseWorker  # noqa: F401

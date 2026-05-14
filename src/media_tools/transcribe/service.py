@@ -160,7 +160,7 @@ class OrchestratorV2:
 
             # DB 级断点续传：检查该 asset 是否已有成功的 run（跨账号去重）
             if asset_id_for_run:
-                from media_tools.services.transcribe_run_service import TranscribeRunService
+                from media_tools.transcribe.run_service import TranscribeRunService
                 from media_tools.assets.service import AssetUpdateService
                 saved = TranscribeRunService.check_saved(asset_id_for_run)
                 if saved:

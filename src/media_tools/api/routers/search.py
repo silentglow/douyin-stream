@@ -3,7 +3,7 @@ from fastapi import APIRouter, Query
 
 from media_tools.assets.repository import AssetRepository
 from media_tools.creators.repository import CreatorRepository
-from media_tools.repositories.task_repository import TaskRepository
+from media_tools.scheduler.repository import TaskRepository
 
 router = APIRouter(prefix="/api", tags=["search"], redirect_slashes=False)
 

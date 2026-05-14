@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Optional, Dict
 
 from media_tools.logger import get_logger
-from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
+from media_tools.transcribe.repository import TranscribeRunRepository
 
 logger = get_logger(__name__)
 

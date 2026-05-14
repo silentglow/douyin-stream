@@ -53,7 +53,7 @@ class CloudCleanupService:
     async def cleanup(video_path: Path, *, account_id: Optional[str] = None) -> None:
         """清理指定视频的云端失败记录。"""
         from media_tools.assets.service import MediaAssetService
-        from media_tools.services.transcribe_run_service import TranscribeRunService
+        from media_tools.transcribe.run_service import TranscribeRunService
 
         asset_id = MediaAssetService.find_asset_id_for_video_path(video_path)
 

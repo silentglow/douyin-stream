@@ -100,7 +100,7 @@ def get_failure_summary(days: int = 7):
 
     数据源是 transcribe_runs 表（每次转写尝试一行）。每次返回最近 N 天的统计。
     """
-    from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
+    from media_tools.transcribe.repository import TranscribeRunRepository
     days = max(1, min(days, 90))
     try:
         buckets = TranscribeRunRepository.aggregate_failures(days=days)
@@ -152,7 +152,7 @@ async def get_dashboard():
     creator_sync = _collect_creator_sync_status()
 
     # failure summary (7 days)
-    from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
+    from media_tools.transcribe.repository import TranscribeRunRepository
     try:
         buckets = TranscribeRunRepository.aggregate_failures(days=7)
         failure_summary = {

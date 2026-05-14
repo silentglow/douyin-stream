@@ -226,7 +226,7 @@ async def run_real_flow(
         if not run_id:
             return
         try:
-            from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
+            from media_tools.transcribe.repository import TranscribeRunRepository
             TranscribeRunRepository.update_stage(run_id, stage, extra)
         except (sqlite3.Error, OSError) as exc:
             logger.warning(f"transcribe_runs 打卡失败 (run_id={run_id}, stage={stage}): {exc}")
@@ -445,7 +445,7 @@ async def run_real_flow(
             await _safe_cleanup_old_record(api, resume_state.record_id)
             if run_id:
                 try:
-                    from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
+                    from media_tools.transcribe.repository import TranscribeRunRepository
                     TranscribeRunRepository.update_stage(run_id, "queued")
                 except Exception:  # noqa: defensive – stage 重置失败不影响主流程
                     logger.debug("重置 stage 失败，但不影响 fallback 流程", exc_info=True)
@@ -509,7 +509,7 @@ async def run_real_flow(
             await _safe_cleanup_old_record(api, resume_state.record_id)
             if run_id:
                 try:
-                    from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
+                    from media_tools.transcribe.repository import TranscribeRunRepository
                     TranscribeRunRepository.update_stage(run_id, "queued")
                 except Exception:  # noqa: defensive – stage 重置失败不影响主流程
                     logger.debug("重置 stage 失败，但不影响 fallback 流程", exc_info=True)

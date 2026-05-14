@@ -7,7 +7,7 @@ from typing import Optional
 from media_tools.api.websocket_manager import manager
 from media_tools.store.db import get_db_connection
 from media_tools.scheduler.retry import schedule_auto_retry
-from media_tools.repositories.task_repository import _merge_task_payload, _merge_payload_from_db
+from media_tools.scheduler.repository import _merge_task_payload, _merge_payload_from_db
 
 logger = logging.getLogger(__name__)
 DEFAULT_TASK_STALE_MINUTES = 20

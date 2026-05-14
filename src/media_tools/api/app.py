@@ -228,7 +228,7 @@ app.include_router(search.router)
 import shutil
 
 from media_tools.store.db import get_db_connection
-from media_tools.repositories.task_repository import TaskRepository
+from media_tools.scheduler.repository import TaskRepository
 
 
 @app.get("/api/health")

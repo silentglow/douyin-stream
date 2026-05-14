@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from media_tools.services import task_ops
+from media_tools.scheduler import ops as task_ops
 
 
 @pytest.mark.asyncio

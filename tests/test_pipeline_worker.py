@@ -15,7 +15,7 @@ class PipelineWorkerTests(unittest.IsolatedAsyncioTestCase):
         orchestrator = SimpleNamespace(transcribe_batch=AsyncMock(return_value=SimpleNamespace(success=1, failed=0, results=[])))
         fake_config = SimpleNamespace()
 
-        with patch("media_tools.transcribe.download_router.download_by_url", download_mock), patch(
+        with patch("media_tools.download.service.download_by_url", download_mock), patch(
             "media_tools.transcribe.worker.asyncio.to_thread",
             new=AsyncMock(return_value={"success": True, "new_files": ["/tmp/video.mp4"]}),
         ) as mocked_to_thread, patch(

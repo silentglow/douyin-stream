@@ -11,7 +11,7 @@ from media_tools.api.app import app
 def test_clear_history_removes_non_active_tasks(monkeypatch) -> None:
     from media_tools.api.routers import tasks as tasks_router
     from media_tools.douyin.core import cancel_registry
-    from media_tools.repositories import task_repository
+    from media_tools.scheduler import repository as task_repository
 
     conn = sqlite3.connect(":memory:", check_same_thread=False)
     conn.row_factory = sqlite3.Row

@@ -59,7 +59,7 @@ def test_retry_failed_subtasks_creates_local_transcribe_task(tmp_path: Path) -> 
     conn.commit()
 
     with patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
-        "media_tools.repositories.task_repository.get_db_connection",
+        "media_tools.scheduler.repository.get_db_connection",
         return_value=conn,
     ), patch("media_tools.scheduler.dispatcher.notify_task_update"), patch(
         "media_tools.scheduler.dispatcher._register_background_task", side_effect=_skip_background_task
@@ -117,7 +117,7 @@ def test_retry_failed_subtasks_requires_existing_failed_paths(tmp_path: Path) ->
     conn.commit()
 
     with patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
-        "media_tools.repositories.task_repository.get_db_connection",
+        "media_tools.scheduler.repository.get_db_connection",
         return_value=conn,
     ):
         client = TestClient(app)

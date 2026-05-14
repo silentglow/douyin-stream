@@ -121,7 +121,7 @@ def _register_system_jobs() -> None:
     def _auto_creator_sync():
         import asyncio
         from datetime import timezone, timedelta
-        from media_tools.repositories.task_repository import TaskRepository
+        from media_tools.scheduler.repository import TaskRepository
         from media_tools.creators.sync import CreatorSyncWorker
 
         with get_db_connection() as conn:

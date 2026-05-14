@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from media_tools.db.core import init_db
-from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
+from media_tools.transcribe.repository import TranscribeRunRepository
 from media_tools.transcribe.flow import run_real_flow
 from media_tools.transcribe.runtime import ExportConfig
 
@@ -36,7 +36,7 @@ def db_with_repo(tmp_path: Path):
     conn = sqlite3.connect(db_file, check_same_thread=False, isolation_level=None)
     conn.row_factory = sqlite3.Row
     with patch(
-        "media_tools.repositories.transcribe_run_repository.get_db_connection",
+        "media_tools.transcribe.repository.get_db_connection",
         return_value=conn,
     ):
         yield conn
