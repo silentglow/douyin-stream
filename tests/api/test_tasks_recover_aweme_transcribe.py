@@ -17,8 +17,8 @@ def _skip_background_task(_task_id, coro):
 
 def test_trigger_recover_aweme_creates_new_task() -> None:
     client = TestClient(app)
-    with patch("media_tools.workers.task_dispatcher._register_background_task", side_effect=_skip_background_task) as reg, patch(
-        "media_tools.workers.task_dispatcher._create_task",
+    with patch("media_tools.scheduler.dispatcher._register_background_task", side_effect=_skip_background_task) as reg, patch(
+        "media_tools.scheduler.dispatcher._create_task",
         new=AsyncMock(),
     ):
         resp = client.post(

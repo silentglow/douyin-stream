@@ -8,7 +8,8 @@ from .local_transcribe_worker import LocalTranscribeWorker  # noqa: F401
 from .pipeline_worker import PipelineWorker, DownloadWorker  # noqa: F401
 from .transcribe import transcribe_files  # noqa: F401
 
-from .base import get_worker_class, list_worker_types, register_worker, BaseWorker  # noqa: F401
+from media_tools.scheduler.base import BaseWorker  # noqa: F401
+from media_tools.scheduler.registry import get_worker_class, list_worker_types, register_worker  # noqa: F401
 
 __all__ = [
     "BaseWorker",

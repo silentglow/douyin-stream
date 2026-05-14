@@ -94,11 +94,11 @@ def test_retry_failed_assets_dispatches_for_existing_files(tmp_path: Path) -> No
     with patch.object(svc, "get_db_connection", return_value=conn), patch(
         "media_tools.repositories.task_repository.get_db_connection", return_value=conn
     ), patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
-        "media_tools.workers.task_dispatcher.notify_task_update"
+        "media_tools.scheduler.dispatcher.notify_task_update"
     ), patch.object(tasks_router, "get_download_path", return_value=tmp_path), patch(
-        "media_tools.workers.task_dispatcher._register_background_task", side_effect=_skip_background_task
+        "media_tools.scheduler.dispatcher._register_background_task", side_effect=_skip_background_task
     ), patch(
-        "media_tools.workers.task_dispatcher._register_local_assets"
+        "media_tools.scheduler.dispatcher._register_local_assets"
     ) as register_local_assets:
         client = TestClient(app)
         resp = client.post("/api/v1/tasks/transcribe/retry-failed-assets", json={})
@@ -138,11 +138,11 @@ def test_retry_failed_assets_filters_by_creator_and_error_type(tmp_path: Path) -
     with patch.object(svc, "get_db_connection", return_value=conn), patch(
         "media_tools.repositories.task_repository.get_db_connection", return_value=conn
     ), patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
-        "media_tools.workers.task_dispatcher.notify_task_update"
+        "media_tools.scheduler.dispatcher.notify_task_update"
     ), patch.object(tasks_router, "get_download_path", return_value=tmp_path), patch(
-        "media_tools.workers.task_dispatcher._register_background_task", side_effect=_skip_background_task
+        "media_tools.scheduler.dispatcher._register_background_task", side_effect=_skip_background_task
     ), patch(
-        "media_tools.workers.task_dispatcher._register_local_assets"
+        "media_tools.scheduler.dispatcher._register_local_assets"
     ):
         client = TestClient(app)
         resp = client.post(
@@ -165,7 +165,7 @@ def test_retry_failed_assets_returns_409_when_no_files_on_disk(tmp_path: Path) -
     with patch.object(svc, "get_db_connection", return_value=conn), patch(
         "media_tools.repositories.task_repository.get_db_connection", return_value=conn
     ), patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
-        "media_tools.workers.task_dispatcher.notify_task_update"
+        "media_tools.scheduler.dispatcher.notify_task_update"
     ), patch.object(tasks_router, "get_download_path", return_value=tmp_path):
         client = TestClient(app)
         resp = client.post("/api/v1/tasks/transcribe/retry-failed-assets", json={})
@@ -185,7 +185,7 @@ def test_retry_failed_assets_409_when_no_failed_at_all(tmp_path: Path) -> None:
     with patch.object(svc, "get_db_connection", return_value=conn), patch(
         "media_tools.repositories.task_repository.get_db_connection", return_value=conn
     ), patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
-        "media_tools.workers.task_dispatcher.notify_task_update"
+        "media_tools.scheduler.dispatcher.notify_task_update"
     ), patch.object(tasks_router, "get_download_path", return_value=tmp_path):
         client = TestClient(app)
         resp = client.post("/api/v1/tasks/transcribe/retry-failed-assets", json={})

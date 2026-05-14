@@ -61,10 +61,10 @@ def test_retry_failed_subtasks_creates_local_transcribe_task(tmp_path: Path) -> 
     with patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
         "media_tools.repositories.task_repository.get_db_connection",
         return_value=conn,
-    ), patch("media_tools.workers.task_dispatcher.notify_task_update"), patch(
-        "media_tools.workers.task_dispatcher._register_background_task", side_effect=_skip_background_task
+    ), patch("media_tools.scheduler.dispatcher.notify_task_update"), patch(
+        "media_tools.scheduler.dispatcher._register_background_task", side_effect=_skip_background_task
     ), patch(
-        "media_tools.workers.task_dispatcher._register_local_assets"
+        "media_tools.scheduler.dispatcher._register_local_assets"
     ) as register_local_assets:
         client = TestClient(app)
         resp = client.post("/api/v1/tasks/source-task/retry-failed")

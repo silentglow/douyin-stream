@@ -21,7 +21,7 @@ from media_tools.api.schemas import (
     CreatorTranscribeCleanupRetryRequest,
     RetryFailedAssetsRequest,
 )
-from media_tools.workers.task_dispatcher import (
+from media_tools.scheduler.dispatcher import (
     _start_task_worker,
     _retry_task_worker,
     dispatch_new_task,

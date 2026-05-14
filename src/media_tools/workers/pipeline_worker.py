@@ -6,7 +6,7 @@ from typing import Any
 from media_tools.core.config import get_runtime_setting_bool
 from media_tools.pipeline.worker import run_pipeline_for_user, run_batch_pipeline, run_download_only
 from media_tools.repositories.task_repository import TaskRepository
-from media_tools.workers.base import BaseWorker, register_worker
+from media_tools.scheduler.base import BaseWorker, register_worker
 
 logger = logging.getLogger(__name__)
 

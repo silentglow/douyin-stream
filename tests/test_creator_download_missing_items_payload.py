@@ -78,10 +78,10 @@ async def test_creator_download_sets_missing_items_in_payload() -> None:
         "media_tools.workers.creator_sync.get_runtime_setting_bool",
         return_value=False,
     ), patch(
-        "media_tools.workers.base.update_task_progress",
+        "media_tools.scheduler.base.update_task_progress",
         new=AsyncMock(),
     ), patch(
-        "media_tools.workers.base._task_heartbeat",
+        "media_tools.scheduler.base._task_heartbeat",
         new=AsyncMock(),
     ), patch(
         "media_tools.workers.creator_sync.asyncio.to_thread",

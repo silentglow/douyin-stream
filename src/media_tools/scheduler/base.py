@@ -1,5 +1,5 @@
 from __future__ import annotations
-"""后台任务工作者基类与注册表。
+"""后台任务工作者基类。
 
 提供统一的 heartbeat、进度上报、三态终态决策和异常处理模板，
 消除各 worker 文件中重复的 try/finally/except  boilerplate。
@@ -17,6 +17,7 @@ from media_tools.scheduler.ops import (
     _mark_task_cancelled,
 )
 from media_tools.scheduler.state import _task_heartbeat
+from media_tools.scheduler.registry import register_worker
 
 logger = logging.getLogger(__name__)
 
@@ -157,39 +158,3 @@ class BaseWorker:
             except asyncio.CancelledError:
                 pass
 
-
-# ====================================================================
-# 注册表
-# ====================================================================
-_WORKER_REGISTRY: dict[str, type[BaseWorker]] = {}
-
-
-def register_worker(task_type: str):
-    """装饰器：将 Worker 类注册到全局注册表。
-
-    示例::
-        @register_worker("local_transcribe")
-        class LocalTranscribeWorker(BaseWorker):
-            task_type = "local_transcribe"
-            async def run(self, task_id, **kwargs): ...
-    """
-
-    def decorator(cls: type[BaseWorker]) -> type[BaseWorker]:
-        _WORKER_REGISTRY[task_type] = cls
-        return cls
-
-    return decorator
-
-
-def get_worker_class(task_type: str) -> Optional[type[BaseWorker]]:
-    """按 task_type 查找 Worker 类，支持前缀匹配（creator_sync_*, full_sync_*）。"""
-    if task_type in _WORKER_REGISTRY:
-        return _WORKER_REGISTRY[task_type]
-    for registered_type in _WORKER_REGISTRY:
-        if task_type.startswith(registered_type + "_"):
-            return _WORKER_REGISTRY[registered_type]
-    return None
-
-
-def list_worker_types() -> list[str]:
-    return list(_WORKER_REGISTRY.keys())

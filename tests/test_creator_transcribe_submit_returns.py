@@ -17,8 +17,8 @@ def test_creator_transcribe_submits_background_task(monkeypatch) -> None:
         created["registered_task_id"] = task_id
         created["registered_coro"] = coro
 
-    monkeypatch.setattr("media_tools.workers.task_dispatcher._create_task", _fake_create_task)
-    monkeypatch.setattr("media_tools.workers.task_dispatcher._register_background_task", _fake_register)
+    monkeypatch.setattr("media_tools.scheduler.dispatcher._create_task", _fake_create_task)
+    monkeypatch.setattr("media_tools.scheduler.dispatcher._register_background_task", _fake_register)
 
     req = tasks_router.CreatorTranscribeRequest(uid="u1")
     result = asyncio.run(tasks_router.trigger_creator_transcribe(req))
