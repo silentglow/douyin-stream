@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Users, Plus, Loader2, RefreshCw, FileAudio, X } from 'lucide-react';
+import { Search, Users, Plus, Loader2, RefreshCw, FileAudio, X, ArrowRight } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { AppleEmptyState } from '@/components/ui/AppleEmptyState';
 import { cn } from '@/lib/utils';
@@ -35,6 +35,10 @@ export default function Library() {
     () => allCreators.filter((c) => c.platform !== 'local' && !c.uid.startsWith('local:')),
     [allCreators]
   );
+
+  // 本地素材虚拟创作者
+  const hasLocalAssets = allCreators.some((c) => c.uid === 'local:upload');
+  const localAssetCount = allCreators.find((c) => c.uid === 'local:upload')?.asset_count || 0;
 
   const [filter, setFilter] = useState<FilterType>('all');
   const [search, setSearch] = useState('');
@@ -286,6 +290,27 @@ export default function Library() {
       {!douyinReady && !bilibiliReady && (
         <div className="text-xs text-muted-foreground mb-4">
           先在设置页配置抖音或 B站 Cookie 才能添加创作者
+        </div>
+      )}
+
+      {/* Local Assets Entry */}
+      {hasLocalAssets && (
+        <div className="mb-5">
+          <div
+            className="bg-card rounded-[22px] shadow-[0_2px_12px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)] active:scale-[0.97] flex items-center gap-4 px-5 py-4"
+            onClick={() => navigate('/library/local:upload')}
+          >
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#34A853] to-[#34C759] flex items-center justify-center shrink-0">
+              <FileAudio className="size-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-[16px] truncate">本地素材</div>
+              <div className="text-[13px] text-muted-foreground">
+                {localAssetCount} 个文件
+              </div>
+            </div>
+            <ArrowRight className="size-4 text-muted-foreground shrink-0" />
+          </div>
         </div>
       )}
 

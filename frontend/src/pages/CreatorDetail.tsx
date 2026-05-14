@@ -61,6 +61,7 @@ export default function CreatorDetail() {
   const [transcriptContent, setTranscriptContent] = useState('');
   const [transcriptLoading, setTranscriptLoading] = useState(false);
 
+  const isLocal = creatorUid === 'local:upload';
   const creator = creators.find((c) => c.uid === creatorUid);
 
   useEffect(() => {
@@ -101,7 +102,7 @@ export default function CreatorDetail() {
     }
   }, []);
 
-  if (!creator) {
+  if (!creator && !isLocal) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-muted-foreground">创作者不存在</div>
@@ -120,19 +121,21 @@ export default function CreatorDetail() {
           <ArrowLeft className="size-[18px] text-muted-foreground" />
         </button>
         <div className="flex-1 min-w-0">
-          <div className="text-title-1 font-bold tracking-tight truncate">{creator.nickname}</div>
+          <div className="text-title-1 font-bold tracking-tight truncate">{isLocal ? '本地素材' : creator.nickname}</div>
           <div className="text-[13px] text-muted-foreground">
-            {creator.asset_count || 0} 个视频 · {assets.filter((a) => a.transcript_status === 'COMPLETED').length} 个已转写
+            {assets.length} 个文件 · {assets.filter((a) => a.transcript_status === 'COMPLETED').length} 个已转写
           </div>
         </div>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-all active:scale-[0.97] disabled:opacity-50"
-        >
-          {syncing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-          同步
-        </button>
+        {!isLocal && (
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-all active:scale-[0.97] disabled:opacity-50"
+          >
+            {syncing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            同步
+          </button>
+        )}
       </div>
 
       {/* Asset List */}
@@ -146,7 +149,7 @@ export default function CreatorDetail() {
         <div className="flex flex-col items-center justify-center py-[60px]">
           <FileText className="size-8 text-muted-foreground/40 mb-3" />
           <div className="text-[20px] font-semibold text-[#8E8E93]">还没有素材</div>
-          <div className="text-[13px] text-muted-foreground mt-1">点击上方「同步」按钮获取视频</div>
+          <div className="text-[13px] text-muted-foreground mt-1">{isLocal ? '在 Library 页面点击「本地转写」添加文件' : '点击上方「同步」按钮获取视频'}</div>
         </div>
       ) : (
         <div className="space-y-3">

@@ -85,17 +85,25 @@ export default function Settings() {
     setQwenStatusError('');
     try {
       const res = await getQwenStatus();
+      console.log('[QwenStatus] response:', res);
       const map: Record<string, number> = {};
       for (const a of res.accounts || []) {
         map[a.accountId] = a.remaining_hours ?? 0;
       }
+      console.log('[QwenStatus] mapped:', map, 'settings ids:', settings?.qwen_accounts?.map((a) => a.id));
       setQwenRemainingHoursById(map);
-    } catch {
+      if (res.status !== 'success') {
+        setQwenStatusError(res.message || '额度服务不可用');
+      } else if ((res.accounts || []).length === 0 && (settings?.qwen_accounts?.length || 0) > 0) {
+        setQwenStatusError('额度接口返回空账号列表');
+      }
+    } catch (err) {
+      console.error('[QwenStatus] error:', err);
       setQwenStatusError('额度获取失败');
     } finally {
       setIsLoadingQwenStatus(false);
     }
-  }, [settings?.status_summary.qwen_ready]);
+  }, [settings?.status_summary.qwen_ready, settings?.qwen_accounts]);
 
   useEffect(() => {
     loadQwenStatus();
