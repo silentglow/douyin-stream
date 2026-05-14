@@ -1,3 +1,4 @@
+import re
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -9,6 +10,47 @@ from .path_utils import resolve_safe_path, resolve_query_value, local_asset_id  
 
 logger = get_logger('db')
 
+# --- Identifier validation ---
+_IDENTIFIER_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+_VALID_TABLES = frozenset({
+    'creators', 'media_assets', 'task_queue', 'auth_credentials',
+    'Accounts_Pool', 'SystemSettings', 'scheduled_tasks', 'assets_fts',
+    'video_metadata', 'user_info_web', 'transcribe_runs'
+})
+
+
+def validate_identifier(name: str, field_name: str = "identifier") -> str:
+    if not name or not _IDENTIFIER_RE.match(name):
+        raise ValueError(f"Invalid {field_name}: {name!r}")
+    return name
+
+
+def _check_table_name(table: str) -> str:
+    if table in _VALID_TABLES:
+        return table
+    return validate_identifier(table, "table_name")
+
+
+_table_columns_cache: dict[str, set[str]] = {}
+
+
+def get_table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    if table in _table_columns_cache:
+        return _table_columns_cache[table]
+    safe_table = _check_table_name(table)
+    columns = {
+        row["name"] if isinstance(row, sqlite3.Row) else row[1]
+        for row in conn.execute("PRAGMA table_info(" + safe_table + ")").fetchall()
+    }
+    _table_columns_cache[table] = columns
+    return columns
+
+
+def _invalidate_table_columns_cache() -> None:
+    _table_columns_cache.clear()
+
+
+# --- Resolved DB path ---
 _db_path: Optional[str] = None
 
 
@@ -27,9 +69,9 @@ def set_db_path(path: str) -> None:
     _db_path = path
 
 
+# --- Connection management ---
 @contextmanager
 def get_db() -> Generator[sqlite3.Connection, None, None]:
-    """FastAPI dependency – yields a connection with explicit transaction."""
     conn = sqlite3.connect(get_db_path(), timeout=15.0)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.row_factory = sqlite3.Row
@@ -48,7 +90,6 @@ _thread_local = threading.local()
 
 
 def get_db_connection() -> sqlite3.Connection:
-    """Get a database connection (thread-local cached)."""
     cached = getattr(_thread_local, "conn", None)
     if cached is not None:
         try:
@@ -76,3 +117,69 @@ def close_db_connection() -> None:
         except sqlite3.Error:
             pass
         _thread_local.conn = None
+
+
+def close_all_cached_connections() -> int:
+    """Backward-compatible alias for close_db_connection."""
+    close_db_connection()
+    return 1
+
+
+# --- Legacy DBConnection class (for backward compatibility) ---
+class DBConnection:
+    """Legacy wrapper for backward compatibility."""
+
+    def __init__(self, keep_open: bool = False, _owns_physical: bool = True):
+        self._conn = sqlite3.connect(get_db_path(), timeout=15.0)
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.row_factory = sqlite3.Row
+        self._keep_open = keep_open
+        self._committed = False
+        self._owns_physical = _owns_physical
+
+    def __enter__(self) -> sqlite3.Connection:
+        return self._conn
+
+    def __exit__(self, exc_type, _exc_val, _exc_tb) -> None:
+        try:
+            if exc_type is None:
+                self._conn.commit()
+            else:
+                self._conn.rollback()
+        except sqlite3.Error:
+            self._conn.rollback()
+        finally:
+            self._conn.close()
+
+    def commit(self) -> None:
+        self._conn.commit()
+        self._committed = True
+
+
+# --- init_db (legacy entry point) ---
+def init_db(db_path: Optional[str] = None) -> None:
+    """Initialize database using new schema and migration framework."""
+    global _db_path
+    if db_path:
+        _db_path = str(db_path)
+
+    from .schema import init_schema
+    from .migrations import run_migrations
+
+    conn = sqlite3.connect(get_db_path(), timeout=15.0)
+    conn.execute("PRAGMA journal_mode=WAL")
+    try:
+        init_schema(conn)
+        run_migrations(conn)
+        conn.commit()
+        logger.info("Database initialized")
+    except (sqlite3.Error, OSError) as e:
+        logger.error(f"Database initialization failed: {e}")
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+# --- Re-export FTS functions for backward compatibility ---
+from .fts import ensure_fts_populated, update_fts_for_asset, rebuild_fts_index  # noqa: F401, E402
