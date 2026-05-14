@@ -4,7 +4,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Optional
 from media_tools.logger import get_logger
-from media_tools.db.core import local_asset_id
+from media_tools.store.db import local_asset_id
 from media_tools.pipeline.task_helpers import call_progress, create_managed_task, filter_supported_media_paths
 
 logger = get_logger('pipeline')
@@ -36,7 +36,7 @@ async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, d
         stage="transcribe",
         pipeline_progress={"transcribe": {"done": 0, "total": total}},
     )
-    from media_tools.db.core import get_db_connection
+    from media_tools.store.db import get_db_connection
     from media_tools.pipeline.preview import extract_transcript_preview, extract_transcript_text
 
     subtasks: list[dict[str, Any]] = []

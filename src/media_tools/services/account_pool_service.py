@@ -48,7 +48,7 @@ class AccountPoolService:
         数据库无记录时回退到单账号模式（auth_state_path）。
         """
         try:
-            from media_tools.db.core import get_db_connection
+            from media_tools.store.db import get_db_connection
             from media_tools.transcribe.db_account_pool import (
                 build_qwen_auth_state_path_for_account,
                 load_qwen_accounts_from_db,

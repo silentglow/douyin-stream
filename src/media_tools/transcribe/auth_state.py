@@ -212,7 +212,7 @@ def load_qwen_storage_state_from_db(db_path: str | Optional[Path] = None) -> Opt
         return None
 
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -246,7 +246,7 @@ def has_qwen_auth_state(auth_state_path: str | Optional[Path] = None) -> bool:
 
 def _has_active_qwen_account_in_pool() -> bool:
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             row = conn.execute(
                 "SELECT 1 FROM Accounts_Pool WHERE platform='qwen' AND status='active' AND cookie_data IS NOT NULL AND cookie_data != '' LIMIT 1",
@@ -258,7 +258,7 @@ def _has_active_qwen_account_in_pool() -> bool:
 
 def _get_active_qwen_cookie_from_pool() -> str:
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             row = conn.execute(
                 """

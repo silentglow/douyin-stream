@@ -134,7 +134,7 @@ def _clean_user_videos(uid, count_to_remove, db_records, local_files):
     db_path = config.get_db_path()
 
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
@@ -207,7 +207,7 @@ def clean_all_user_data(uid, user_name):
         return False
 
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             cursor = conn.cursor()
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 from media_tools.common.paths import get_download_path, get_project_root
-from media_tools.db.core import get_db_connection, resolve_safe_path, resolve_query_value
+from media_tools.store.db import get_db_connection, resolve_safe_path, resolve_query_value
 from media_tools.services.asset_file_ops import (
     delete_asset_files,
     _resolve_asset_video_file,

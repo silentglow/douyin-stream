@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from media_tools.common.paths import get_download_path, get_project_root
-from media_tools.db.core import resolve_safe_path
+from media_tools.store.db import resolve_safe_path
 from media_tools.services.local_asset_service import LOCAL_CREATOR_UID
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ def _resolve_asset_video_file(
 
 def get_source_url_column(conn) -> str:
     """返回 source_url 列的 SELECT 片段（兼容旧表结构）"""
-    from media_tools.db.core import get_table_columns
+    from media_tools.store.db import get_table_columns
     return "source_url," if "source_url" in get_table_columns(conn, "media_assets") else "'' AS source_url,"
 
 

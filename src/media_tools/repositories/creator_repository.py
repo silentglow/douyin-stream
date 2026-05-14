@@ -4,7 +4,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any, Optional, Union
 
-from media_tools.db.core import get_db_connection, get_table_columns
+from media_tools.store.db import get_db_connection, get_table_columns
 
 
 class CreatorRepository:

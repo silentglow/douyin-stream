@@ -28,7 +28,7 @@ from media_tools.workers.task_dispatcher import (
 )
 from media_tools.douyin.core.cancel_registry import set_cancel_event, clear_cancel_event, clear_download_progress
 from media_tools.common.paths import get_download_path, get_project_root
-from media_tools.db.core import get_db_connection
+from media_tools.store.db import get_db_connection
 from media_tools.repositories.task_repository import TaskRepository
 from media_tools.repositories.asset_repository import AssetRepository
 from media_tools.core.config import get_runtime_setting_bool

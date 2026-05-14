@@ -90,7 +90,7 @@ def get_db_video_records():
         return {}
 
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT aweme_id, uid, desc, local_filename FROM video_metadata")

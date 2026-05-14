@@ -3,7 +3,7 @@ import logging
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from media_tools.db.core import get_db_connection
+from media_tools.store.db import get_db_connection
 
 logger = logging.getLogger(__name__)
 

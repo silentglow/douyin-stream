@@ -2,7 +2,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from media_tools.db.core import get_db_connection, local_asset_id
+from media_tools.store.db import get_db_connection, local_asset_id
 
 LOCAL_CREATOR_UID = "local:upload"
 LOCAL_CREATOR_NAME = "本地上传"

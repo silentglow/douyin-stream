@@ -8,7 +8,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from media_tools.db.core import resolve_safe_path
+from media_tools.store.db import resolve_safe_path
 from media_tools.douyin.core.config_mgr import get_config
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ def _reorganize_files(nickname: str, uid: str) -> Optional[str]:
 def _update_last_fetch_time(uid: str, nickname: str = ""):
     """更新 SQLite 中的 last_fetch_time — 使用 UTC CURRENT_TIMESTAMP 保持一致性"""
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             cursor = conn.cursor()
             # 使用 CURRENT_TIMESTAMP（UTC），与 creator_sync.py 保持一致

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from media_tools.db.core import get_db_connection
+from media_tools.store.db import get_db_connection
 
 DEFAULT_SAMPLE_SIZE = 10
 RUNNING_STALE_HOURS = 1

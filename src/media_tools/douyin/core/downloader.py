@@ -17,7 +17,7 @@ import re
 
 from .f2_helper import get_f2_kwargs as _build_f2_kwargs
 from media_tools.logger import get_logger
-from media_tools.db.core import resolve_safe_path
+from media_tools.store.db import resolve_safe_path
 from media_tools.core.task_progress import Stage
 from .file_ops import _clean_video_title, _reorganize_files, _update_last_fetch_time
 
@@ -140,7 +140,7 @@ def _create_video_metadata_table():
     db_path = config.get_db_path()
     conn = None
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
@@ -190,7 +190,7 @@ def _save_video_metadata_from_raw(raw_data: dict, nickname: str = ""):
     db_path = config.get_db_path()
     conn = None
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
@@ -251,7 +251,7 @@ def _save_single_video_metadata(video: dict, nickname: str = "") -> int:
     db_path = config.get_db_path()
     conn = None
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
@@ -317,7 +317,7 @@ def _rename_videos_in_downloads(nickname: str, uid: str, downloads_path: Path) -
 
     # 连接数据库获取该博主最近的视频标题
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
@@ -463,7 +463,7 @@ def _sync_media_assets(uid: str, nickname: str, folder_name: str):
     downloads_path = config.get_download_path()
 
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
@@ -661,7 +661,7 @@ async def _download_with_stats(
     db_path = config.get_db_path()
     user_info = None
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -675,7 +675,7 @@ async def _download_with_stats(
     # 如果没找到，使用最新记录（向后兼容）
     if not user_info:
         try:
-            from media_tools.db.core import get_db_connection
+            from media_tools.store.db import get_db_connection
             with get_db_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
@@ -706,7 +706,7 @@ async def _download_with_stats(
         # 同时从数据库获取已下载的视频 ID（防止文件被删除后重复下载）
         if existing_source != "file":
             try:
-                from media_tools.db.core import get_db_connection
+                from media_tools.store.db import get_db_connection
                 with get_db_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
@@ -867,7 +867,7 @@ async def _download_with_stats(
     new_files = []
     if new_aweme_ids and folder_name:
         try:
-            from media_tools.db.core import get_db_connection
+            from media_tools.store.db import get_db_connection
             with get_db_connection() as conn:
                 cursor = conn.cursor()
                 placeholders = ','.join(['?'] * len(new_aweme_ids))
@@ -1046,7 +1046,7 @@ async def download_aweme_by_url(url: str):
                 new_files.append(str(file_path))
 
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(

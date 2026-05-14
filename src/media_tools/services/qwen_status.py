@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from media_tools.db.core import get_db_connection
+from media_tools.store.db import get_db_connection
 from media_tools.transcribe.auth_state import save_qwen_cookie_string
 from media_tools.transcribe.db_account_pool import build_qwen_auth_state_path_for_account
 from media_tools.transcribe.quota import (

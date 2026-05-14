@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from media_tools.db.core import get_db_connection
+from media_tools.store.db import get_db_connection
 from media_tools.logger import get_logger
 
 logger = get_logger(__name__)

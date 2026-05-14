@@ -4,7 +4,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any, Optional
 
-from media_tools.db.core import get_db_connection
+from media_tools.store.db import get_db_connection
 
 
 class AccountRepository:

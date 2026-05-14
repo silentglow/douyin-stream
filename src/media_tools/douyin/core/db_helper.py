@@ -27,7 +27,7 @@ def get_douyin_db_connection(db_path=None):
     Yields:
         (conn, cursor) 元组
     """
-    from media_tools.db.core import get_db_connection
+    from media_tools.store.db import get_db_connection
     with get_db_connection() as conn:
         cursor = conn.cursor()
         yield conn, cursor

@@ -14,7 +14,7 @@ from fastapi import APIRouter
 
 from media_tools.api.websocket_manager import manager as ws_manager
 from media_tools.core import background
-from media_tools.db.core import DBConnection, get_db_connection
+from media_tools.store.db import DBConnection, get_db_connection
 from media_tools.services.health_check_service import run_health_check
 
 logger = logging.getLogger(__name__)

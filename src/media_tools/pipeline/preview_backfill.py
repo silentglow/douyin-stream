@@ -10,7 +10,7 @@ import sqlite3
 import threading
 from pathlib import Path
 
-from media_tools.db.core import get_db_connection, update_fts_for_asset
+from media_tools.store.db import get_db_connection, update_fts_for_asset
 from media_tools.logger import get_logger
 from media_tools.pipeline.preview import extract_transcript_preview, extract_transcript_text
 

@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime
 from media_tools.core import background
 from media_tools.douyin.core.cancel_registry import clear_cancel_event
-from media_tools.db.core import get_db_connection
+from media_tools.store.db import get_db_connection
 from media_tools.services.auto_retry import schedule_auto_retry
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,7 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-from media_tools.db.core import get_db_connection
+from media_tools.store.db import get_db_connection
 
 
 @dataclass(frozen=True)

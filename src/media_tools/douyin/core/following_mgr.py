@@ -7,7 +7,7 @@
 import sqlite3
 from datetime import datetime
 
-from media_tools.db.core import get_db_connection, resolve_safe_path
+from media_tools.store.db import get_db_connection, resolve_safe_path
 from media_tools.logger import get_logger
 
 from .config_mgr import get_config
@@ -63,7 +63,7 @@ def get_user(uid: str):
     config = get_config()
     db_path = config.get_db_path()
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()

@@ -21,10 +21,10 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup: ensure DB schema is up to date (adds new columns to existing tables)
     from media_tools.common.paths import get_db_path
-    from media_tools.db.core import init_db
+    from media_tools.store.db import init_db
     init_db(get_db_path())
 
-    from media_tools.db.core import ensure_fts_populated
+    from media_tools.store.db import ensure_fts_populated
     ensure_fts_populated()
 
     scheduler.startup_scheduler()
@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
     # 启动时清理孤儿任务：服务重启后内存中的后台任务全部丢失，
     # 数据库里残留的 RUNNING/PENDING 任务实际上已经无人执行。
     try:
-        from media_tools.db.core import get_db_connection
+        from media_tools.store.db import get_db_connection
         from media_tools.services.task_ops import cleanup_stale_tasks
         import sqlite3
 
@@ -74,7 +74,7 @@ async def lifespan(app: FastAPI):
     if cancelled:
         logger.info(f"shutdown: cancelled {cancelled} background task(s)")
     # 关闭主线程缓存的 DB 连接
-    from media_tools.db.core import close_all_cached_connections
+    from media_tools.store.db import close_all_cached_connections
     closed = close_all_cached_connections()
     if closed:
         logger.info(f"shutdown: closed {closed} cached DB connection(s)")
@@ -227,7 +227,7 @@ app.include_router(search.router)
 
 import shutil
 
-from media_tools.db.core import get_db_connection
+from media_tools.store.db import get_db_connection
 from media_tools.repositories.task_repository import TaskRepository
 
 

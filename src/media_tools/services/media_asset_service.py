@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from media_tools.db.core import get_db_connection, update_fts_for_asset
+from media_tools.store.db import get_db_connection, update_fts_for_asset
 from media_tools.logger import get_logger
 
 logger = get_logger(__name__)

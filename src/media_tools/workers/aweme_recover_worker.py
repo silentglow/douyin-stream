@@ -4,7 +4,7 @@ import logging
 import sqlite3
 
 from media_tools.core.config import get_runtime_setting_bool
-from media_tools.db.core import get_db_connection
+from media_tools.store.db import get_db_connection
 from media_tools.douyin.core.downloader import download_aweme_by_url
 from media_tools.workers.base import BaseWorker, register_worker
 from media_tools.workers.transcribe import transcribe_files

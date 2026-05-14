@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from media_tools.db.core import get_db_connection
+from media_tools.store.db import get_db_connection
 
 router = APIRouter(prefix="/api/v1/scheduler", tags=["scheduler"], redirect_slashes=False)
 logger = logging.getLogger(__name__)
