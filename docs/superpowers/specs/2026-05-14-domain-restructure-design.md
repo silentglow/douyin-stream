@@ -267,30 +267,73 @@ src/media_tools/
 
 ## 配置与日志统一
 
-### 配置统一
+### 配置现状
+
+当前配置散落在至少 3 个位置：
+
+| 位置 | 内容 | 问题 |
+|------|------|------|
+| `config/` | `config.yaml`, `auth_rules.yaml`, `active_preset.txt`, `transcribe/accounts.json`, `transcribe/.env` | 格式混乱（YAML + TXT + JSON + ENV） |
+| `src/config/` | `active_preset.txt` | 与 `config/active_preset.txt` 重复 |
+| `src/media_tools/config/` | `following.json` | 不应该在源码目录 |
+
+**目标：** 所有运行时配置只存在于 `config/`，源码目录内不再有任何配置文件。
+
+### 配置统一方案
 
 ```
-config/                     # 唯一配置根（已存在，规范化）
-├── app.yaml               # 应用配置（原 core/config.py 可提取部分）
-├── download.yaml          # 下载配置
-├── transcribe.yaml        # 转写配置
-└── ...
+config/                     # 唯一配置根
+├── config.yaml            # 主配置（已有，保留并清理）
+├── auth_rules.yaml        # 认证规则（已有，保留）
+├── presets.yaml           # 合并 active_preset.txt（YAML 格式）
+├── download.yaml          # 下载域配置（从 download 模块提取）
+├── transcribe.yaml        # 转写域配置（从 transcribe 模块提取）
+└── secrets/               # 敏感配置（gitignored，已有）
+    ├── accounts.json      # 原 config/transcribe/accounts.json
+    └── .env               # 原 config/transcribe/.env
 ```
 
-所有模块内嵌的 `config.py` 改为从 `core/config.py` 读取统一配置，或从 `config/` 目录加载 YAML。
+**规则：**
+- 所有配置统一用 YAML 格式（已有 JSON 的保持兼容但新配置用 YAML）
+- `core/config.py` 作为统一配置加载入口，各模块不再自己读文件
+- 删除 `src/config/` 和 `src/media_tools/config/` 目录
+- `following.json` 移至 `config/` 或合并入 `config.yaml`
 
-### 日志统一
+### 日志现状
+
+当前日志分布在 **7 个位置**：
+
+| 位置 | 内容 |
+|------|------|
+| `logs/` | `app.log`, `app.jsonl`, `f2-trace-*.log`（ hundreds of empty files） |
+| `src/logs/` | 未知 |
+| `src/media_tools/logs/` | 未知 |
+| `frontend/logs/` | 前端日志 |
+| `frontend/data/logs/` | 前端数据日志 |
+| `data/logs/` | 数据日志 |
+| `.git/logs/` | git 自身（不用管） |
+
+**f2-trace 问题：** 每次下载尝试生成一个 `f2-trace-YYYY-MM-DD-HH-MM-SS.log`，一天产生几十个，绝大多数是 0 字节。
+
+### 日志统一方案
 
 ```
-logs/                       # 唯一日志根（已存在，规范化）
-├── app.log
+logs/                       # 唯一日志根
+├── app.log                 # 主应用日志（轮转）
+├── app.jsonl               # 结构化日志（轮转）
 ├── download/
+│   └── f2.log              # f2 下载日志（合并，按天轮转，不再按次）
 ├── transcribe/
 ├── scheduler/
-└── archive/               # 自动归档目录
+└── archive/               # 自动归档（保留 7 天，超期删除）
 ```
 
-删除 `src/logs/`、`src/media_tools/logs/`、`frontend/logs/` 等分散目录。
+**规则：**
+- 所有业务日志写入 `logs/` 下对应子目录
+- 删除 `src/logs/`, `src/media_tools/logs/`, `frontend/logs/`, `frontend/data/logs/`, `data/logs/`
+- f2-trace 改为追加写入 `logs/download/f2.log`，由 Python 的 `logging` 模块统一轮转
+- 前端日志如需保留，通过 API 写入后端统一日志，或单独配置到 `logs/frontend/`
+- 日志轮转策略：`app.log` 和 `app.jsonl` 按天轮转，保留 7 天
 
 ## 测试重组
 
