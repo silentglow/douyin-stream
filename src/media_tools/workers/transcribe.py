@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 async def transcribe_files(task_id: str, _progress_fn, new_files: list, display_name: str, auto_delete: bool = False):
     """转写一批视频文件，返回统计信息。使用并发加速处理。"""
-    from media_tools.pipeline.config import load_pipeline_config
-    from media_tools.pipeline.orchestrator import create_orchestrator
+    from media_tools.core.config import load_pipeline_config
+    from media_tools.transcribe.service import create_orchestrator
 
     await _progress_fn(0.6, f"下载完成，准备转写 {len(new_files)} 个视频...", stage="transcribe")
     pipeline_config = load_pipeline_config()

@@ -15,9 +15,9 @@ from unittest.mock import AsyncMock, patch, MagicMock
 import pytest
 
 from media_tools.db.core import init_db
-from media_tools.pipeline.error_types import ErrorType
-from media_tools.pipeline.models import AccountPool
-from media_tools.pipeline.orchestrator import OrchestratorV2
+from media_tools.transcribe.error_types import ErrorType
+from media_tools.transcribe.models import AccountPool
+from media_tools.transcribe.service import OrchestratorV2
 from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
 from media_tools.transcribe.flow import FlowResult
 
@@ -51,7 +51,7 @@ def _build_orchestrator(tmp_path: Path) -> OrchestratorV2:
     cfg.output_path = tmp_path / "out"
     orch = OrchestratorV2(config=cfg)
     # 注入一个 1 个账号的 pool，跳过 resolve_accounts 的真实查询
-    from media_tools.pipeline.models import AccountPool
+    from media_tools.transcribe.models import AccountPool
     orch._account_pool_service._account_pool = AccountPool(
         [{"account_id": "acc-1", "auth_state_path": tmp_path / "auth.json"}],
     )
@@ -92,7 +92,7 @@ async def test_first_attempt_creates_run_and_marks_saved(
     with patch(
         "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
         return_value="asset-OK",
-    ), patch("media_tools.pipeline.orchestrator.run_real_flow", fake_flow):
+    ), patch("media_tools.transcribe.service.run_real_flow", fake_flow):
         result = await orch._transcribe_single_video(video)
 
     assert result.success
@@ -139,7 +139,7 @@ async def test_existing_resumable_run_is_reused_not_recreated(
     with patch(
         "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
         return_value="asset-RESUME",
-    ), patch("media_tools.pipeline.orchestrator.run_real_flow", fake_flow):
+    ), patch("media_tools.transcribe.service.run_real_flow", fake_flow):
         result = await orch._transcribe_single_video(video)
 
     assert result.success
@@ -178,7 +178,7 @@ async def test_failure_marks_run_failed_with_current_stage(
     with patch(
         "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
         return_value="asset-FAIL",
-    ), patch("media_tools.pipeline.orchestrator.run_real_flow", side_effect=flow_that_advances_then_fails):
+    ), patch("media_tools.transcribe.service.run_real_flow", side_effect=flow_that_advances_then_fails):
         result = await orch._transcribe_single_video(video)
 
     assert not result.success
@@ -214,7 +214,7 @@ async def test_no_asset_id_skips_run_creation_and_still_runs_flow(
     with patch(
         "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
         return_value=None,
-    ), patch("media_tools.pipeline.orchestrator.run_real_flow", fake_flow):
+    ), patch("media_tools.transcribe.service.run_real_flow", fake_flow):
         result = await orch._transcribe_single_video(video)
 
     assert result.success
@@ -280,7 +280,7 @@ async def test_failure_then_resume_end_to_end(
     with patch(
         "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
         return_value="asset-E2E",
-    ), patch("media_tools.pipeline.orchestrator.run_real_flow", side_effect=flaky_flow):
+    ), patch("media_tools.transcribe.service.run_real_flow", side_effect=flaky_flow):
         # 第一次：失败
         first = await orch._transcribe_single_video(video)
         assert not first.success

@@ -129,7 +129,7 @@ def get_transcript(asset_id: str):
             raise HTTPException(status_code=404, detail="Transcript file not found on disk")
 
         if transcript_file.suffix.lower() == ".docx":
-            from media_tools.pipeline.preview import extract_transcript_text
+            from media_tools.transcribe.preview import extract_transcript_text
 
             content = extract_transcript_text(transcript_file)
         else:

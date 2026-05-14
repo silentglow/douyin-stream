@@ -4,7 +4,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from media_tools.pipeline.worker import run_pipeline_for_user
+from media_tools.transcribe.worker import run_pipeline_for_user
 
 
 class PipelineWorkerRoutingTests(unittest.IsolatedAsyncioTestCase):
@@ -15,13 +15,13 @@ class PipelineWorkerRoutingTests(unittest.IsolatedAsyncioTestCase):
         fake_config = SimpleNamespace()
 
         with patch("media_tools.bilibili.core.downloader.download_up_by_url", download_mock), patch(
-            "media_tools.pipeline.worker.asyncio.to_thread",
+            "media_tools.transcribe.worker.asyncio.to_thread",
             new=AsyncMock(return_value={"success": True, "new_files": ["/tmp/video.mp4"]}),
         ) as mocked_to_thread, patch(
-            "media_tools.pipeline.config.load_pipeline_config",
+            "media_tools.core.config.load_pipeline_config",
             return_value=fake_config,
         ), patch(
-            "media_tools.pipeline.orchestrator.create_orchestrator",
+            "media_tools.transcribe.service.create_orchestrator",
             return_value=orchestrator,
         ):
             result = await run_pipeline_for_user(

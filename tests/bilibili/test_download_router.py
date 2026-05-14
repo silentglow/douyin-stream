@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from media_tools.pipeline.download_router import resolve_platform
+from media_tools.transcribe.download_router import resolve_platform
 
 
 def test_resolve_platform_bilibili() -> None:

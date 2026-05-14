@@ -12,7 +12,7 @@ from pathlib import Path
 
 from media_tools.store.db import get_db_connection, update_fts_for_asset
 from media_tools.logger import get_logger
-from media_tools.pipeline.preview import extract_transcript_preview, extract_transcript_text
+from media_tools.transcribe.preview import extract_transcript_preview, extract_transcript_text
 
 logger = get_logger("preview_backfill")
 

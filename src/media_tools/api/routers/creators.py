@@ -34,7 +34,7 @@ def _scan_creator_disk_counts(folder_name: str) -> dict[str, int]:
     transcript_counts: Counter[str] = Counter()
     suffix_re = re.compile(r"_\d+$")
     try:
-        from media_tools.pipeline.media_extensions import MEDIA_EXTENSIONS
+        from media_tools.transcribe.media_extensions import MEDIA_EXTENSIONS
         exts = set(MEDIA_EXTENSIONS)
     except ImportError:
         exts = {".mp4"}

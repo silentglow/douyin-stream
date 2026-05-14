@@ -19,11 +19,11 @@ from typing import Optional, Callable, Any
 from media_tools.transcribe.flow import run_real_flow
 from media_tools.transcribe.runtime import get_export_config
 from media_tools.transcribe.config import load_config as load_transcribe_config
-from media_tools.pipeline.config import load_pipeline_config
+from media_tools.core.config import load_pipeline_config
 from media_tools.core.config import AppConfig
-from media_tools.pipeline.helpers import _lookup_video_title, _lookup_creator_folder
-from media_tools.pipeline.error_types import ErrorType, classify_error
-from media_tools.pipeline.models import RetryConfig, PipelineResultV2, BatchReport
+from media_tools.transcribe.helpers import _lookup_video_title, _lookup_creator_folder
+from media_tools.transcribe.error_types import ErrorType, classify_error
+from media_tools.transcribe.models import RetryConfig, PipelineResultV2, BatchReport
 
 # 配置日志记录器
 logger = logging.getLogger(__name__)

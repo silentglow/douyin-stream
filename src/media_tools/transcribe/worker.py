@@ -5,15 +5,15 @@ from pathlib import Path
 from typing import Any, Optional
 from media_tools.logger import get_logger
 from media_tools.store.db import local_asset_id
-from media_tools.pipeline.task_helpers import call_progress, create_managed_task, filter_supported_media_paths
+from media_tools.transcribe.task_helpers import call_progress, create_managed_task, filter_supported_media_paths
 
 logger = get_logger('pipeline')
 
 
 async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, delete_after: bool = False, task_id: Optional[str] = None):
     """转写本地视频文件（不经过下载步骤）"""
-    from media_tools.pipeline.config import load_pipeline_config
-    from media_tools.pipeline.orchestrator import create_orchestrator
+    from media_tools.core.config import load_pipeline_config
+    from media_tools.transcribe.service import create_orchestrator
 
     valid_paths = filter_supported_media_paths(file_paths)
 
@@ -37,7 +37,7 @@ async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, d
         pipeline_progress={"transcribe": {"done": 0, "total": total}},
     )
     from media_tools.store.db import get_db_connection
-    from media_tools.pipeline.preview import extract_transcript_preview, extract_transcript_text
+    from media_tools.transcribe.preview import extract_transcript_preview, extract_transcript_text
 
     subtasks: list[dict[str, Any]] = []
     success_paths: list[str] = []
@@ -244,10 +244,10 @@ def _build_subtasks(video_paths: list[Path], report) -> list[dict[str, Any]]:
 
 
 async def run_pipeline_for_user(url: str, max_counts: int, update_progress_fn, delete_after: bool = True, task_id: Optional[str] = None):
-    from media_tools.pipeline.download_router import download_by_url as download_router
-    from media_tools.pipeline.download_router import resolve_platform
-    from media_tools.pipeline.config import load_pipeline_config
-    from media_tools.pipeline.orchestrator import create_orchestrator
+    from media_tools.transcribe.download_router import download_by_url as download_router
+    from media_tools.transcribe.download_router import resolve_platform
+    from media_tools.core.config import load_pipeline_config
+    from media_tools.transcribe.service import create_orchestrator
 
     await call_progress(update_progress_fn, 0.1, "正在下载视频...", stage="download",
                         pipeline_progress={"download": {"done": 0, "total": max_counts or 0}})
@@ -332,9 +332,9 @@ async def run_pipeline_for_user(url: str, max_counts: int, update_progress_fn, d
     }
 
 async def run_batch_pipeline(video_urls: list[str], update_progress_fn, delete_after: bool = True, task_id: Optional[str] = None):
-    from media_tools.pipeline.download_router import download_by_url as download_router
-    from media_tools.pipeline.config import load_pipeline_config
-    from media_tools.pipeline.orchestrator import create_orchestrator
+    from media_tools.transcribe.download_router import download_by_url as download_router
+    from media_tools.core.config import load_pipeline_config
+    from media_tools.transcribe.service import create_orchestrator
 
     total = len(video_urls)
     if total == 0:
@@ -397,7 +397,7 @@ async def run_batch_pipeline(video_urls: list[str], update_progress_fn, delete_a
 
 async def run_download_only(video_urls: list[str], update_progress_fn, task_id: Optional[str] = None):
     """仅下载视频，不转写"""
-    from media_tools.pipeline.download_router import download_by_url as download_router, DownloadResult
+    from media_tools.transcribe.download_router import download_by_url as download_router, DownloadResult
 
     total = len(video_urls)
     if total == 0:

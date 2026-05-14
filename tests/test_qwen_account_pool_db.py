@@ -254,9 +254,9 @@ def test_qwen_claim_iterates_db_accounts(monkeypatch) -> None:
 def test_orchestrator_tries_multiple_qwen_accounts(monkeypatch, tmp_path) -> None:
     import asyncio
     from pathlib import Path
-    from media_tools.pipeline.orchestrator import OrchestratorV2
+    from media_tools.transcribe.service import OrchestratorV2
     from media_tools.core.config import AppConfig
-    from media_tools.pipeline.models import AccountPool
+    from media_tools.transcribe.models import AccountPool
 
     class _AuthErr(Exception):
         pass
@@ -276,7 +276,7 @@ def test_orchestrator_tries_multiple_qwen_accounts(monkeypatch, tmp_path) -> Non
 
         return _R()
 
-    monkeypatch.setattr("media_tools.pipeline.orchestrator.run_real_flow", _fake_run_real_flow)
+    monkeypatch.setattr("media_tools.transcribe.service.run_real_flow", _fake_run_real_flow)
 
     cfg = AppConfig()
     orch = OrchestratorV2(config=cfg, auth_state_path=Path("dummy.json"))

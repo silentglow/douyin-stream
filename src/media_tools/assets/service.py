@@ -282,7 +282,7 @@ class AssetUpdateService:
         output_dir: Path,
     ) -> None:
         try:
-            from media_tools.pipeline.preview import extract_transcript_preview, extract_transcript_text
+            from media_tools.transcribe.preview import extract_transcript_preview, extract_transcript_text
 
             preview = extract_transcript_preview(transcript_path) if transcript_path else ""
             full_text = extract_transcript_text(transcript_path) if transcript_path else ""

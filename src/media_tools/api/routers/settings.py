@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from media_tools.pipeline.error_types import ErrorType, classify_error
+from media_tools.transcribe.error_types import ErrorType, classify_error
 from media_tools.transcribe.auth_state import has_qwen_auth_state, save_qwen_cookie_string, default_qwen_auth_state_path
 from media_tools.transcribe.db_account_pool import build_qwen_auth_state_path_for_account
 from media_tools.transcribe.quota import get_quota_snapshot, remaining_hours_from_snapshot

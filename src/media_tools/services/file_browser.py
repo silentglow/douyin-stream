@@ -3,7 +3,7 @@ import subprocess
 import platform
 from pathlib import Path
 from fastapi import HTTPException
-from media_tools.pipeline.media_extensions import MEDIA_EXTENSIONS
+from media_tools.transcribe.media_extensions import MEDIA_EXTENSIONS
 from media_tools.common.paths import get_download_path
 
 logger = logging.getLogger(__name__)

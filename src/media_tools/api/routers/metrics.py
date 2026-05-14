@@ -44,7 +44,7 @@ def _collect_task_counts() -> dict[str, int]:
 def _collect_account_pool_stats() -> dict:
     try:
         from media_tools.accounts.service import AccountPoolService
-        from media_tools.pipeline.config import load_pipeline_config
+        from media_tools.core.config import load_pipeline_config
         config = load_pipeline_config()
         service = AccountPoolService(
             auth_state_path=None,

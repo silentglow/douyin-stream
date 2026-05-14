@@ -6,8 +6,8 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from media_tools.api.app import app
-from media_tools.pipeline.media_extensions import MEDIA_EXTENSIONS
-from media_tools.pipeline.worker import filter_supported_media_paths
+from media_tools.transcribe.media_extensions import MEDIA_EXTENSIONS
+from media_tools.transcribe.worker import filter_supported_media_paths
 
 
 client = TestClient(app)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from media_tools.pipeline.worker import run_local_transcribe
+from media_tools.transcribe.worker import run_local_transcribe
 from media_tools.scheduler.base import BaseWorker, register_worker
 
 logger = logging.getLogger(__name__)

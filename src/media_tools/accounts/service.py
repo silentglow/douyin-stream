@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from media_tools.logger import get_logger
-from media_tools.pipeline.models import AccountPool
+from media_tools.transcribe.models import AccountPool
 
 logger = get_logger(__name__)
 

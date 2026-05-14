@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     scheduler.startup_scheduler()
 
     # Kick off the transcript preview backfill in the background
-    from media_tools.pipeline.preview_backfill import start_backfill_once
+    from media_tools.transcribe.preview_backfill import start_backfill_once
     start_backfill_once()
 
     # 启动时清理孤儿任务：服务重启后内存中的后台任务全部丢失，

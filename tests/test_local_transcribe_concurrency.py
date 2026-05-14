@@ -42,7 +42,7 @@ def test_pipeline_config_default_concurrency_is_10(monkeypatch, tmp_path) -> Non
     import sqlite3
     from contextlib import contextmanager
 
-    from media_tools.pipeline.config import load_pipeline_config
+    from media_tools.core.config import load_pipeline_config
     from media_tools.core.config import _invalidate_settings_cache
 
     _invalidate_settings_cache()
@@ -68,7 +68,7 @@ def test_pipeline_config_concurrency_uses_system_settings(monkeypatch, tmp_path)
     import sqlite3
     from contextlib import contextmanager
 
-    from media_tools.pipeline.config import load_pipeline_config
+    from media_tools.core.config import load_pipeline_config
     from media_tools.core.config import _invalidate_settings_cache
 
     _invalidate_settings_cache()
@@ -95,7 +95,7 @@ def test_pipeline_config_concurrency_env_overrides_system_settings(monkeypatch, 
     import sqlite3
     from contextlib import contextmanager
 
-    from media_tools.pipeline.config import load_pipeline_config
+    from media_tools.core.config import load_pipeline_config
     from media_tools.core.config import _invalidate_settings_cache
 
     _invalidate_settings_cache()
@@ -119,14 +119,14 @@ def test_pipeline_config_concurrency_env_overrides_system_settings(monkeypatch, 
 
 
 def test_local_transcribe_uses_batch_transcribe(monkeypatch) -> None:
-    from media_tools.pipeline.worker import run_local_transcribe
+    from media_tools.transcribe.worker import run_local_transcribe
 
     fake = _FakeOrchestrator()
 
     def _fake_create_orchestrator(*args, **kwargs):  # noqa: ANN001
         return fake
 
-    monkeypatch.setattr("media_tools.pipeline.orchestrator.create_orchestrator", _fake_create_orchestrator)
+    monkeypatch.setattr("media_tools.transcribe.service.create_orchestrator", _fake_create_orchestrator)
 
     mp3_path = Path("/tmp/local_concurrency_test.mp3")
     mp3_path.write_bytes(b"ok" * 6000)  # 12KB, above MIN_VIDEO_BYTES

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from media_tools.core import background
-from media_tools.pipeline.media_extensions import MEDIA_EXTENSIONS
+from media_tools.transcribe.media_extensions import MEDIA_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 
