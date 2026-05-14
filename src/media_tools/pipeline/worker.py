@@ -27,7 +27,6 @@ async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, d
         effective_concurrency = orchestrator._account_pool_service.effective_concurrency or config.concurrency
     else:
         effective_concurrency = config.concurrency
-    output_root = Path(config.output_dir).resolve()
 
     total = len(valid_paths)
     await call_progress(
