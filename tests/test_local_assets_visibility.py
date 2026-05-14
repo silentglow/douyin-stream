@@ -72,7 +72,7 @@ class LocalAssetsVisibilityTests(unittest.TestCase):
             "media_tools.assets.repository.get_db_connection",
             return_value=conn,
         ), patch(
-            "media_tools.repositories.creator_repository.get_db_connection",
+            "media_tools.creators.repository.get_db_connection",
             return_value=conn,
         ):
             _register_local_assets([str(tmp_file)], delete_after=False)

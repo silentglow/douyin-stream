@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 
 class BilibiliCreatorDownloadTaskTests(unittest.IsolatedAsyncioTestCase):
     async def test_creator_download_triggers_transcribe_and_deletes_video_when_enabled(self) -> None:
-        from media_tools.workers.creator_sync import CreatorSyncWorker
+        from media_tools.creators.sync import CreatorSyncWorker
 
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
@@ -68,14 +68,14 @@ class BilibiliCreatorDownloadTaskTests(unittest.IsolatedAsyncioTestCase):
         report.results.append({"video_path": str(tmp_video), "success": True, "error": None, "error_type": "none"})
         orchestrator = SimpleNamespace(transcribe_batch=AsyncMock(return_value=report))
 
-        with patch("media_tools.workers.creator_sync.get_db_connection", return_value=conn), patch(
+        with patch("media_tools.creators.sync.get_db_connection", return_value=conn), patch(
             "media_tools.scheduler.base.update_task_progress",
             new=AsyncMock(),
         ), patch(
             "media_tools.scheduler.base._task_heartbeat",
             new=AsyncMock(),
         ), patch(
-            "media_tools.workers.creator_sync.asyncio.to_thread",
+            "media_tools.creators.sync.asyncio.to_thread",
             new=AsyncMock(return_value={"success": True, "new_files": [str(tmp_video)]}),
         ), patch(
             "media_tools.transcribe.service.create_orchestrator",

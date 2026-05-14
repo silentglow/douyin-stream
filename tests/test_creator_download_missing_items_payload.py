@@ -9,7 +9,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_creator_download_sets_missing_items_in_payload() -> None:
-    from media_tools.workers.creator_sync import CreatorSyncWorker
+    from media_tools.creators.sync import CreatorSyncWorker
 
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
@@ -71,11 +71,11 @@ async def test_creator_download_sets_missing_items_in_payload() -> None:
     )
     conn.commit()
 
-    with patch("media_tools.workers.creator_sync.get_db_connection", return_value=conn), patch(
+    with patch("media_tools.creators.sync.get_db_connection", return_value=conn), patch(
         "media_tools.scheduler.ops.get_db_connection",
         return_value=conn,
     ), patch(
-        "media_tools.workers.creator_sync.get_runtime_setting_bool",
+        "media_tools.creators.sync.get_runtime_setting_bool",
         return_value=False,
     ), patch(
         "media_tools.scheduler.base.update_task_progress",
@@ -84,7 +84,7 @@ async def test_creator_download_sets_missing_items_in_payload() -> None:
         "media_tools.scheduler.base._task_heartbeat",
         new=AsyncMock(),
     ), patch(
-        "media_tools.workers.creator_sync.asyncio.to_thread",
+        "media_tools.creators.sync.asyncio.to_thread",
         new=AsyncMock(return_value={"success": True, "new_files": []}),
     ):
         await CreatorSyncWorker().execute(task_id, uid=creator_uid, mode="incremental")

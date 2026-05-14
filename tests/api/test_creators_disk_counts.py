@@ -64,7 +64,7 @@ def test_creators_disk_counts_strict_stem_matching(tmp_path, monkeypatch) -> Non
 
     creators_router._disk_counts_cache.clear()
     monkeypatch.setattr("media_tools.api.routers.creators.get_db_connection", _get_conn)
-    monkeypatch.setattr("media_tools.repositories.creator_repository.get_db_connection", _get_conn)
+    monkeypatch.setattr("media_tools.creators.repository.get_db_connection", _get_conn)
     monkeypatch.setattr("media_tools.api.routers.creators.get_download_path", lambda: downloads)
     monkeypatch.setattr("media_tools.api.routers.creators.get_project_root", lambda: tmp_path)
 
@@ -104,7 +104,7 @@ def test_creators_disk_counts_cache_ttl(tmp_path, monkeypatch) -> None:
 
     creators_router._disk_counts_cache.clear()
     monkeypatch.setattr("media_tools.api.routers.creators.get_db_connection", _get_conn)
-    monkeypatch.setattr("media_tools.repositories.creator_repository.get_db_connection", _get_conn)
+    monkeypatch.setattr("media_tools.creators.repository.get_db_connection", _get_conn)
     monkeypatch.setattr("media_tools.api.routers.creators.get_download_path", lambda: downloads)
     monkeypatch.setattr("media_tools.api.routers.creators.get_project_root", lambda: tmp_path)
     monkeypatch.setattr("media_tools.api.routers.creators.time.monotonic", _mono)

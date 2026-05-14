@@ -18,7 +18,7 @@ from media_tools.workers.full_sync_worker import FullSyncWorker
 from media_tools.workers.local_transcribe_worker import LocalTranscribeWorker
 from media_tools.workers.creator_transcribe_worker import CreatorTranscribeWorker
 from media_tools.workers.aweme_recover_worker import AwemeRecoverWorker
-from media_tools.workers.creator_sync import CreatorSyncWorker
+from media_tools.creators.sync import CreatorSyncWorker
 
 
 async def _create_task(task_id: str, task_type: str, request_params: dict):

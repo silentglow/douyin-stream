@@ -10,7 +10,7 @@ from media_tools.douyin.core.cancel_registry import clear_download_progress, get
 from media_tools.douyin.core.downloader import download_by_uid
 from media_tools.douyin.core.following_mgr import list_users
 from media_tools.scheduler.base import BaseWorker, register_worker
-from media_tools.workers.creator_sync import _build_interval_from_last_fetch
+from media_tools.creators.sync import _build_interval_from_last_fetch
 
 
 @register_worker("full_sync")

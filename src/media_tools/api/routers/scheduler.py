@@ -122,7 +122,7 @@ def _register_system_jobs() -> None:
         import asyncio
         from datetime import timezone, timedelta
         from media_tools.repositories.task_repository import TaskRepository
-        from media_tools.workers.creator_sync import CreatorSyncWorker
+        from media_tools.creators.sync import CreatorSyncWorker
 
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row
