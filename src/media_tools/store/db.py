@@ -171,6 +171,8 @@ def init_db(db_path: Optional[str] = None) -> None:
     try:
         init_schema(conn)
         run_migrations(conn)
+        from .fts import _ensure_fts_table
+        _ensure_fts_table(conn)
         conn.commit()
         logger.info("Database initialized")
     except (sqlite3.Error, OSError) as e:
