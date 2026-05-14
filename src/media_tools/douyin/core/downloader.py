@@ -18,7 +18,7 @@ import re
 from .f2_helper import get_f2_kwargs as _build_f2_kwargs
 from media_tools.logger import get_logger
 from media_tools.db.core import resolve_safe_path
-from media_tools.pipeline.models import Stage
+from media_tools.core.task_progress import Stage
 from .file_ops import _clean_video_title, _reorganize_files, _update_last_fetch_time
 
 logger = get_logger('downloader')

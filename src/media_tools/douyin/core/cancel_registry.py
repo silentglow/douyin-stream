@@ -5,7 +5,7 @@ from typing import Optional
 import threading
 import time
 
-from media_tools.pipeline.models import Stage, DownloadProgress, TranscribeProgress, TaskProgress
+from media_tools.core.task_progress import Stage, DownloadProgress, TranscribeProgress, TaskProgress
 
 _cancel_events: dict[str, threading.Event] = {}
 
