@@ -26,7 +26,7 @@ def _ensure_fts_table(conn: sqlite3.Connection) -> None:
 
 def ensure_fts_populated() -> bool:
     """Ensure FTS5 index has data; rebuilds from media_assets if empty."""
-    from .core import get_db_connection
+    from .db import get_db_connection
     with get_db_connection() as conn:
         # 表不存在时 SELECT 会抛 OperationalError，先确保表已就位
         _ensure_fts_table(conn)
@@ -40,7 +40,7 @@ def ensure_fts_populated() -> bool:
 
 def update_fts_for_asset(asset_id: str, title: str, transcript_text: str) -> None:
     """Upsert a single asset into the FTS5 index."""
-    from .core import get_db_connection
+    from .db import get_db_connection
     with get_db_connection() as conn:
         conn.execute(
             "INSERT OR REPLACE INTO assets_fts(asset_id, title, transcript_text) VALUES (?, ?, ?)",
@@ -66,7 +66,7 @@ def _rebuild_fts_from_assets(conn: sqlite3.Connection) -> int:
 
 def rebuild_fts_index() -> int:
     """Full rebuild of FTS5 index. Returns row count."""
-    from .core import get_db_connection
+    from .db import get_db_connection
     with get_db_connection() as conn:
         _ensure_fts_table(conn)
         count = _rebuild_fts_from_assets(conn)
