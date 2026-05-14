@@ -6,10 +6,9 @@ import { useEffect, Component, type ReactNode, lazy } from 'react';
 import { useStore } from './store/useStore';
 
 // Lazy load pages for code splitting
-const Discovery = lazy(() => import('./pages/Discovery'));
-const Creators = lazy(() => import('./pages/Creators'));
+const Home = lazy(() => import('./pages/Home'));
+const Library = lazy(() => import('./pages/Library'));
 const Settings = lazy(() => import('./pages/Settings'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -65,11 +64,10 @@ function App() {
       <ErrorBoundary>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Navigate to="/creators" replace />} />
+            <Route path="/" element={<Navigate to="/home" replace />} />
             <Route element={<AppLayout />}>
-              <Route path="/discover" element={<Discovery />} />
-              <Route path="/creators" element={<Creators />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/home" element={<Home />} />
+              <Route path="/library" element={<Library />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Routes>

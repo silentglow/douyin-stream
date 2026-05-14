@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Tools - iOS Widget 风格原型</title>
+<style>
+  :root {
+    --bg-primary: #F2F2F7;
+    --bg-widget: #FFFFFF;
+    --bg-widget-secondary: #F2F2F7;
+    --text-primary: #000000;
+    --text-secondary: #8E8E93;
+    --text-tertiary: #C7C7CC;
+    --accent-blue: #007AFF;
+    --accent-green: #34C759;
+    --accent-orange: #FF9500;
+    --accent-red: #FF3B30;
+    --accent-purple: #AF52DE;
+    --accent-teal: #5AC8FA;
+    --separator: rgba(0,0,0,0.08);
+    --shadow: 0 2px 12px rgba(0,0,0,0.06), 0 0 1px rgba(0,0,0,0.04);
+    --radius-widget: 22px;
+    --radius-button: 12px;
+    --radius-pill: 9999px;
+    --radius-icon: 14px;
+    --sidebar-bg: rgba(255,255,255,0.72);
+    --sidebar-active: #007AFF;
+    --glass: rgba(255,255,255,0.7);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #000000;
+      --bg-widget: #1C1C1E;
+      --bg-widget-secondary: #2C2C2E;
+      --text-primary: #FFFFFF;
+      --text-secondary: #8E8E93;
+      --accent-blue: #0A84FF;
+      --accent-green: #30D158;
+      --accent-orange: #FF9F0A;
+      --accent-red: #FF453A;
+      --accent-purple: #BF5AF2;
+      --accent-teal: #64D2FF;
+      --shadow: 0 2px 12px rgba(0,0,0,0.3), 0 0 1px rgba(255,255,255,0.04);
+      --sidebar-bg: rgba(28,28,30,0.72);
+      --glass: rgba(28,28,30,0.7);
+    }
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    height:100%; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+    background: var(--bg-primary); color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+  body { display:flex; overflow:hidden; }
+
+  /* Sidebar */
+  .sidebar {
+    width:200px; flex-shrink:0;
+    background: var(--sidebar-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-right:1px solid var(--separator);
+    display:flex; flex-direction:column; padding:20px 12px; gap:4px;
+  }
+  .sidebar-logo {
+    font-size:20px; font-weight:700; padding:12px 12px 20px; letter-spacing:-0.5px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .sidebar-logo .icon { width:32px; height:32px; background:linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); border-radius:10px; display:flex; align-items:center; justify-content:center; color:white; font-size:16px; }
+  .nav-item {
+    display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:10px; cursor:pointer;
+    font-size:15px; font-weight:500; color: var(--text-secondary); transition: all 0.2s;
+    text-decoration:none;
+  }
+  .nav-item:hover { background: rgba(128,128,128,0.08); color: var(--text-primary); }
+  .nav-item.active { background: var(--accent-blue); color: white; }
+  .nav-item .nav-icon { width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .sidebar-bottom { margin-top:auto; padding-top:16px; border-top:1px solid var(--separator); }
+
+  /* Main content */
+  .main { flex:1; overflow-y:auto; padding:28px 32px; }
+  .page { display:none; animation: fadeIn 0.3s ease; }
+  .page.active { display:block; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px);} to { opacity:1; transform:translateY(0);} }
+
+  /* Page title */
+  .page-title { font-size:28px; font-weight:700; margin-bottom:24px; letter-spacing:-0.5px; }
+
+  /* Widget Grid */
+  .widget-grid {
+    display:grid; grid-template-columns: repeat(4, 1fr); gap:16px;
+  }
+  .widget {
+    background: var(--bg-widget); border-radius: var(--radius-widget);
+    box-shadow: var(--shadow); padding:20px;
+    display:flex; flex-direction:column; gap:12px;
+    cursor:pointer; transition: transform 0.2s, box-shadow 0.2s;
+    position:relative; overflow:hidden;
+  }
+  .widget:hover { transform: scale(0.98); box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+  .widget-small { grid-column: span 1; min-height:140px; }
+  .widget-medium { grid-column: span 2; min-height:160px; }
+  .widget-large { grid-column: span 4; min-height:180px; }
+  .widget-header { display:flex; align-items:center; gap:8px; }
+  .widget-icon {
+    width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+    font-size:14px; flex-shrink:0;
+  }
+  .widget-title { font-size:15px; font-weight:600; color: var(--text-secondary); }
+  .widget-body { flex:1; display:flex; flex-direction:column; justify-content:center; }
+  .widget-footer { font-size:12px; color: var(--text-secondary); }
+  .widget-value {
+    font-size:34px; font-weight:700; letter-spacing:-1px; line-height:1;
+    color: var(--text-primary);
+  }
+  .widget-value-sm { font-size:22px; font-weight:600; }
+
+  /* Widget color accents */
+  .accent-blue { background: rgba(10,132,255,0.12); color: var(--accent-blue); }
+  .accent-green { background: rgba(48,209,88,0.12); color: var(--accent-green); }
+  .accent-orange { background: rgba(255,159,10,0.12); color: var(--accent-orange); }
+  .accent-red { background: rgba(255,69,58,0.12); color: var(--accent-red); }
+  .accent-purple { background: rgba(175,82,222,0.12); color: var(--accent-purple); }
+  .accent-teal { background: rgba(90,200,250,0.12); color: var(--accent-teal); }
+
+  .widget-blue-tint { background: linear-gradient(135deg, var(--bg-widget), rgba(10,132,255,0.06)); }
+  .widget-green-tint { background: linear-gradient(135deg, var(--bg-widget), rgba(48,209,88,0.06)); }
+  .widget-red-tint { background: linear-gradient(135deg, var(--bg-widget), rgba(255,69,58,0.06)); }
+
+  /* Health status */
+  .health-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; }
+  .health-dot.green { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
+  .health-dot.red { background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); }
+
+  /* Progress bar */
+  .progress-bar-bg { height:6px; background: var(--bg-widget-secondary); border-radius:3px; overflow:hidden; }
+  .progress-bar-fill { height:100%; border-radius:3px; transition: width 0.5s ease; }
+
+  /* Task list in widget */
+  .task-list-item { display:flex; align-items:center; gap:10px; padding:6px 0; }
+  .task-list-item:not(:last-child) { border-bottom:1px solid var(--separator); }
+  .task-thumb { width:36px; height:36px; border-radius:8px; background: var(--bg-widget-secondary); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .task-info { flex:1; min-width:0; }
+  .task-name { font-size:14px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .task-meta { font-size:12px; color: var(--text-secondary); }
+
+  /* Activity items */
+  .activity-item { display:flex; align-items:center; gap:10px; padding:6px 0; }
+  .activity-item:not(:last-child) { border-bottom:1px solid var(--separator); }
+  .activity-icon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+  .activity-text { flex:1; font-size:14px; }
+  .activity-time { font-size:12px; color: var(--text-secondary); flex-shrink:0; }
+
+  /* Quick action buttons */
+  .quick-actions { display:flex; gap:12px; flex-wrap:wrap; }
+  .quick-btn {
+    display:flex; align-items:center; gap:8px; padding:12px 18px;
+    background: var(--bg-widget-secondary); border-radius: var(--radius-button);
+    font-size:15px; font-weight:500; cursor:pointer; border:none;
+    color: var(--text-primary); transition: all 0.15s;
+  }
+  .quick-btn:hover { background: var(--accent-blue); color: white; transform: scale(0.97); }
+  .quick-btn .icon { font-size:18px; }
+
+  /* Creator cards (Library) */
+  .library-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:20px; }
+  .creator-card {
+    background: var(--bg-widget); border-radius: var(--radius-widget);
+    box-shadow: var(--shadow); overflow:hidden; cursor:pointer;
+    transition: transform 0.2s;
+  }
+  .creator-card:hover { transform: scale(0.98); }
+  .creator-cover {
+    aspect-ratio: 1; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display:flex; align-items:center; justify-content:center; font-size:48px; color:white;
+  }
+  .creator-card:nth-child(2) .creator-cover { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+  .creator-card:nth-child(3) .creator-cover { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+  .creator-card:nth-child(4) .creator-cover { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+  .creator-card:nth-child(5) .creator-cover { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+  .creator-card:nth-child(6) .creator-cover { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+  .creator-card:nth-child(7) .creator-cover { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); }
+  .creator-card:nth-child(8) .creator-cover { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+  .creator-info { padding:16px; }
+  .creator-name { font-size:16px; font-weight:600; margin-bottom:4px; }
+  .creator-meta { font-size:13px; color: var(--text-secondary); }
+
+  /* Segmented control */
+  .segmented-control {
+    display:inline-flex; background: var(--bg-widget-secondary); border-radius:8px; padding:3px; margin-bottom:20px;
+  }
+  .segment-btn {
+    padding:7px 20px; border-radius:6px; font-size:14px; font-weight:500; cursor:pointer;
+    border:none; background:transparent; color: var(--text-secondary); transition: all 0.2s;
+  }
+  .segment-btn.active { background: var(--bg-widget); color: var(--text-primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+  /* Search bar */
+  .search-bar {
+    display:flex; align-items:center; gap:8px; padding:10px 16px;
+    background: var(--bg-widget-secondary); border-radius:10px; margin-bottom:20px;
+  }
+  .search-bar input { border:none; background:transparent; font-size:15px; outline:none; color: var(--text-primary); width:100%; }
+  .search-bar input::placeholder { color: var(--text-secondary); }
+
+  /* Settings */
+  .settings-group { margin-bottom:32px; }
+  .settings-group-title { font-size:13px; font-weight:600; text-transform:uppercase; color: var(--text-secondary); margin-bottom:8px; padding-left:12px; letter-spacing:0.3px; }
+  .settings-list {
+    background: var(--bg-widget); border-radius: var(--radius-widget);
+    box-shadow: var(--shadow); overflow:hidden;
+  }
+  .settings-item {
+    display:flex; align-items:center; padding:14px 18px; cursor:pointer; transition: background 0.15s;
+  }
+  .settings-item:hover { background: rgba(128,128,128,0.04); }
+  .settings-item:not(:last-child) { border-bottom:1px solid var(--separator); }
+  .settings-icon { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:15px; margin-right:14px; flex-shrink:0; }
+  .settings-label { flex:1; font-size:16px; }
+  .settings-value { color: var(--text-secondary); font-size:15px; margin-right:4px; }
+  .settings-chevron { color: var(--text-tertiary); font-size:14px; }
+
+  /* Toggle switch */
+  .toggle { width:50px; height:30px; background: var(--text-tertiary); border-radius:15px; position:relative; cursor:pointer; transition: background 0.2s; flex-shrink:0; }
+  .toggle.on { background: var(--accent-green); }
+  .toggle::after { content:''; position:absolute; top:2px; left:2px; width:26px; height:26px; background:white; border-radius:50%; transition: transform 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+  .toggle.on::after { transform: translateX(20px); }
+
+  /* Mobile bottom nav */
+  .bottom-nav {
+    display:none; position:fixed; bottom:0; left:0; right:0; height:64px;
+    background: var(--sidebar-bg); backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-top:1px solid var(--separator); justify-content:space-around; align-items:center;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .bottom-nav-item { display:flex; flex-direction:column; align-items:center; gap:2px; font-size:10px; color: var(--text-secondary); text-decoration:none; padding:8px 20px; }
+  .bottom-nav-item .icon { font-size:22px; }
+  .bottom-nav-item.active { color: var(--accent-blue); }
+
+  /* Empty state */
+  .empty-state {
+    display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px 20px; text-align:center; gap:16px;
+  }
+  .empty-icon { font-size:64px; opacity:0.4; }
+  .empty-title { font-size:20px; font-weight:600; color: var(--text-secondary); }
+  .empty-btn {
+    padding:12px 24px; background: var(--accent-blue); color:white; border-radius: var(--radius-button);
+    font-size:16px; font-weight:600; border:none; cursor:pointer;
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .widget-grid { grid-template-columns: repeat(2, 1fr); }
+    .widget-large { grid-column: span 2; }
+    .library-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 640px) {
+    body { flex-direction:column; }
+    .sidebar { display:none; }
+    .main { padding:16px; padding-bottom:80px; }
+    .widget-grid { grid-template-columns: repeat(2, 1fr); gap:12px; }
+    .widget { padding:14px; border-radius:18px; }
+    .widget-medium, .widget-large { grid-column: span 2; }
+    .widget-value { font-size:28px; }
+    .bottom-nav { display:flex; }
+    .library-grid { grid-template-columns: repeat(2, 1fr); gap:12px; }
+    .page-title { font-size:24px; margin-bottom:16px; }
+  }
+
+  /* Stage indicator */
+  .stage-indicator { display:flex; align-items:center; gap:6px; margin-top:8px; }
+  .stage { display:flex; align-items:center; gap:4px; font-size:12px; color: var(--text-secondary); }
+  .stage-dot { width:8px; height:8px; border-radius:50%; background: var(--text-tertiary); }
+  .stage-dot.active { background: var(--accent-blue); }
+  .stage-line { width:20px; height:2px; background: var(--bg-widget-secondary); border-radius:1px; }
+  .stage-line.done { background: var(--accent-blue); }
+
+  /* Gradient backgrounds for live task */
+  .live-task-bg { background: linear-gradient(135deg, rgba(10,132,255,0.08), rgba(175,82,222,0.08)); }
+</style>
+</head>
+<body>
+
+<!-- Sidebar (Desktop) -->
+<nav class="sidebar">
+  <div class="sidebar-logo"><div class="icon">&#9654;</div>Media Tools</div>
+  <a href="#" class="nav-item active" data-page="home"><span class="nav-icon">&#8962;</span>工作台</a>
+  <a href="#" class="nav-item" data-page="library"><span class="nav-icon">&#128193;</span>内容库</a>
+  <a href="#" class="nav-item" data-page="settings"><span class="nav-icon">&#9881;</span>设置</a>
+  <div class="sidebar-bottom">
+    <div class="nav-item"><span class="nav-icon">&#9788;</span>浅色 / 深色</div>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main class="main">
+
+<!-- ===== HOME PAGE ===== -->
+<div class="page active" id="page-home">
+  <div class="page-title">工作台</div>
+  <div class="widget-grid">
+
+    <!-- Small: Task Count -->
+    <div class="widget widget-small widget-blue-tint">
+      <div class="widget-header">
+        <div class="widget-icon accent-blue">&#9654;</div>
+        <span class="widget-title">运行中任务</span>
+      </div>
+      <div class="widget-body">
+        <div class="widget-value">3</div>
+      </div>
+      <div class="widget-footer">3 个任务正在处理</div>
+    </div>
+
+    <!-- Small: Health Status -->
+    <div class="widget widget-small widget-green-tint">
+      <div class="widget-header">
+        <div class="widget-icon accent-green">&#9829;</div>
+        <span class="widget-title">系统状态</span>
+      </div>
+      <div class="widget-body">
+        <div class="widget-value-sm"><span class="health-dot green"></span>正常</div>
+      </div>
+      <div class="widget-footer">所有服务运行中</div>
+    </div>
+
+    <!-- Small: Qwen Quota -->
+    <div class="widget widget-small widget-blue-tint">
+      <div class="widget-header">
+        <div class="widget-icon accent-purple">&#9733;</div>
+        <span class="widget-title">Qwen 额度</span>
+      </div>
+      <div class="widget-body">
+        <div class="widget-value">12h</div>
+      </div>
+      <div class="widget-footer">3 个账号可用</div>
+    </div>
+
+    <!-- Small: Creator Count -->
+    <div class="widget widget-small">
+      <div class="widget-header">
+        <div class="widget-icon accent-orange">&#9733;</div>
+        <span class="widget-title">创作者</span>
+      </div>
+      <div class="widget-body">
+        <div class="widget-value">8</div>
+      </div>
+      <div class="widget-footer">8 个创作者 &#183; 3 个自动同步</div>
+    </div>
+
+    <!-- Large: Live Task Progress -->
+    <div class="widget widget-large live-task-bg">
+      <div class="widget-header">
+        <div class="widget-icon accent-blue">&#9654;</div>
+        <span class="widget-title">实时任务进度</span>
+      </div>
+      <div class="widget-body">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:17px; font-weight:600;">创作者同步：李子柒</span>
+          <span style="font-size:15px; font-weight:600; color:var(--accent-blue);">80%</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:80%; background:linear-gradient(90deg, var(--accent-blue), var(--accent-purple));"></div></div>
+        <div style="font-size:13px; color:var(--text-secondary); margin-top:6px;">预计剩余 4 分钟 &#183; 已下载 12/15 个视频</div>
+        <div class="stage-indicator">
+          <div class="stage"><div class="stage-dot active"></div>下载</div>
+          <div class="stage-line done"></div>
+          <div class="stage"><div class="stage-dot active"></div>转写</div>
+          <div class="stage-line"></div>
+          <div class="stage"><div class="stage-dot"></div>导出</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Medium: Active Tasks -->
+    <div class="widget widget-medium">
+      <div class="widget-header">
+        <div class="widget-icon accent-blue">&#9654;</div>
+        <span class="widget-title">活跃任务</span>
+      </div>
+      <div class="widget-body">
+        <div class="task-list-item">
+          <div class="task-thumb accent-blue" style="color:var(--accent-blue);">&#9654;</div>
+          <div class="task-info">
+            <div class="task-name">同步：李子柒</div>
+            <div class="task-meta">下载中 &#183; 80%</div>
+          </div>
+          <div style="width:60px;"><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:80%; background:var(--accent-blue);"></div></div></div>
+        </div>
+        <div class="task-list-item">
+          <div class="task-thumb accent-purple" style="color:var(--accent-purple);">&#9733;</div>
+          <div class="task-info">
+            <div class="task-name">转写： gardening_video.mp4</div>
+            <div class="task-meta">转写中 &#183; 45%</div>
+          </div>
+          <div style="width:60px;"><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:45%; background:var(--accent-purple);"></div></div></div>
+        </div>
+        <div class="task-list-item">
+          <div class="task-thumb accent-teal" style="color:var(--accent-teal);">&#8690;</div>
+          <div class="task-info">
+            <div class="task-name">导出：美食合集</div>
+            <div class="task-meta">导出中 &#183; 20%</div>
+          </div>
+          <div style="width:60px;"><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:20%; background:var(--accent-teal);"></div></div></div>
+        </div>
+      </div>
+      <div class="widget-footer">还有 2 个任务排队中</div>
+    </div>
+
+    <!-- Medium: Recent Activity -->
+    <div class="widget widget-medium">
+      <div class="widget-header">
+        <div class="widget-icon accent-green">&#10003;</div>
+        <span class="widget-title">最近动态</span>
+      </div>
+      <div class="widget-body">
+        <div class="activity-item">
+          <div class="activity-icon accent-green" style="color:var(--accent-green);">&#10003;</div>
+          <span class="activity-text">下载完成：李子柒 3 个视频</span>
+          <span class="activity-time">2 分钟前</span>
+        </div>
+        <div class="activity-item">
+          <div class="activity-icon accent-red" style="color:var(--accent-red);">&#33;</div>
+          <span class="activity-text">转写失败：cooking_video.mp4</span>
+          <span class="activity-time">15 分钟前</span>
+        </div>
+        <div class="activity-item">
+          <div class="activity-icon accent-blue" style="color:var(--accent-blue);">&#8634;</div>
+          <span class="activity-text">同步完成：手工耿</span>
+          <span class="activity-time">1 小时前</span>
+        </div>
+      </div>
+      <div class="widget-footer">过去 24 小时 12 条动态</div>
+    </div>
+
+    <!-- Large: Quick Actions -->
+    <div class="widget widget-large">
+      <div class="widget-header">
+        <div class="widget-icon accent-blue">&#43;</div>
+        <span class="widget-title">快捷操作</span>
+      </div>
+      <div class="widget-body">
+        <div class="quick-actions">
+          <button class="quick-btn"><span class="icon">&#128203;</span>粘贴链接下载</button>
+          <button class="quick-btn"><span class="icon">&#43;</span>添加创作者</button>
+          <button class="quick-btn"><span class="icon">&#9733;</span>本地转写</button>
+          <button class="quick-btn"><span class="icon">&#128465;</span>清理历史任务</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Large: Creator Overview -->
+    <div class="widget widget-large">
+      <div class="widget-header">
+        <div class="widget-icon accent-orange">&#9733;</div>
+        <span class="widget-title">创作者概览</span>
+      </div>
+      <div class="widget-body">
+        <div class="task-list-item">
+          <div class="task-thumb" style="background:linear-gradient(135deg,#667eea,#764ba2); color:white; font-size:14px;">李</div>
+          <div class="task-info"><div class="task-name">李子柒</div><div class="task-meta">156 个视频 &#183; 昨天同步</div></div>
+          <span style="font-size:13px; color:var(--text-secondary);">自动同步</span>
+        </div>
+        <div class="task-list-item">
+          <div class="task-thumb" style="background:linear-gradient(135deg,#f093fb,#f5576c); color:white; font-size:14px;">手</div>
+          <div class="task-info"><div class="task-name">手工耿</div><div class="task-meta">89 个视频 &#183; 3 天前</div></div>
+          <span style="font-size:13px; color:var(--text-secondary);">手动</span>
+        </div>
+        <div class="task-list-item">
+          <div class="task-thumb" style="background:linear-gradient(135deg,#4facfe,#00f2fe); color:white; font-size:14px;">张</div>
+          <div class="task-info"><div class="task-name">张三说电影</div><div class="task-meta">234 个视频 &#183; 今天</div></div>
+          <span style="font-size:13px; color:var(--accent-green);">同步中...</span>
+        </div>
+      </div>
+      <div class="widget-footer">8 个创作者 &#183; 查看全部</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== LIBRARY PAGE ===== -->
+<div class="page" id="page-library">
+  <div class="page-title">内容库</div>
+  <div class="segmented-control">
+    <button class="segment-btn active">全部</button>
+    <button class="segment-btn">视频</button>
+    <button class="segment-btn">转写文本</button>
+  </div>
+  <div class="search-bar">
+    <span style="color:var(--text-secondary);">&#128269;</span>
+    <input type="text" placeholder="搜索创作者或视频...">
+  </div>
+  <div class="library-grid">
+    <div class="creator-card">
+      <div class="creator-cover">李</div>
+      <div class="creator-info">
+        <div class="creator-name">李子柒</div>
+        <div class="creator-meta">156 个视频 &#183; 昨天同步</div>
+      </div>
+    </div>
+    <div class="creator-card">
+      <div class="creator-cover">手</div>
+      <div class="creator-info">
+        <div class="creator-name">手工耿</div>
+        <div class="creator-meta">89 个视频 &#183; 3 天前</div>
+      </div>
+    </div>
+    <div class="creator-card">
+      <div class="creator-cover">张</div>
+      <div class="creator-info">
+        <div class="creator-name">张三说电影</div>
+        <div class="creator-meta">234 个视频 &#183; 今天</div>
+      </div>
+    </div>
+    <div class="creator-card">
+      <div class="creator-cover">科</div>
+      <div class="creator-info">
+        <div class="creator-name">科技美学</div>
+        <div class="creator-meta">567 个视频 &#183; 1 周前</div>
+      </div>
+    </div>
+    <div class="creator-card">
+      <div class="creator-cover">何</div>
+      <div class="creator-info">
+        <div class="creator-name">何同学</div>
+        <div class="creator-meta">45 个视频 &#183; 2 周前</div>
+      </div>
+    </div>
+    <div class="creator-card">
+      <div class="creator-cover">半</div>
+      <div class="creator-info">
+        <div class="creator-name">半佛仙人</div>
+        <div class="creator-meta">312 个视频 &#183; 5 天前</div>
+      </div>
+    </div>
+    <div class="creator-card">
+      <div class="creator-cover">罗</div>
+      <div class="creator-info">
+        <div class="creator-name">罗翔说刑法</div>
+        <div class="creator-meta">189 个视频 &#183; 昨天</div>
+      </div>
+    </div>
+    <div class="creator-card">
+      <div class="creator-cover">+</div>
+      <div class="creator-info">
+        <div class="creator-name">添加创作者</div>
+        <div class="creator-meta">粘贴主页链接</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SETTINGS PAGE ===== -->
+<div class="page" id="page-settings">
+  <div class="page-title">设置</div>
+
+  <div class="settings-group">
+    <div class="settings-group-title">账号配置</div>
+    <div class="settings-list">
+      <div class="settings-item">
+        <div class="settings-icon accent-orange" style="color:var(--accent-orange);">&#9830;</div>
+        <span class="settings-label">抖音 Cookie</span>
+        <span class="settings-value">已配置</span>
+        <span class="settings-chevron">&#8250;</span>
+      </div>
+      <div class="settings-item">
+        <div class="settings-icon accent-blue" style="color:var(--accent-blue);">&#9830;</div>
+        <span class="settings-label">B 站 Cookie</span>
+        <span class="settings-value">未配置</span>
+        <span class="settings-chevron">&#8250;</span>
+      </div>
+      <div class="settings-item">
+        <div class="settings-icon accent-purple" style="color:var(--accent-purple);">&#9733;</div>
+        <span class="settings-label">Qwen 账号池</span>
+        <span class="settings-value">3 个账号</span>
+        <span class="settings-chevron">&#8250;</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-group-title">全局偏好</div>
+    <div class="settings-list">
+      <div class="settings-item">
+        <div class="settings-icon accent-green" style="color:var(--accent-green);">&#9851;</div>
+        <span class="settings-label">自动转写</span>
+        <div class="toggle on"></div>
+      </div>
+      <div class="settings-item">
+        <div class="settings-icon accent-red" style="color:var(--accent-red);">&#128465;</div>
+        <span class="settings-label">转写后删除视频</span>
+        <div class="toggle"></div>
+      </div>
+      <div class="settings-item">
+        <div class="settings-icon accent-blue" style="color:var(--accent-blue);">&#128196;</div>
+        <span class="settings-label">导出格式</span>
+        <span class="settings-value">Markdown</span>
+        <span class="settings-chevron">&#8250;</span>
+      </div>
+      <div class="settings-item">
+        <div class="settings-icon accent-teal" style="color:var(--accent-teal);">&#9632;</div>
+        <span class="settings-label">并发数</span>
+        <span class="settings-value">2</span>
+        <span class="settings-chevron">&#8250;</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-group-title">系统</div>
+    <div class="settings-list">
+      <div class="settings-item">
+        <div class="settings-icon accent-red" style="color:var(--accent-red);">&#128465;</div>
+        <span class="settings-label">清理历史任务</span>
+        <span class="settings-chevron">&#8250;</span>
+      </div>
+      <div class="settings-item">
+        <div class="settings-icon accent-blue" style="color:var(--accent-blue);">&#128194;</div>
+        <span class="settings-label">日志目录</span>
+        <span class="settings-value">~/logs</span>
+        <span class="settings-chevron">&#8250;</span>
+      </div>
+      <div class="settings-item">
+        <div class="settings-icon accent-teal" style="color:var(--accent-teal);">&#8505;</div>
+        <span class="settings-label">关于</span>
+        <span class="settings-value">v2.0</span>
+        <span class="settings-chevron">&#8250;</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- Mobile Bottom Nav -->
+<nav class="bottom-nav">
+  <a href="#" class="bottom-nav-item active" data-page="home"><span class="icon">&#8962;</span>工作台</a>
+  <a href="#" class="bottom-nav-item" data-page="library"><span class="icon">&#128193;</span>内容库</a>
+  <a href="#" class="bottom-nav-item" data-page="settings"><span class="icon">&#9881;</span>设置</a>
+</nav>
+
+<script>
+  // Page switching
+  function switchPage(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + pageId).classList.add('active');
+    document.querySelectorAll('.nav-item, .bottom-nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('[data-page="' + pageId + '"]').forEach(n => n.classList.add('active'));
+  }
+  document.querySelectorAll('[data-page]').forEach(el => {
+    el.addEventListener('click', e => { e.preventDefault(); switchPage(el.dataset.page); });
+  });
+
+  // Toggle switches
+  document.querySelectorAll('.toggle').forEach(t => {
+    t.addEventListener('click', () => t.classList.toggle('on'));
+  });
+
+  // Segmented control
+  document.querySelectorAll('.segment-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.parentElement.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
