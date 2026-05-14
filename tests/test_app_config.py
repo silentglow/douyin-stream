@@ -22,6 +22,10 @@ from media_tools.core.config import (
 class AppConfigTests(unittest.TestCase):
     """Tests for AppConfig class."""
 
+    def setUp(self) -> None:
+        from media_tools.core.config import _invalidate_settings_cache
+        _invalidate_settings_cache()
+
     def test_app_config_is_singleton(self) -> None:
         """Verify that get_app_config returns the same instance."""
         config1 = get_app_config()

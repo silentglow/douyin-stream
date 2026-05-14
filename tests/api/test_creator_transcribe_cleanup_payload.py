@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def test_creator_transcribe_writes_cleanup_payload_and_deletes_files(tmp_path: Path, monkeypatch) -> None:
-    from media_tools.workers.creator_transcribe_worker import background_creator_transcribe_worker
+    from media_tools.workers.creator_transcribe_worker import CreatorTranscribeWorker
 
     downloads = tmp_path / "downloads"
     project_root = tmp_path / "proj"
@@ -103,7 +103,7 @@ def test_creator_transcribe_writes_cleanup_payload_and_deletes_files(tmp_path: P
 
     monkeypatch.setattr("media_tools.workers.creator_transcribe_worker.run_local_transcribe", _fake_run_local_transcribe)
 
-    asyncio.run(background_creator_transcribe_worker(task_id, uid))
+    asyncio.run(CreatorTranscribeWorker().execute(task_id, uid=uid))
 
     assert not video.exists()
     assert not wav.exists()

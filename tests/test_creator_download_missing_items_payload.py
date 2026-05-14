@@ -9,7 +9,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_creator_download_sets_missing_items_in_payload() -> None:
-    from media_tools.workers.creator_sync import background_creator_download_worker
+    from media_tools.workers.creator_sync import CreatorSyncWorker
 
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
@@ -78,19 +78,16 @@ async def test_creator_download_sets_missing_items_in_payload() -> None:
         "media_tools.workers.creator_sync.get_runtime_setting_bool",
         return_value=False,
     ), patch(
-        "media_tools.workers.creator_sync.update_task_progress",
+        "media_tools.workers.base.update_task_progress",
         new=AsyncMock(),
     ), patch(
-        "media_tools.workers.creator_sync.notify_task_update",
-        new=AsyncMock(),
-    ), patch(
-        "media_tools.services.task_ops.notify_task_update",
+        "media_tools.workers.base._task_heartbeat",
         new=AsyncMock(),
     ), patch(
         "media_tools.workers.creator_sync.asyncio.to_thread",
         new=AsyncMock(return_value={"success": True, "new_files": []}),
     ):
-        await background_creator_download_worker(task_id, creator_uid, "incremental")
+        await CreatorSyncWorker().execute(task_id, uid=creator_uid, mode="incremental")
 
     payload_raw = conn.execute("SELECT payload FROM task_queue WHERE task_id = ?", (task_id,)).fetchone()[0]
     payload = json.loads(payload_raw)

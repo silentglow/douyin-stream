@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Optional
 
-from media_tools.pipeline.models import Stage
 
 
 ALLOWED_STAGES = {"fetching", "auditing", "downloading", "uploading", "transcribing", "exporting", "completed", "failed"}
@@ -40,21 +38,6 @@ def _normalize_stage(raw: str) -> str:
     }
     normalized = mapping.get(value, value)
     return normalized if normalized in ALLOWED_STAGES else "downloading"
-
-
-def stage_to_enum(raw_stage: str) -> Stage:
-    normalized = _normalize_stage(raw_stage)
-    mapping = {
-        "fetching": Stage.FETCHING,
-        "auditing": Stage.AUDITING,
-        "downloading": Stage.DOWNLOADING,
-        "uploading": Stage.TRANSCRIBING,
-        "transcribing": Stage.TRANSCRIBING,
-        "exporting": Stage.EXPORTING,
-        "completed": Stage.COMPLETED,
-        "failed": Stage.FAILED,
-    }
-    return mapping.get(normalized, Stage.DOWNLOADING)
 
 
 def _clamp_progress(progress: float | Optional[int]) -> float:
@@ -134,57 +117,13 @@ def _extract_export_meta(payload: dict[str, Any]) -> tuple[Optional[str], str | 
     return None, None
 
 
-def _estimate_time_remaining(
-    progress: float,
-    start_time: Optional[str],
-    stage: str,
-    download_total: int,
-    download_done: int,
-) -> Optional[str]:
-    """估算剩余时间"""
-    if progress <= 0 or not start_time:
-        return None
-
-    try:
-        start = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
-        now = datetime.now(start.tzinfo)
-        elapsed = (now - start).total_seconds()
-
-        if elapsed < 10:
-            return None
-
-        if progress >= 1.0:
-            return "已完成"
-
-        estimated_total = elapsed / progress
-        remaining = estimated_total - elapsed
-
-        if remaining < 60:
-            return f"{int(remaining)} 秒"
-        elif remaining < 3600:
-            minutes = int(remaining / 60)
-            seconds = int(remaining % 60)
-            if seconds > 0:
-                return f"{minutes} 分 {seconds} 秒"
-            return f"{minutes} 分钟"
-        else:
-            hours = int(remaining / 3600)
-            minutes = int((remaining % 3600) / 60)
-            if minutes > 0:
-                return f"{hours} 小时 {minutes} 分钟"
-            return f"{hours} 小时"
-
-    except Exception:
-        return None
-
-
 def build_pipeline_progress(
     task_type: str,
     status: str,
     progress: float | Optional[int],
     payload: Optional[dict[str, Any]] = None,
 ) -> Optional[dict[str, Any]]:
-    if task_type != "pipeline" and task_type != "download" and not task_type.startswith("creator_sync"):
+    if task_type not in ("pipeline", "download", "creator_transcribe") and not task_type.startswith("creator_sync") and not task_type.startswith("full_sync"):
         return None
 
     payload = payload or {}
@@ -206,6 +145,10 @@ def build_pipeline_progress(
             stage_str = "downloading"
         elif task_type.startswith("creator_sync"):
             stage_str = "downloading" if overall >= 0.1 else "fetching"
+        elif task_type.startswith("full_sync"):
+            stage_str = "downloading"
+        elif task_type == "creator_transcribe":
+            stage_str = "transcribing" if overall > 0.1 else "fetching"
         else:
             stage_str = "downloading" if overall < 0.4 else "transcribing"
 
@@ -230,6 +173,8 @@ def build_pipeline_progress(
         download_done = _estimate_count(overall, download_total)
     elif task_type.startswith("creator_sync"):
         download_done = _estimate_count(min(overall, 0.7) / 0.7 if overall > 0 else 0.0, download_total)
+    elif task_type.startswith("full_sync"):
+        download_done = _estimate_count(overall, download_total)
     else:
         download_done = _estimate_count(min(overall, 0.4) / 0.4 if overall > 0 else 0.0, download_total)
 
@@ -252,6 +197,18 @@ def build_pipeline_progress(
         download_current_video = str(download_progress_data.get("current_video", ""))
         download_current_video_progress = float(download_progress_data.get("current_video_progress", 0.0))
         download_current_index = int(download_progress_data.get("current_index", 0))
+    # 同时从 pipeline_progress.download 中读取（creator_sync 推送的格式）
+    if isinstance(payload_pp, dict):
+        pp_download = payload_pp.get("download")
+        if isinstance(pp_download, dict):
+            if not download_current_video and pp_download.get("current_title"):
+                download_current_video = str(pp_download["current_title"])
+            if not download_current_video and pp_download.get("current_video"):
+                download_current_video = str(pp_download["current_video"])
+            if pp_download.get("current_index"):
+                download_current_index = int(pp_download["current_index"])
+            if pp_download.get("current_video_progress"):
+                download_current_video_progress = float(pp_download["current_video_progress"])
 
     transcribe_current_video = ""
     transcribe_account = ""
@@ -285,181 +242,3 @@ def build_pipeline_progress(
     }
 
 
-def build_task_progress(
-    task_type: str,
-    status: str,
-    progress: float | Optional[int],
-    payload: Optional[dict[str, Any]] = None,
-) -> Optional[dict[str, Any]]:
-    """构建完整任务进度信息（新版格式）"""
-    pp = build_pipeline_progress(task_type, status, progress, payload)
-    if not pp:
-        return None
-
-    payload = payload or {}
-    stage_enum = stage_to_enum(pp["stage"])
-
-    payload_pp = payload.get("pipeline_progress") if isinstance(payload, dict) else None
-    download_progress_data = payload_pp.get("download_progress") if isinstance(payload_pp, dict) else None
-    transcribe_progress_data = payload_pp.get("transcribe_progress") if isinstance(payload_pp, dict) else None
-
-    from media_tools.pipeline.models import DownloadProgress, TranscribeProgress
-
-    download_progress = None
-    if download_progress_data or pp.get("download"):
-        dp_data = download_progress_data or {}
-        pp_dl = pp.get("download", {})
-        download_progress = DownloadProgress(
-            downloaded=dp_data.get("downloaded", pp_dl.get("done", 0)),
-            skipped=dp_data.get("skipped", 0),
-            failed=dp_data.get("failed", 0),
-            total=dp_data.get("total", pp_dl.get("total", 0)),
-            current_video=dp_data.get("current_video", pp_dl.get("current_video", "")),
-            current_video_progress=float(dp_data.get("current_video_progress", pp_dl.get("current_video_progress", 0.0))),
-            current_index=dp_data.get("current_index", pp_dl.get("current_index", 0)),
-        )
-
-    transcribe_progress = None
-    if transcribe_progress_data or pp.get("transcribe"):
-        tp_data = transcribe_progress_data or {}
-        pp_tp = pp.get("transcribe", {})
-        transcribe_progress = TranscribeProgress(
-            done=tp_data.get("done", pp_tp.get("done", 0)),
-            skipped=tp_data.get("skipped", 0),
-            failed=tp_data.get("failed", 0),
-            total=tp_data.get("total", pp_tp.get("total", 0)),
-            current_video=tp_data.get("current_video", pp_tp.get("current_video", "")),
-            current_account=tp_data.get("current_account", pp_tp.get("account_id", "")),
-        )
-
-    errors = []
-    error_details = []
-    if isinstance(payload_pp, dict):
-        errors = list(payload_pp.get("errors", []))
-        for err in errors:
-            if isinstance(err, dict):
-                error_details.append({
-                    "code": err.get("code", "UNKNOWN"),
-                    "message": err.get("message", str(err)),
-                    "suggestion": err.get("suggestion", ""),
-                    "timestamp": err.get("timestamp", ""),
-                })
-            else:
-                error_details.append({
-                    "code": "UNKNOWN",
-                    "message": str(err),
-                    "suggestion": "",
-                    "timestamp": "",
-                })
-    error_count = len(errors)
-
-    start_time = payload.get("start_time") if isinstance(payload, dict) else None
-    estimated_remaining = _estimate_time_remaining(
-        float(progress or 0),
-        start_time,
-        pp["stage"],
-        pp["download"]["total"],
-        pp["download"]["done"],
-    )
-
-    return {
-        "stage": stage_enum.value,
-        "stage_label": _get_stage_label(stage_enum.value),
-        "stage_icon": _get_stage_icon(stage_enum.value),
-        "overall_percent": float(progress or 0) * 100,
-        "download_progress": download_progress.to_dict() if download_progress else None,
-        "transcribe_progress": transcribe_progress.to_dict() if transcribe_progress else None,
-        "error_count": error_count,
-        "errors": error_details,
-        "start_time": start_time,
-        "estimated_time_remaining": estimated_remaining,
-        "message": _build_progress_message(
-            stage_enum.value,
-            download_progress,
-            transcribe_progress,
-            error_count,
-            status,
-        ),
-    }
-
-
-def _get_stage_label(stage: str) -> str:
-    """获取阶段显示名称"""
-    mapping = {
-        "created": "等待中",
-        "fetching": "获取列表",
-        "auditing": "对账中",
-        "downloading": "下载中",
-        "transcribing": "转写中",
-        "exporting": "导出中",
-        "completed": "已完成",
-        "failed": "失败",
-        "cancelled": "已取消",
-    }
-    return mapping.get(stage, stage)
-
-
-def _get_stage_icon(stage: str) -> str:
-    """获取阶段图标"""
-    mapping = {
-        "created": "⏳",
-        "fetching": "📋",
-        "auditing": "✔️",
-        "downloading": "⬇️",
-        "transcribing": "✍️",
-        "exporting": "📤",
-        "completed": "✅",
-        "failed": "❌",
-        "cancelled": "🚫",
-    }
-    return mapping.get(stage, "📦")
-
-
-def _build_progress_message(
-    stage: str,
-    download_progress: Any,
-    transcribe_progress: Any,
-    error_count: int,
-    status: str,
-) -> str:
-    """构建进度显示消息"""
-    if status in ("COMPLETED", "SUCCESS"):
-        dl_done = download_progress.downloaded if download_progress else 0
-        dl_total = download_progress.total if download_progress else 0
-        tr_done = transcribe_progress.done if transcribe_progress else 0
-        tr_total = transcribe_progress.total if transcribe_progress else 0
-        
-        parts = []
-        if dl_done > 0 or dl_total > 0:
-            parts.append(f"下载 {dl_done}/{dl_total}")
-        if tr_done > 0 or tr_total > 0:
-            parts.append(f"转写 {tr_done}/{tr_total}")
-        if error_count > 0:
-            parts.append(f"失败 {error_count}")
-        
-        if parts:
-            return f"已完成：{', '.join(parts)}"
-        return "已完成"
-    
-    if status in ("FAILED", "ERROR"):
-        return f"失败：{error_count} 个错误"
-    
-    if stage == "downloading" and download_progress:
-        current_video = download_progress.current_video or "视频"
-        return f"正在下载 ({download_progress.downloaded}/{download_progress.total})：{current_video}"
-    
-    if stage == "transcribing" and transcribe_progress:
-        current_video = transcribe_progress.current_video or "视频"
-        account = transcribe_progress.current_account
-        account_suffix = f" [{account}]" if account else ""
-        return f"正在转写 ({transcribe_progress.done}/{transcribe_progress.total}){account_suffix}：{current_video}"
-    
-    stage_labels = {
-        "created": "等待开始...",
-        "fetching": "正在获取视频列表...",
-        "auditing": "对账中...",
-        "exporting": "正在导出...",
-        "cancelled": "已取消",
-    }
-    
-    return stage_labels.get(stage, "处理中...")

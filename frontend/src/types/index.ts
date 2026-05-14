@@ -119,6 +119,7 @@ export interface PipelineProgressCounter {
   current_title?: string;
   current_aweme_id?: string;
   skipped?: number;
+  current_index?: number;
 }
 
 export interface PipelineProgressExport {

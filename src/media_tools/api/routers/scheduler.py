@@ -122,7 +122,7 @@ def _register_system_jobs() -> None:
         import asyncio
         from datetime import timezone, timedelta
         from media_tools.repositories.task_repository import TaskRepository
-        from media_tools.workers.creator_sync import background_creator_download_worker
+        from media_tools.workers.creator_sync import CreatorSyncWorker
 
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row
@@ -165,7 +165,7 @@ def _register_system_jobs() -> None:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 loop.run_until_complete(
-                    background_creator_download_worker(task_id, uid, "incremental")
+                    CreatorSyncWorker().execute(task_id, uid=uid, mode="incremental")
                 )
                 synced_count += 1
             except Exception as e:
@@ -174,7 +174,7 @@ def _register_system_jobs() -> None:
                 asyncio.set_event_loop(None)
                 try:
                     loop.close()
-                except Exception:
+                except Exception:  # noqa: defensive – 关闭事件循环时忽略任何错误
                     pass
 
         if synced_count > 0:

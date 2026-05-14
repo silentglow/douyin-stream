@@ -32,8 +32,8 @@ def _disable_f2_logging() -> None:
     3. 允许日志向上传播到根日志器（便于统一管理和输出）
     """
     f2_logger = logging.getLogger('f2')
-    # 设置为 WARNING 级别，只记录异常和错误，不记录调试和信息日志
-    f2_logger.setLevel(logging.WARNING)
+    # 设置为 INFO 级别，保留 HTTP 请求等下载活动日志
+    f2_logger.setLevel(logging.INFO)
     
     # 移除 F2 默认添加的文件 handler（这些会产生大量空的 f2-trace-*.log 文件）
     for handler in list(f2_logger.handlers):

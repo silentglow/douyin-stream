@@ -22,10 +22,11 @@ from typing import Dict, Optional, Callable, Awaitable, Any, Union
 from ..transcribe.flow import run_real_flow
 from ..transcribe.runtime import get_export_config, ensure_dir, now_stamp
 from ..transcribe.config import load_config as load_transcribe_config
-from .config import PipelineConfig, load_pipeline_config
+from .config import load_pipeline_config
+from media_tools.core.config import AppConfig
 from .helpers import _clean_title_for_export, _lookup_video_title, _lookup_creator_folder
 from .error_types import ErrorType, classify_error
-from .models import AccountPool, RetryConfig, VideoState, PipelineResultV2, BatchReport
+from .models import RetryConfig, VideoState, PipelineResultV2, BatchReport
 from ..db.core import get_db_connection
 
 # 配置日志记录器
@@ -48,7 +49,7 @@ class OrchestratorV2:
 
     def __init__(
         self,
-        config: Optional[PipelineConfig] = None,
+        config: Optional[AppConfig] = None,
         auth_state_path: Optional[Path] = None,
         retry_config: Optional[RetryConfig] = None,
         on_progress: Optional[ProgressCallback] = None,
@@ -59,16 +60,17 @@ class OrchestratorV2:
         self.retry_config = retry_config or RetryConfig()
         self.on_progress = on_progress
         self._creator_folder_override = creator_folder_override
-        self._account_pool: AccountPool | None = None
-        # per-account 上传锁。Qwen 平台约束：同账号同时只允许 1 个文件上传，
-        # 多余请求服务端会隐式排队。客户端用 Lock 显式串行，避免占额度空等。
-        self._upload_locks: dict[str, asyncio.Lock] = {}
-        self._upload_locks_guard: asyncio.Lock | None = None
+        from media_tools.services.account_pool_service import AccountPoolService
+        self._account_pool_service = AccountPoolService(
+            auth_state_path=self.auth_state_path,
+            default_account_id=self.config.pipeline_account_id,
+        )
 
         if self.auth_state_path is None:
             try:
                 transcribe_config = load_transcribe_config()
                 self.auth_state_path = transcribe_config.paths.auth_state_path
+                self._account_pool_service._auth_state_path = self.auth_state_path
             except (OSError, TypeError, ValueError) as e:
                 logger.warning(f"无法加载认证配置，将使用默认路径: {e}")
 
@@ -94,91 +96,6 @@ class OrchestratorV2:
                 self.on_progress(current, total, video_path, status, account_id)
             except (RuntimeError, TypeError, ValueError) as e:
                 logger.warning(f"进度回调执行失败: {e}")
-
-    def _resolve_qwen_execution_accounts(self) -> list[dict[str, Any]]:
-        try:
-            from media_tools.db.core import get_db_connection
-            from media_tools.transcribe.db_account_pool import (
-                build_qwen_auth_state_path_for_account,
-                load_qwen_accounts_from_db,
-            )
-
-            accounts = [a for a in load_qwen_accounts_from_db() if a.status == "active"]
-
-            resolved: list[dict[str, Any]] = []
-            for account in accounts:
-                path = (
-                    Path(account.auth_state_path)
-                    if str(account.auth_state_path).strip()
-                    else build_qwen_auth_state_path_for_account(account.account_id)
-                )
-                resolved.append({"account_id": account.account_id, "auth_state_path": path})
-
-            if resolved:
-                self._account_pool = AccountPool(resolved)
-                self._account_pool.set_upload_locks_view(self._upload_locks)
-                logger.info(f"账号池初始化: {[a['account_id'] for a in resolved]}")
-                self._adjust_gates_to_account_pool()
-                return resolved
-        except (sqlite3.Error, OSError, TypeError, ValueError) as e:
-            logger.warning(f"加载账号池失败: {e}")
-
-        if self.auth_state_path is None:
-            return []
-
-        single_account = [{"account_id": self.config.account_id, "auth_state_path": Path(self.auth_state_path)}]
-        self._account_pool = AccountPool(single_account)
-        self._account_pool.set_upload_locks_view(self._upload_locks)
-        self._adjust_gates_to_account_pool()
-        return single_account
-
-    def _adjust_gates_to_account_pool(self) -> None:
-        if self._account_pool is None:
-            return
-        n_accounts = self._account_pool.account_count
-        # 入口闸门跟随账号数：2×n 给"准备上传"队列留缓冲，账号一释放就有人秒进。
-        # worker.py 和 transcribe_batch 都读这个值替代 config.concurrency。
-        new_concurrency = max(1, 2 * n_accounts)
-        old = getattr(self, "_effective_concurrency", None)
-        self._effective_concurrency = new_concurrency
-        if old != new_concurrency:
-            logger.info(f"入口闸门跟随账号数: {old} → {new_concurrency}（= 2×{n_accounts}）")
-        # upload 锁是 per-account 的（按需在 _get_upload_lock 中创建）
-        # export 已取消限流——平台无明显约束，导出/下载并行更快
-
-    async def _get_upload_lock(self, account_id: str) -> asyncio.Lock:
-        """按需为账号创建上传锁。同一账号永远拿到同一把锁，跨视频共享。"""
-        if self._upload_locks_guard is None:
-            self._upload_locks_guard = asyncio.Lock()
-        async with self._upload_locks_guard:
-            lock = self._upload_locks.get(account_id)
-            if lock is None:
-                lock = asyncio.Lock()
-                self._upload_locks[account_id] = lock
-                logger.info(f"上传锁创建: account={account_id}")
-            return lock
-
-    def _mark_qwen_account_status(self, account_id: str, status: str) -> None:
-        if not account_id:
-            return
-        try:
-            from media_tools.core.cookie_manager import get_cookie_manager
-            get_cookie_manager().mark_account_status("qwen", account_id, status)
-            if status in ("expired", "rate_limited") and self._account_pool:
-                self._account_pool.exclude(account_id)
-        except Exception as e:
-            logger.warning(f"标记Qwen账号状态失败: {e}")
-            return
-
-    def _mark_qwen_account_used(self, account_id: str) -> None:
-        if not account_id:
-            return
-        try:
-            from media_tools.core.cookie_manager import get_cookie_manager
-            get_cookie_manager().mark_account_used("qwen", account_id)
-        except Exception as e:
-            logger.warning(f"标记Qwen账号使用失败: {e}")
-            return
 
     async def _transcribe_single_video(
         self,
@@ -225,94 +142,73 @@ class OrchestratorV2:
             last_error_type: ErrorType = ErrorType.UNKNOWN
 
             # 初始化账号池（如果尚未初始化）
-            if self._account_pool is None:
-                resolved_accounts = self._resolve_qwen_execution_accounts()
-                if self._account_pool is None and resolved_accounts:
-                    self._account_pool = AccountPool(resolved_accounts)
-                    self._account_pool.set_upload_locks_view(self._upload_locks)
+            pool = self._account_pool_service.account_pool
+            if pool is None:
+                self._account_pool_service.resolve_accounts()
+                pool = self._account_pool_service.account_pool
 
             # 单个视频固定在同一账号内重试；只有认证失效才切换账号。
             accounts_tried = set()
-            max_attempts = self._account_pool.available_count if self._account_pool else 1
+            max_attempts = pool.available_count if pool else 1
             preferred_account_id = account_id
             current_account_id: Optional[str] = None
 
             # 第三阶段：解析 asset_id，三段式 fallback；找不到也允许继续跑（只是没续传能力）
             from media_tools.services.media_asset_service import MediaAssetService
-            from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
             asset_id_for_run = MediaAssetService.find_asset_id_for_video_path(video_path)
+
+            # 将 asset_id 嵌入输出标题，防止不同视频因标题截断后互相覆盖
+            if asset_id_for_run and video_title:
+                short_id = asset_id_for_run[-8:] if len(asset_id_for_run) >= 8 else asset_id_for_run
+                video_title = f"{video_title} [{short_id}]"
 
             # DB 级断点续传：检查该 asset 是否已有成功的 run（跨账号去重）
             if asset_id_for_run:
-                try:
-                    saved_run = TranscribeRunRepository.find_saved_for_asset(asset_id_for_run)
-                    if saved_run:
-                        saved_path = Path(saved_run.get("transcript_path", ""))
-                        if saved_path.exists():
-                            logger.info(f"跳过已成功的视频: {video_path} (run_id={saved_run.get('run_id')})")
-                            self._update_media_asset_transcript(video_path, saved_path)
-                            return PipelineResultV2(
-                                success=True,
-                                video_path=video_path,
-                                transcript_path=saved_path,
-                                duration=0.0,
-                                account_id=saved_run.get("account_id", ""),
-                                video_deleted=False,
-                            )
-                        logger.warning(f"缓存的转录文件已丢失，重新转录: {video_path}")
-                except Exception as exc:
-                    logger.warning(f"find_saved_for_asset 失败 (asset={asset_id_for_run}): {exc}")
+                from media_tools.services.transcribe_run_service import TranscribeRunService
+                from media_tools.services.asset_update_service import AssetUpdateService
+                saved = TranscribeRunService.check_saved(asset_id_for_run)
+                if saved:
+                    saved_path, saved_account_id = saved
+                    logger.info(f"命中缓存转写，跳过: {video_path}")
+                    AssetUpdateService.mark_transcribe_completed(video_path, saved_path, Path(self.config.output_dir))
+                    return PipelineResultV2(
+                        success=True,
+                        video_path=video_path,
+                        transcript_path=saved_path,
+                        duration=0.0,
+                        account_id=saved_account_id,
+                        video_deleted=False,
+                    )
 
             for _ in range(max_attempts):
-                if self._account_pool is None:
+                pool = self._account_pool_service.account_pool
+                if pool is None:
                     break
 
-                account = await self._account_pool.acquire(preferred_account_id)
+                account = await pool.acquire(preferred_account_id)
                 if account is None:
                     break
 
                 current_account_id = str(account.get("account_id", "") or "")
                 if current_account_id in accounts_tried:
-                    self._account_pool.release(current_account_id)
+                    pool.release(current_account_id)
                     break
                 accounts_tried.add(current_account_id)
 
                 auth_state_path = account.get("auth_state_path")
                 if auth_state_path is None:
-                    self._account_pool.release(current_account_id)
+                    pool.release(current_account_id)
                     break
 
                 # 第三阶段：为这次尝试创建 run。失败时即便 mark_failed 也不影响主流程。
                 run_id: Optional[str] = None
                 resumable_run: Optional[Dict[str, Any]] = None
                 if asset_id_for_run:
-                    # 先看这个 (asset, account) 组合是否有可续传的 run（上传过但失败）
-                    try:
-                        resumable_run = TranscribeRunRepository.find_resumable(
-                            asset_id_for_run, current_account_id
-                        )
-                    except Exception as exc:  # noqa: BLE001
-                        logger.warning(f"transcribe_runs.find_resumable 失败 (asset={asset_id_for_run}): {exc}")
-                        resumable_run = None
-
-                    if resumable_run:
-                        run_id = resumable_run["run_id"]
-                        logger.info(
-                            f"发现可续传 run: asset={asset_id_for_run} account={current_account_id} "
-                            f"stage={resumable_run.get('stage')} gen_record_id={resumable_run.get('gen_record_id')} "
-                            f"export_url={'有' if resumable_run.get('export_url') else '无'} "
-                            f"(Step 12: 仅记录，未复用)"
-                        )
-                    else:
-                        try:
-                            run_id = TranscribeRunRepository.create(
-                                asset_id=asset_id_for_run,
-                                video_path=str(video_path),
-                                account_id=current_account_id,
-                            )
-                        except Exception as exc:  # noqa: BLE001
-                            logger.warning(f"transcribe_runs.create 失败 (asset={asset_id_for_run}): {exc}")
-                            run_id = None
+                    run_id, resumable_run = TranscribeRunService.find_or_create_run(
+                        asset_id=asset_id_for_run,
+                        video_path=str(video_path),
+                        account_id=current_account_id,
+                    )
 
                 try:
                     # 把 find_resumable 的字典转成 ResumeState 给 flow
@@ -327,7 +223,7 @@ class OrchestratorV2:
                             export_url=resumable_run.get("export_url"),
                         )
 
-                    account_upload_lock = await self._get_upload_lock(current_account_id)
+                    account_upload_lock = await self._account_pool_service.get_upload_lock(current_account_id)
                     result = await run_real_flow(
                         file_path=video_path,
                         auth_state_path=auth_state_path,
@@ -340,15 +236,12 @@ class OrchestratorV2:
                         run_id=run_id,
                         resume_state=resume_state,
                     )
-                    self._mark_qwen_account_used(current_account_id)
+                    self._account_pool_service.mark_used(current_account_id)
 
                     # 第三阶段：流程跑通后把 run 标为 saved；后续重试可以靠 find_saved_for_asset
                     # 跨账号识别"这个 asset 已经成功过"
                     if run_id:
-                        try:
-                            TranscribeRunRepository.mark_saved(run_id, str(result.export_path))
-                        except Exception as exc:  # noqa: BLE001
-                            logger.warning(f"transcribe_runs.mark_saved 失败 (run_id={run_id}): {exc}")
+                        TranscribeRunService.mark_saved(run_id, str(result.export_path))
 
                     duration = time.time() - start_time
                     return PipelineResultV2(
@@ -365,47 +258,27 @@ class OrchestratorV2:
                     last_error = e
                     last_error_type = classify_error(e)
 
-                    # 第三阶段：把失败 stage 写入 transcribe_runs。当前 stage 由 flow 最近
-                    # 一次打卡决定，所以这里直接读回，比硬猜更准。
+                    # 第三阶段：把失败 stage 写入 transcribe_runs
                     if run_id:
-                        try:
-                            current_run = TranscribeRunRepository.get(run_id) or {}
-                            current_stage = str(current_run.get("stage") or "queued")
-                            TranscribeRunRepository.mark_failed(
-                                run_id,
-                                error_stage=current_stage,
-                                error_type=last_error_type.value,
-                                last_error=str(e),
-                            )
-                        except Exception as exc:  # noqa: BLE001
-                            logger.warning(f"transcribe_runs.mark_failed 失败 (run_id={run_id}): {exc}")
+                        TranscribeRunService.mark_failed(run_id, last_error_type.value, str(e))
 
-                    from media_tools.transcribe.error_classifier import TranscribeError
-                    if isinstance(e, TranscribeError) and e.error_info.retryable:
-                        if last_error_type in (ErrorType.AUTH, ErrorType.QUOTA, ErrorType.SERVICE_UNAVAILABLE) and current_account_id:
-                            if last_error_type == ErrorType.AUTH:
-                                self._mark_qwen_account_status(current_account_id, "expired")
-                            elif last_error_type == ErrorType.SERVICE_UNAVAILABLE:
-                                self._mark_qwen_account_status(current_account_id, "rate_limited")
-                            else:
-                                self._mark_qwen_account_status(current_account_id, "rate_limited")
-                            preferred_account_id = None
-                            logger.warning(f"账号 {current_account_id} {last_error_type.value}，尝试下一个账号: {e.error_info.suggestion}")
-                            continue
-                    elif last_error_type == ErrorType.AUTH and current_account_id:
-                        self._mark_qwen_account_status(current_account_id, "expired")
+                    # 判断是否需要切换账号重试
+                    if current_account_id and self._should_switch_account(e, last_error_type):
+                        status = "expired" if last_error_type == ErrorType.AUTH else "rate_limited"
+                        self._account_pool_service.mark_status(current_account_id, status)
                         preferred_account_id = None
-                        logger.warning(f"账号 {current_account_id} 认证过期，尝试下一个账号")
-                        continue
-                    elif last_error_type == ErrorType.SERVICE_UNAVAILABLE and current_account_id:
-                        self._mark_qwen_account_status(current_account_id, "rate_limited")
-                        preferred_account_id = None
-                        logger.warning(f"账号 {current_account_id} 服务不可用，尝试下一个账号")
+                        suggestion = getattr(getattr(e, "error_info", None), "suggestion", "")
+                        msg = f"账号 {current_account_id} {last_error_type.value}，尝试下一个账号"
+                        if suggestion:
+                            msg += f": {suggestion}"
+                        logger.warning(msg)
                         continue
                     logger.warning(f"转写失败 [{last_error_type.value}]，保留在账号 {current_account_id} 的重试链路: {e}")
                     break
                 finally:
-                    self._account_pool.release(current_account_id)
+                    pool = self._account_pool_service.account_pool
+                    if pool:
+                        pool.release(current_account_id)
 
             duration = time.time() - start_time
             return PipelineResultV2(
@@ -436,95 +309,15 @@ class OrchestratorV2:
                 duration=duration,
             )
 
-    def _update_media_asset_transcript(
-        self,
-        video_path: Path,
-        transcript_path: Optional[Path],
-    ) -> None:
-        """同步更新 media_assets 表的转写状态（成功路径）。"""
-        try:
-            from media_tools.pipeline.preview import extract_transcript_preview, extract_transcript_text
-            from media_tools.services.media_asset_service import MediaAssetService
-
-            preview = extract_transcript_preview(transcript_path) if transcript_path else ""
-            full_text = extract_transcript_text(transcript_path) if transcript_path else ""
-            MediaAssetService.mark_transcribe_completed(
-                video_path=video_path,
-                transcript_path=transcript_path,
-                output_dir=Path(self.config.output_dir),
-                preview=preview,
-                full_text=full_text,
-            )
-        except (OSError, ValueError) as e:
-            logger.warning(f"更新 media_assets 转写状态失败: {e}")
-
-    def _mark_media_asset_transcript_failed(
-        self,
-        video_path: Path,
-        error_type: str,
-        error_message: str,
-    ) -> None:
-        """同步把转写失败信息写回 media_assets 表（失败路径）。"""
-        try:
-            from media_tools.services.media_asset_service import MediaAssetService
-            MediaAssetService.mark_transcribe_failed(
-                video_path=video_path,
-                error_type=error_type,
-                error_message=error_message,
-            )
-        except (OSError, ValueError) as e:
-            logger.warning(f"写回 media_assets 失败状态失败: {e}")
-
-    async def _cleanup_failed_cloud_records(
-        self, video_path: Path, *, account_id: Optional[str] = None
-    ) -> None:
-        """转写最终失败后，清理云端残留的转写记录。
-
-        当所有重试和账号切换都失败后，已上传到千问平台的文件仍会占用云端存储。
-        此方法查找该视频所有失败 run 的 record_id，并调用删除 API 清理。
-
-        注意：record_ids 可能来自多个账号（视频曾在不同账号上重试），
-        但当前实现只尝试用传入的 account_id 对应的 cookie 删除。
-        跨账号孤儿记录由后续健康检查脚本兜底。
-        """
-        from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
-        from media_tools.services.media_asset_service import MediaAssetService
-
-        asset_id = MediaAssetService.find_asset_id_for_video_path(video_path)
-
-        record_ids: list[str] = []
-        if asset_id:
-            record_ids = TranscribeRunRepository.find_failed_record_ids(asset_id, account_id=account_id or "")
-        if not record_ids:
-            record_ids = TranscribeRunRepository.find_failed_record_ids_for_video(str(video_path), account_id=account_id or "")
-
-        if not record_ids:
-            return
-
-        try:
-            from media_tools.transcribe.auth_state import resolve_qwen_cookie_string
-            from media_tools.transcribe.flow import delete_record
-            from media_tools.transcribe.http import RequestsApiContext
-
-            cookie_string = resolve_qwen_cookie_string(
-                auth_state_path="",
-                account_id=account_id or "",
-            )
-            if not cookie_string.strip():
-                logger.warning("云端清理跳过：无法获取有效 cookie")
-                return
-
-            api = RequestsApiContext(cookie_string=cookie_string)
-            try:
-                deleted = await delete_record(api, record_ids)
-                if deleted:
-                    logger.info(f"云端清理成功：已删除 {len(record_ids)} 条失败记录 ({video_path})")
-                else:
-                    logger.warning(f"云端清理返回失败：{len(record_ids)} 条记录 ({video_path})")
-            finally:
-                await api.dispose()
-        except Exception as e:
-            logger.warning(f"云端清理异常（不影响主流程）: {video_path} - {e}")
+    def _should_switch_account(self, exc: Exception, error_type: ErrorType) -> bool:
+        """判断失败后是否应该切换账号重试。"""
+        if error_type not in (ErrorType.AUTH, ErrorType.QUOTA, ErrorType.SERVICE_UNAVAILABLE):
+            return False
+        from media_tools.transcribe.error_classifier import TranscribeError
+        if isinstance(exc, TranscribeError):
+            return exc.error_info.retryable
+        # 非 TranscribeError 的异常，只要是 AUTH/SERVICE_UNAVAILABLE 就切换账号
+        return error_type in (ErrorType.AUTH, ErrorType.SERVICE_UNAVAILABLE)
 
     async def transcribe_with_retry(
         self,
@@ -554,7 +347,10 @@ class OrchestratorV2:
 
             if result.success:
                 # 同步更新数据库
-                self._update_media_asset_transcript(video_path, result.transcript_path)
+                from media_tools.services.asset_update_service import AssetUpdateService
+                AssetUpdateService.mark_transcribe_completed(
+                    video_path, result.transcript_path, Path(self.config.output_dir)
+                )
 
                 self._fire_progress(1, 1, video_path, "成功", account_id=result.account_id)
                 logger.info(f"视频处理成功: {video_path} (尝试 {attempt} 次, 耗时 {result.duration:.1f}s)")
@@ -580,13 +376,15 @@ class OrchestratorV2:
             else:
                 # 不可重试或已达最大次数
                 # 同步把失败信息写回 media_assets，让 UI/查询能基于 DB 真相源
-                self._mark_media_asset_transcript_failed(
+                from media_tools.services.asset_update_service import AssetUpdateService
+                from media_tools.services.cloud_cleanup_service import CloudCleanupService
+                AssetUpdateService.mark_transcribe_failed(
                     video_path,
                     result.error_type.value,
                     result.error or "",
                 )
                 # 清理云端残留的失败转写记录
-                await self._cleanup_failed_cloud_records(
+                await CloudCleanupService.cleanup(
                     video_path, account_id=result.account_id
                 )
                 self._fire_progress(
@@ -639,10 +437,10 @@ class OrchestratorV2:
         logger.info(f"批量处理: 共 {len(pending_paths)} 个视频")
 
         # 并发控制：跟随账号数（= 2×n）。account_pool 还没初始化的话先解析一次，
-        # 否则 _effective_concurrency 拿不到值，会退回 config.concurrency（旧值不准）。
-        if self._account_pool is None:
-            self._resolve_qwen_execution_accounts()
-        effective = getattr(self, "_effective_concurrency", self.config.concurrency)
+        # 否则 effective_concurrency 拿不到值，会退回 config.concurrency（旧值不准）。
+        if self._account_pool_service.account_pool is None:
+            self._account_pool_service.resolve_accounts()
+        effective = self._account_pool_service.effective_concurrency or self.config.concurrency
         semaphore = asyncio.Semaphore(max(1, effective))
         completed_count = 0
         total_pending = len(pending_paths)
@@ -677,7 +475,8 @@ class OrchestratorV2:
                     error_type=error_type,
                 )
                 # transcribe_with_retry 抛出异常时（理论上不会，但兜底）也要写回 DB
-                self._mark_media_asset_transcript_failed(
+                from media_tools.services.asset_update_service import AssetUpdateService
+                AssetUpdateService.mark_transcribe_failed(
                     video_path,
                     error_type.value,
                     str(result),
@@ -731,7 +530,7 @@ class OrchestratorV2:
 
 
 def create_orchestrator(
-    config: Optional[PipelineConfig] = None,
+    config: Optional[AppConfig] = None,
     auth_state_path: Optional[Path] = None,
     retry_config: Optional[RetryConfig] = None,
     on_progress: Optional[ProgressCallback] = None,
@@ -744,118 +543,6 @@ def create_orchestrator(
         on_progress=on_progress,
         creator_folder_override=creator_folder_override,
     )
-
-
-async def run_enhanced_pipeline(
-    video_paths: list[Path],
-    config: Optional[PipelineConfig] = None,
-    auth_state_path: Optional[Path] = None,
-    retry_config: Optional[RetryConfig] = None,
-    on_progress: Optional[ProgressCallback] = None,
-    report_path: Optional[Path] = None,
-) -> BatchReport:
-    """便捷函数：一键运行增强版 Pipeline
-
-    Args:
-        video_paths: 视频文件路径列表
-        config: Pipeline 配置
-        auth_state_path: 认证状态文件路径
-        retry_config: 重试配置
-        on_progress: 进度回调函数
-        report_path: 报告保存路径（None则不保存）
-
-    Returns:
-        BatchReport: 执行报告
-
-    Example:
-        >>> report = await run_enhanced_pipeline(
-        ...     video_paths=[Path("video1.mp4"), Path("video2.mp4")],
-        ...     on_progress=lambda c, t, p, s: logger.info(f"{c}/{t}: {s}"),
-        ...     report_path=Path("report.json"),
-        ... )
-        >>> logger.info(f"成功: {report.success}/{report.total}")
-    """
-    orchestrator = create_orchestrator(
-        config=config,
-        auth_state_path=auth_state_path,
-        retry_config=retry_config,
-        on_progress=on_progress,
-    )
-    report = await orchestrator.transcribe_batch(video_paths, resume=resume)
-
-    # 可选：保存报告
-    if report_path:
-        report.save_to_file(report_path)
-
-    return report
-
-
-def print_enhanced_summary(report: BatchReport) -> None:
-    """打印增强版执行摘要
-
-    Args:
-        report: 批量执行报告
-    """
-    logger.info("\n" + "=" * 60)
-    logger.info("📊 Pipeline 增强版执行摘要")
-    logger.info("=" * 60)
-    logger.info(f"总计: {report.total}")
-    logger.info(f"✅ 成功: {report.success}")
-    logger.info(f"❌ 失败: {report.failed}")
-    logger.info(f"⏭️  跳过: {report.skipped}")
-    logger.info(f"⏱️  总耗时: {report.total_duration:.1f}s")
-    if report.success + report.failed > 0:
-        logger.info(f"📈 平均耗时: {report.avg_duration:.1f}s/视频")
-    logger.info("=" * 60)
-
-    if report.error_summary:
-        logger.info("\n错误类型统计:")
-        for err_type, count in report.error_summary.items():
-            logger.info(f"  - [{err_type}]: {count} 次")
-
-    if report.failed > 0:
-        logger.info("\n失败详情:")
-        for r in report.results:
-            if not r["success"]:
-                logger.info(f"  - {Path(r['video_path']).name}: [{r['error_type']}] {r['error']}")
-                if r.get("attempts", 1) > 1:
-                    logger.info(f"    (尝试了 {r['attempts']} 次)")
-
-    logger.info("=" * 60)
-
-
-def run_pipeline_batch(
-    video_paths: list[Path],
-    config: Optional[PipelineConfig] = None,
-    auth_state_path: Optional[Path] = None,
-) -> list:
-    """同步包装器：批量转写（兼容原 orchestrator.py V1 接口）
-
-    downloader.py 通过此函数在同步上下文中调用异步流水线。
-    若当前已有运行中的事件循环，则在新线程中运行以避免 RuntimeError。
-    """
-    coro = run_enhanced_pipeline(video_paths, config=config, auth_state_path=auth_state_path)
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    if loop is not None and loop.is_running():
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            report = executor.submit(asyncio.run, coro).result()
-    else:
-        report = asyncio.run(coro)
-
-    class _Compat:
-        """Lightweight shim: r.success / r.video_path / r.transcript_path / r.error"""
-        def __init__(self, d: dict):
-            self.success = d.get("success", False)
-            self.video_path = Path(d["video_path"])
-            self.transcript_path = Path(d["transcript_path"]) if d.get("transcript_path") else None
-            self.error = d.get("error")
-
-    return [_Compat(r) for r in report.results]
 
 
 def run_pipeline_interactive() -> None:

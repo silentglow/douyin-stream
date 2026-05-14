@@ -43,6 +43,9 @@ def test_pipeline_config_default_concurrency_is_10(monkeypatch, tmp_path) -> Non
     from contextlib import contextmanager
 
     from media_tools.pipeline.config import load_pipeline_config
+    from media_tools.core.config import _invalidate_settings_cache
+
+    _invalidate_settings_cache()
 
     db_path = tmp_path / "settings.db"
     conn = sqlite3.connect(str(db_path))
@@ -66,6 +69,9 @@ def test_pipeline_config_concurrency_uses_system_settings(monkeypatch, tmp_path)
     from contextlib import contextmanager
 
     from media_tools.pipeline.config import load_pipeline_config
+    from media_tools.core.config import _invalidate_settings_cache
+
+    _invalidate_settings_cache()
 
     db_path = tmp_path / "settings.db"
     conn = sqlite3.connect(str(db_path))
@@ -90,6 +96,9 @@ def test_pipeline_config_concurrency_env_overrides_system_settings(monkeypatch, 
     from contextlib import contextmanager
 
     from media_tools.pipeline.config import load_pipeline_config
+    from media_tools.core.config import _invalidate_settings_cache
+
+    _invalidate_settings_cache()
 
     db_path = tmp_path / "settings.db"
     conn = sqlite3.connect(str(db_path))
@@ -124,5 +133,5 @@ def test_local_transcribe_uses_batch_transcribe(monkeypatch) -> None:
 
     result = asyncio.run(run_local_transcribe([str(mp3_path)], update_progress_fn=None, delete_after=False))
     assert result["total"] == 1
-    assert len(fake.transcribe_batch_calls) == 1
-    assert fake.transcribe_with_retry_calls == []
+    assert len(fake.transcribe_with_retry_calls) == 1
+    assert fake.transcribe_batch_calls == []

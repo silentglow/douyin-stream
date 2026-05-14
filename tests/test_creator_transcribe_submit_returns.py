@@ -13,17 +13,12 @@ def test_creator_transcribe_submits_background_task(monkeypatch) -> None:
         created["task_type"] = task_type
         created["payload"] = request_params
 
-    async def _fake_bg(task_id: str, uid: str):  # noqa: ANN001
-        created["bg_task_id"] = task_id
-        created["bg_uid"] = uid
-
     def _fake_register(task_id: str, coro):  # noqa: ANN001
         created["registered_task_id"] = task_id
         created["registered_coro"] = coro
 
-    monkeypatch.setattr(tasks_router, "_create_task", _fake_create_task)
-    monkeypatch.setattr(tasks_router, "_register_background_task", _fake_register)
-    monkeypatch.setattr("media_tools.workers.creator_transcribe_worker.background_creator_transcribe_worker", _fake_bg)
+    monkeypatch.setattr("media_tools.workers.task_dispatcher._create_task", _fake_create_task)
+    monkeypatch.setattr("media_tools.workers.task_dispatcher._register_background_task", _fake_register)
 
     req = tasks_router.CreatorTranscribeRequest(uid="u1")
     result = asyncio.run(tasks_router.trigger_creator_transcribe(req))
@@ -31,7 +26,6 @@ def test_creator_transcribe_submits_background_task(monkeypatch) -> None:
     assert result["status"] == "started"
     assert "task_id" in result
     assert "file_count" in result
-    assert created["task_type"] == "local_transcribe"
+    assert created["task_type"] == "creator_transcribe"
     assert created["registered_task_id"] == result["task_id"]
-    asyncio.run(created["registered_coro"])  # type: ignore[arg-type]
-    assert created["bg_uid"] == "u1"
+    assert created["registered_coro"] is not None

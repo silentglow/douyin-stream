@@ -447,7 +447,7 @@ async def run_real_flow(
                 try:
                     from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
                     TranscribeRunRepository.update_stage(run_id, "queued")
-                except Exception:
+                except Exception:  # noqa: defensive – stage 重置失败不影响主流程
                     logger.debug("重置 stage 失败，但不影响 fallback 流程", exc_info=True)
             return None
 
@@ -511,7 +511,7 @@ async def run_real_flow(
                 try:
                     from media_tools.repositories.transcribe_run_repository import TranscribeRunRepository
                     TranscribeRunRepository.update_stage(run_id, "queued")
-                except Exception:
+                except Exception:  # noqa: defensive – stage 重置失败不影响主流程
                     logger.debug("重置 stage 失败，但不影响 fallback 流程", exc_info=True)
             return None
 

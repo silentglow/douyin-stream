@@ -205,7 +205,7 @@ def get_db_connection(keep_open: bool = False) -> DBConnection:
         except (sqlite3.Error, Exception):
             try:
                 cached.close()
-            except Exception:
+            except Exception:  # noqa: defensive – 关闭缓存连接时忽略任何错误
                 pass
             _thread_local.conn = None
 

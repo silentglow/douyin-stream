@@ -40,10 +40,6 @@ class MediaAssetService:
     # ---------- 解析 ----------
 
     @staticmethod
-    def resolve_asset_id(video_path: Path) -> Optional[str]:
-        return _resolve_asset_id_from_video_path(video_path)
-
-    @staticmethod
     def find_asset_id_for_video_path(video_path: Path) -> Optional[str]:
         """三段式 fallback 找出视频对应的 asset_id。
 

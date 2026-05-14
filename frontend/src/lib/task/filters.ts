@@ -5,7 +5,7 @@ export type TaskFilterCategory = 'all' | 'download' | 'transcribe' | 'sync';
 
 export function getTaskFilterCategory(taskType: string): TaskFilterCategory {
   if (taskType === 'download' || taskType.startsWith('creator_sync')) return 'download';
-  if (taskType === 'pipeline' || taskType === 'local_transcribe') return 'transcribe';
+  if (taskType === 'pipeline' || taskType === 'local_transcribe' || taskType === 'creator_transcribe') return 'transcribe';
   if (taskType.startsWith('full_sync') || taskType === 'scan_all_following') return 'sync';
   return 'all';
 }

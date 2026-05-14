@@ -61,7 +61,7 @@ def reconcile_transcripts():
                 results['assets_removed'] += deleted.rowcount
                 logger.info(f"Removed local creator '{nickname}' and {deleted.rowcount} assets")
 
-        legacy_uid = "local:upload"
+        from media_tools.services.local_asset_service import LOCAL_CREATOR_UID as legacy_uid
         legacy_assets = conn.execute(
             "SELECT asset_id, title, transcript_path, folder_path FROM media_assets WHERE creator_uid = ?",
             (legacy_uid,)

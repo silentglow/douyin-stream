@@ -254,7 +254,7 @@ def test_orchestrator_tries_multiple_qwen_accounts(monkeypatch, tmp_path) -> Non
     import asyncio
     from pathlib import Path
     from media_tools.pipeline.orchestrator import OrchestratorV2
-    from media_tools.pipeline.config import PipelineConfig
+    from media_tools.core.config import AppConfig
     from media_tools.pipeline.models import AccountPool
 
     class _AuthErr(Exception):
@@ -277,7 +277,7 @@ def test_orchestrator_tries_multiple_qwen_accounts(monkeypatch, tmp_path) -> Non
 
     monkeypatch.setattr("media_tools.pipeline.orchestrator.run_real_flow", _fake_run_real_flow)
 
-    cfg = PipelineConfig(account_id="")
+    cfg = AppConfig()
     orch = OrchestratorV2(config=cfg, auth_state_path=Path("dummy.json"))
 
     # 正确初始化账号池（使用 acquire/release 互斥机制）
@@ -285,7 +285,7 @@ def test_orchestrator_tries_multiple_qwen_accounts(monkeypatch, tmp_path) -> Non
         {"account_id": "a1", "auth_state_path": Path("a1.json")},
         {"account_id": "a2", "auth_state_path": Path("a2.json")},
     ]
-    orch._account_pool = AccountPool(accounts)
+    orch._account_pool_service._account_pool = AccountPool(accounts)
 
     # 模拟 _get_shared_api 和 _release_shared_api（避免启动真实 Playwright）
     async def _fake_get_shared_api(auth_state_path):

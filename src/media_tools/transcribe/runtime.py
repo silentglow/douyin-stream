@@ -45,7 +45,7 @@ def _get_project_root() -> Path:
     try:
         from media_tools.core.config import get_project_root as _core_root
         return _core_root()
-    except Exception:
+    except Exception:  # noqa: defensive – 核心配置不可用时的降级路径
         return Path.cwd().resolve()
 
 

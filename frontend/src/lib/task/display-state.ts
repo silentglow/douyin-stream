@@ -27,6 +27,7 @@ export function taskTypeLabel(type: string) {
       pipeline: '下载并转写',
       download: '仅下载',
       local_transcribe: '本地转写',
+      creator_transcribe: '创作者转写',
       creator_sync_incremental: '创作者增量同步',
       creator_sync_full: '创作者全量同步',
       full_sync_incremental: '全量增量同步',

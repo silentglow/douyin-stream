@@ -9,6 +9,7 @@ from media_tools.services.asset_file_ops import (
     _resolve_asset_video_file,
 )
 from media_tools.services.asset_gc import cleanup_stale_assets
+from media_tools.services.local_asset_service import LOCAL_CREATOR_UID
 from typing import Optional
 import sqlite3
 import logging
@@ -18,7 +19,6 @@ from pathlib import Path
 
 router = APIRouter(prefix="/api/v1/assets", tags=["assets"], redirect_slashes=False)
 logger = logging.getLogger(__name__)
-LOCAL_CREATOR_UID = "local:upload"
 
 @router.get("")
 def list_assets(

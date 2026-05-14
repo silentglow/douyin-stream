@@ -5,6 +5,7 @@ import {
   getTaskHistory,
   triggerBatchPipeline,
   triggerCreatorDownload,
+  triggerCreatorTranscribe,
   triggerDownloadBatch,
   triggerFullSyncFollowing,
   triggerLocalTranscribe,
@@ -64,11 +65,21 @@ export function useTaskActions() {
 
       if (task.task_type === 'local_transcribe' && payload) {
         const paths = payload.file_paths;
-        if (Array.isArray(paths)) {
+        if (Array.isArray(paths) && paths.length > 0) {
           const deleteAfter = (payload.delete_after as boolean) || false;
           const directoryRoot = payload.directory_root as string | undefined;
           await triggerLocalTranscribe(paths as string[], deleteAfter, directoryRoot);
           toast.success('已重新提交本地转写任务');
+          return;
+        }
+      }
+
+      if (task.task_type === 'creator_transcribe' && payload) {
+        const uid = payload.creator_uid;
+        if (typeof uid === 'string' && uid) {
+          const deleteAfter = payload.delete_after as boolean | undefined;
+          await triggerCreatorTranscribe(uid, deleteAfter);
+          toast.success('已重新提交创作者转写任务');
           return;
         }
       }

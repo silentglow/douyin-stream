@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional, Callable
 import uuid
 
 from fastapi import HTTPException
@@ -13,13 +13,11 @@ from media_tools.repositories.task_repository import TaskRepository
 from media_tools.services.task_ops import notify_task_update
 from media_tools.services.task_state import _register_background_task
 from media_tools.services.local_asset_service import _register_local_assets
-from media_tools.workers.pipeline_worker import (
-    _background_pipeline_worker,
-    _background_batch_worker,
-    _background_download_worker,
-)
-from media_tools.workers.full_sync_worker import _background_full_sync_worker
-from media_tools.workers.local_transcribe_worker import _background_local_transcribe_worker
+from media_tools.workers.pipeline_worker import PipelineWorker, DownloadWorker
+from media_tools.workers.full_sync_worker import FullSyncWorker
+from media_tools.workers.local_transcribe_worker import LocalTranscribeWorker
+from media_tools.workers.creator_transcribe_worker import CreatorTranscribeWorker
+from media_tools.workers.aweme_recover_worker import AwemeRecoverWorker
 
 
 async def _create_task(task_id: str, task_type: str, request_params: dict):
@@ -29,133 +27,233 @@ async def _create_task(task_id: str, task_type: str, request_params: dict):
     await notify_task_update(task_id, 0.0, msg, "RUNNING", task_type)
 
 
+class _WorkerDispatch:
+    """任务分发器注册项。
+
+    把 task_dispatcher 中重复的 if/elif 分支提取为声明式配置，
+    _start_task_worker 和 _retry_task_worker 共享同一套匹配规则。
+    """
+
+    def __init__(
+        self,
+        *,
+        match: Callable[[str, dict[str, Any]], bool],
+        build_request: Callable[[dict[str, Any]], Any],
+        build_worker: Callable[[str, Any, dict[str, Any]], Any],
+        retry_task_type: Optional[Callable[[Any], str]] = None,
+        retry_params: Callable[[Any, dict[str, Any]], dict[str, Any]],
+        needs_register_local_assets: bool = False,
+        start_message: str = "Task started",
+        retry_message: str = "Task retry started",
+    ):
+        self.match = match
+        self.build_request = build_request
+        self.build_worker = build_worker
+        self.retry_task_type = retry_task_type
+        self.retry_params = retry_params
+        self.needs_register_local_assets = needs_register_local_assets
+        self.start_message = start_message
+        self.retry_message = retry_message
+
+
+# ------------------------------------------------------------------
+# Registry: 按匹配优先级排列（更具体的条件在前）
+# ------------------------------------------------------------------
+_WORKER_DISPATCHERS: list[_WorkerDispatch] = [
+    # 1. Pipeline 单链接
+    _WorkerDispatch(
+        match=lambda t, p: t == "pipeline" and "url" in p,
+        build_request=lambda p: PipelineRequest(
+            url=p.get("url", ""),
+            max_counts=p.get("max_counts", 5),
+            auto_delete=p.get("auto_delete", True),
+        ),
+        build_worker=lambda task_id, req, _: PipelineWorker().execute(task_id, req=req),
+        retry_params=lambda req, _: {
+            "url": req.url,
+            "max_counts": req.max_counts,
+            "auto_delete": req.auto_delete,
+        },
+        start_message="Pipeline task rerun",
+        retry_message="Pipeline task retry started",
+    ),
+    # 2. Pipeline 批量
+    _WorkerDispatch(
+        match=lambda t, p: t == "pipeline" and "video_urls" in p,
+        build_request=lambda p: BatchPipelineRequest(
+            video_urls=p.get("video_urls", []),
+            auto_delete=p.get("auto_delete", True),
+        ),
+        build_worker=lambda task_id, req, _: PipelineWorker().execute(task_id, req=req),
+        retry_params=lambda req, _: {
+            "video_urls": req.video_urls,
+            "auto_delete": req.auto_delete,
+        },
+        start_message="Batch pipeline task rerun",
+        retry_message="Batch pipeline task retry started",
+    ),
+    # 3. 纯下载
+    _WorkerDispatch(
+        match=lambda t, p: t == "download" and "video_urls" in p,
+        build_request=lambda p: DownloadBatchRequest(
+            video_urls=p.get("video_urls", []),
+        ),
+        build_worker=lambda task_id, req, _: DownloadWorker().execute(task_id, req=req),
+        retry_params=lambda req, _: {"video_urls": req.video_urls},
+        start_message="Download task rerun",
+        retry_message="Download task retry started",
+    ),
+    # 4. 创作者同步
+    _WorkerDispatch(
+        match=lambda t, p: t.startswith("creator_sync") and "uid" in p,
+        build_request=lambda p: {
+            "uid": str(p.get("uid", "")),
+            "mode": str(p.get("mode", "incremental")),
+            "batch_size": p.get("batch_size"),
+        },
+        build_worker=lambda task_id, req, orig: CreatorSyncWorker().execute(
+            task_id, uid=req["uid"], mode=req["mode"], batch_size=req["batch_size"], original_params=orig
+        ),
+        retry_task_type=lambda req: f"creator_sync_{req['mode']}",
+        retry_params=lambda req, _: {
+            "uid": req["uid"],
+            "mode": req["mode"],
+            "batch_size": req["batch_size"],
+        },
+        start_message="Creator sync task rerun",
+        retry_message="Creator download task retry started",
+    ),
+    # 5. 全量同步
+    _WorkerDispatch(
+        match=lambda t, p: t.startswith("full_sync") and "mode" in p,
+        build_request=lambda p: {
+            "mode": str(p.get("mode", "incremental")),
+            "batch_size": p.get("batch_size"),
+        },
+        build_worker=lambda task_id, req, orig: FullSyncWorker().execute(
+            task_id, mode=req["mode"], batch_size=req["batch_size"], original_params=orig
+        ),
+        retry_task_type=lambda req: f"full_sync_{req['mode']}",
+        retry_params=lambda req, _: {
+            "mode": req["mode"],
+            "batch_size": req["batch_size"],
+        },
+        start_message="Full sync task rerun",
+        retry_message="Full sync task retry started",
+    ),
+    # 6. 创作者转写
+    _WorkerDispatch(
+        match=lambda t, p: t == "creator_transcribe",
+        build_request=lambda p: {
+            "uid": str(p.get("creator_uid", "")),
+            "delete_after": p.get("delete_after"),
+        },
+        build_worker=lambda task_id, req, _: CreatorTranscribeWorker().execute(
+            task_id, uid=req["uid"], delete_after=req["delete_after"]
+        ),
+        retry_params=lambda req, _: {
+            "uid": req["uid"],
+            "delete_after": req["delete_after"],
+        },
+        start_message="Creator transcribe task started",
+        retry_message="Creator transcribe task retry started",
+    ),
+    # 7. 本地转写（直接指定 file_paths）
+    _WorkerDispatch(
+        match=lambda t, p: t == "local_transcribe" and "file_paths" in p,
+        build_request=lambda p: LocalTranscribeRequest(
+            file_paths=p.get("file_paths", []),
+            delete_after=p.get("delete_after", False),
+            directory_root=p.get("directory_root"),
+        ),
+        build_worker=lambda task_id, req, _: LocalTranscribeWorker().execute(task_id, req=req),
+        retry_params=lambda req, _: {
+            "file_paths": req.file_paths,
+            "delete_after": req.delete_after,
+            "directory_root": req.directory_root,
+        },
+        needs_register_local_assets=True,
+        start_message="Local transcribe task rerun",
+        retry_message="Local transcribe task retry started",
+    ),
+    # 7. 补齐单视频
+    _WorkerDispatch(
+        match=lambda t, p: t == "recover_aweme_transcribe",
+        build_request=lambda p: {
+            "creator_uid": str(p.get("creator_uid", "")),
+            "aweme_id": str(p.get("aweme_id", "")),
+            "title": str(p.get("title", "")),
+        },
+        build_worker=lambda task_id, req, _: AwemeRecoverWorker().execute(
+            task_id, creator_uid=req["creator_uid"], aweme_id=req["aweme_id"], title=req["title"]
+        ),
+        retry_params=lambda req, _: {
+            "creator_uid": req["creator_uid"],
+            "aweme_id": req["aweme_id"],
+            "title": req["title"],
+        },
+        start_message="Aweme recover task rerun",
+        retry_message="Aweme recover task retry started",
+    ),
+]
+
+
 async def _start_task_worker(task_id: str, task_type: str, original_params: dict[str, Any]):
-    if task_type == "pipeline" and "url" in original_params:
-        req = PipelineRequest(
-            url=original_params.get("url", ""),
-            max_counts=original_params.get("max_counts", 5),
-            auto_delete=original_params.get("auto_delete", True)
-        )
-        _register_background_task(task_id, _background_pipeline_worker(task_id, req))
-        return {"task_id": task_id, "status": "started", "message": "Pipeline task rerun"}
+    for entry in _WORKER_DISPATCHERS:
+        if entry.match(task_type, original_params):
+            req = entry.build_request(original_params)
+            if entry.needs_register_local_assets:
+                _register_local_assets(
+                    req.file_paths, req.delete_after, req.directory_root
+                )
+            _register_background_task(
+                task_id, entry.build_worker(task_id, req, original_params)
+            )
+            return {
+                "task_id": task_id,
+                "status": "started",
+                "message": entry.start_message,
+            }
+    raise HTTPException(status_code=400, detail=f"Unsupported task type: {task_type}")
 
-    elif task_type == "pipeline" and "video_urls" in original_params:
-        batch_req = BatchPipelineRequest(
-            video_urls=original_params.get("video_urls", []),
-            auto_delete=original_params.get("auto_delete", True)
-        )
-        _register_background_task(task_id, _background_batch_worker(task_id, batch_req))
-        return {"task_id": task_id, "status": "started", "message": "Batch pipeline task rerun"}
 
-    elif task_type == "download" and "video_urls" in original_params:
-        dl_req = DownloadBatchRequest(video_urls=original_params.get("video_urls", []))
-        _register_background_task(task_id, _background_download_worker(task_id, dl_req))
-        return {"task_id": task_id, "status": "started", "message": "Download task rerun"}
-
-    elif task_type.startswith("creator_sync") and "uid" in original_params:
-        uid = str(original_params.get("uid", ""))
-        mode = str(original_params.get("mode", "incremental"))
-        batch_size: Optional[int] = original_params.get("batch_size")
-        from media_tools.workers.creator_sync import background_creator_download_worker
-        _register_background_task(task_id, background_creator_download_worker(task_id, uid, mode, batch_size, original_params))
-        return {"task_id": task_id, "status": "started", "message": "Creator sync task rerun"}
-
-    elif task_type.startswith("full_sync") and "mode" in original_params:
-        mode = str(original_params.get("mode", "incremental"))
-        batch_size: Optional[int] = original_params.get("batch_size")
-        _register_background_task(task_id, _background_full_sync_worker(task_id, mode, batch_size, original_params))
-        return {"task_id": task_id, "status": "started", "message": "Full sync task rerun"}
-
-    elif task_type == "local_transcribe" and "file_paths" in original_params:
-        local_req = LocalTranscribeRequest(
-            file_paths=original_params.get("file_paths", []),
-            delete_after=original_params.get("delete_after", False),
-            directory_root=original_params.get("directory_root")
-        )
-        _register_background_task(task_id, _background_local_transcribe_worker(task_id, local_req))
-        return {"task_id": task_id, "status": "started", "message": "Local transcribe task rerun"}
-
-    else:
-        raise HTTPException(status_code=400, detail=f"Unsupported task type: {task_type}")
+async def dispatch_new_task(task_id: str, task_type: str, params: dict[str, Any]):
+    """创建新任务（写入 DB）并启动对应 Worker。"""
+    await _create_task(task_id, task_type, params)
+    return await _start_task_worker(task_id, task_type, params)
 
 
 async def _retry_task_worker(task_id: str, task_type: str, original_params: dict[str, Any]):
     """创建新任务并重试原任务逻辑。"""
     original_params.pop("msg", None)
 
-    if task_type == "pipeline" and "url" in original_params:
-        req = PipelineRequest(
-            url=original_params.get("url", ""),
-            max_counts=original_params.get("max_counts", 5),
-            auto_delete=original_params.get("auto_delete", True)
-        )
-        new_task_id = str(uuid.uuid4())
-        await _create_task(
-            new_task_id,
-            task_type,
-            {"url": req.url, "max_counts": req.max_counts, "auto_delete": req.auto_delete},
-        )
-        _register_background_task(new_task_id, _background_pipeline_worker(new_task_id, req))
-        return {"task_id": new_task_id, "status": "started", "message": "Pipeline task retry started"}
-
-    elif task_type == "pipeline" and "video_urls" in original_params:
-        batch_req = BatchPipelineRequest(
-            video_urls=original_params.get("video_urls", []),
-            auto_delete=original_params.get("auto_delete", True)
-        )
-        new_task_id = str(uuid.uuid4())
-        await _create_task(
-            new_task_id,
-            task_type,
-            {"video_urls": batch_req.video_urls, "auto_delete": batch_req.auto_delete},
-        )
-        _register_background_task(new_task_id, _background_batch_worker(new_task_id, batch_req))
-        return {"task_id": new_task_id, "status": "started", "message": "Batch pipeline task retry started"}
-
-    elif task_type == "download" and "video_urls" in original_params:
-        dl_req = DownloadBatchRequest(video_urls=original_params.get("video_urls", []))
-        new_task_id = str(uuid.uuid4())
-        await _create_task(new_task_id, task_type, {"video_urls": dl_req.video_urls})
-        _register_background_task(new_task_id, _background_download_worker(new_task_id, dl_req))
-        return {"task_id": new_task_id, "status": "started", "message": "Download task retry started"}
-
-    elif task_type.startswith("creator_sync") and "uid" in original_params:
-        uid = str(original_params.get("uid", ""))
-        mode = str(original_params.get("mode", "incremental"))
-        batch_size: Optional[int] = original_params.get("batch_size")
-        new_task_id = str(uuid.uuid4())
-        await _create_task(new_task_id, f"creator_sync_{mode}", {"uid": uid, "mode": mode, "batch_size": batch_size})
-        from media_tools.workers.creator_sync import background_creator_download_worker
-        _register_background_task(new_task_id, background_creator_download_worker(new_task_id, uid, mode, batch_size, original_params))
-        return {"task_id": new_task_id, "status": "started", "message": "Creator download task retry started"}
-
-    elif task_type.startswith("full_sync") and "mode" in original_params:
-        mode = str(original_params.get("mode", "incremental"))
-        batch_size: Optional[int] = original_params.get("batch_size")
-        new_task_id = str(uuid.uuid4())
-        await _create_task(new_task_id, f"full_sync_{mode}", {"mode": mode, "batch_size": batch_size})
-        _register_background_task(new_task_id, _background_full_sync_worker(new_task_id, mode, batch_size, original_params))
-        return {"task_id": new_task_id, "status": "started", "message": "Full sync task retry started"}
-
-    elif task_type == "local_transcribe" and "file_paths" in original_params:
-        local_req = LocalTranscribeRequest(
-            file_paths=original_params.get("file_paths", []),
-            delete_after=original_params.get("delete_after", False),
-            directory_root=original_params.get("directory_root")
-        )
-        _register_local_assets(local_req.file_paths, local_req.delete_after, local_req.directory_root)
-        new_task_id = str(uuid.uuid4())
-        await _create_task(
-            new_task_id,
-            task_type,
-            {
-                "file_paths": local_req.file_paths,
-                "delete_after": local_req.delete_after,
-                "directory_root": local_req.directory_root,
-            },
-        )
-        _register_background_task(new_task_id, _background_local_transcribe_worker(new_task_id, local_req))
-        return {"task_id": new_task_id, "status": "started", "message": "Local transcribe task retry started"}
-
-    else:
-        raise HTTPException(status_code=400, detail=f"Unsupported task type for retry: {task_type}")
+    for entry in _WORKER_DISPATCHERS:
+        if entry.match(task_type, original_params):
+            req = entry.build_request(original_params)
+            new_task_id = str(uuid.uuid4())
+            new_task_type = (
+                entry.retry_task_type(req)
+                if entry.retry_task_type
+                else task_type
+            )
+            await _create_task(
+                new_task_id,
+                new_task_type,
+                entry.retry_params(req, original_params),
+            )
+            if entry.needs_register_local_assets:
+                _register_local_assets(
+                    req.file_paths, req.delete_after, req.directory_root
+                )
+            _register_background_task(
+                new_task_id,
+                entry.build_worker(new_task_id, req, original_params),
+            )
+            return {
+                "task_id": new_task_id,
+                "status": "started",
+                "message": entry.retry_message,
+            }
+    raise HTTPException(
+        status_code=400, detail=f"Unsupported task type for retry: {task_type}"
+    )

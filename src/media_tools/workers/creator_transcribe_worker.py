@@ -11,14 +11,13 @@ from pathlib import Path
 from typing import Optional
 
 from media_tools.common.paths import get_download_path, get_project_root
+from media_tools.core.config import get_runtime_setting_bool
 from media_tools.db.core import get_db_connection
-from media_tools.repositories.task_repository import TaskRepository
-from media_tools.services.cleanup import cleanup_paths_allowlist, cleanup_task_cache_dir
-from media_tools.services.asset_file_ops import _resolve_asset_video_file, get_source_url_column
-from media_tools.services.task_ops import update_task_progress, _complete_task, _fail_task
-from media_tools.core.logging_context import task_context
-from media_tools.services.task_state import _task_heartbeat
 from media_tools.pipeline.worker import run_local_transcribe
+from media_tools.repositories.task_repository import TaskRepository
+from media_tools.services.asset_file_ops import _resolve_asset_video_file, get_source_url_column
+from media_tools.services.cleanup import cleanup_paths_allowlist, cleanup_task_cache_dir
+from media_tools.workers.base import BaseWorker, register_worker
 
 logger = logging.getLogger(__name__)
 
@@ -192,143 +191,160 @@ def _discover_creator_files(uid: str) -> tuple[list[str], list[str]]:
 
     return file_paths, not_found
 
-async def background_creator_transcribe_worker(task_id: str, uid: str, delete_after: Optional[bool] = None) -> None:
-    try:
-        await update_task_progress(task_id, 0.01, "正在扫描待转写文件...", "local_transcribe", stage="scanning")
-        file_paths, not_found = await asyncio.to_thread(_discover_creator_files, uid)
-    except (OSError, RuntimeError, ValueError, TypeError, sqlite3.Error) as e:
-        await _fail_task(task_id, "local_transcribe", str(e))
-        return
 
-    if not file_paths:
-        message = (
-            f"该博主有 {len(not_found)} 个待转写素材，但视频文件在磁盘上找不到"
-            if not_found
-            else "该博主没有待转写的素材"
+@register_worker("creator_transcribe")
+class CreatorTranscribeWorker(BaseWorker):
+    """创作者转写 Worker：扫描创作者待转写文件并批量转写。"""
+
+    task_type = "creator_transcribe"
+
+    def _get_task_context_kwargs(self, **run_kwargs: Any) -> dict[str, Any]:
+        return {"creator_uid": run_kwargs.get("uid", "")}
+
+    async def run(
+        self,
+        task_id: str,
+        *,
+        uid: str,
+        delete_after: Optional[bool] = None,
+    ) -> None:
+        # Phase 1: 扫描（在 heartbeat 内执行，与旧行为一致）
+        await self.report_progress(
+            0.01, "正在扫描待转写文件...", stage="scanning"
         )
-        await _fail_task(task_id, "local_transcribe", message)
-        return
+        file_paths, not_found = await asyncio.to_thread(_discover_creator_files, uid)
 
-    TaskRepository.patch_payload(task_id, {"creator_uid": uid, "file_paths": file_paths})
-    await update_task_progress(
-        task_id,
-        0.02,
-        f"扫描完成，准备转写 {len(file_paths)} 个文件",
-        "local_transcribe",
-        stage="queued",
-        pipeline_progress={"transcribe": {"done": 0, "total": int(len(file_paths) or 0)}},
-    )
-
-    downloads_root = get_download_path().resolve()
-    transcripts_root = (get_project_root() / "transcripts").resolve()
-    creator_folder = _derive_creator_folder(file_paths, downloads_root, uid)
-    cache_dir = transcripts_root / creator_folder / ".cache" / task_id
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    TaskRepository.patch_payload(task_id, {"cleanup_cache_dir": str(cache_dir)})
-
-    async def _progress_fn(p, m, stage="", pipeline_progress=None):  # noqa: ANN001
-        await update_task_progress(task_id, p, m, "local_transcribe", stage=stage, pipeline_progress=pipeline_progress)
-
-    heartbeat = asyncio.create_task(_task_heartbeat(task_id))
-    try:
-        with task_context(task_id=task_id, creator_uid=uid):
-            from media_tools.core.config import get_runtime_setting_bool
-            should_delete = delete_after if delete_after is not None else get_runtime_setting_bool("auto_delete", True)
-            result = await run_local_transcribe(file_paths, _progress_fn, delete_after=False, task_id=task_id)
-            s_count = int(result.get("success_count", 0) or 0)
-            f_count = int(result.get("failed_count", 0) or 0)
-            total = int(result.get("total", s_count + f_count) or (s_count + f_count))
-            success_paths = [Path(p) for p in (result.get("success_paths") or []) if isinstance(p, str)]
-
-            if should_delete:
-                await update_task_progress(
-                    task_id,
-                    0.95,
-                    "转写完成，开始清理源文件与临时文件...",
-                    "local_transcribe",
-                    stage="cleanup",
-                )
-
-                cleanup_candidates: list[Path] = []
-                for sp in success_paths:
-                    cleanup_candidates.extend(_build_cleanup_candidates(sp))
-
-                outcome = cleanup_paths_allowlist(
-                    cleanup_candidates,
-                    downloads_root=downloads_root,
-                    transcripts_root=transcripts_root,
-                )
-
-                deleted_count = outcome.deleted_count
-                failed_paths = list(outcome.failed_paths)
-
-                cache_outcome = cleanup_task_cache_dir(cache_dir)
-                deleted_count += cache_outcome.deleted_count
-                failed_paths = [*failed_paths, *cache_outcome.failed_paths]
-
-                TaskRepository.patch_payload(
-                    task_id,
-                    {
-                        "cleanup_deleted_count": deleted_count,
-                        "cleanup_failed_count": len(failed_paths),
-                        "cleanup_failed_paths": [{"path": fp.path, "reason": fp.reason} for fp in failed_paths],
-                        "cleanup_cache_dir": str(cache_dir),
-                    },
-                )
-            else:
-                cache_outcome = cleanup_task_cache_dir(cache_dir)
-                TaskRepository.patch_payload(
-                    task_id,
-                    {
-                        "cleanup_deleted_count": cache_outcome.deleted_count,
-                        "cleanup_failed_count": len(cache_outcome.failed_paths),
-                        "cleanup_cache_dir": str(cache_dir),
-                    },
-                )
-
-            msg = (
-                "没有找到有效的音视频文件"
-                if total == 0
-                else (
-                    f"转写完成：成功 {s_count} 个，失败 {f_count} 个；清理：已删除 {deleted_count} 个，失败 {len(failed_paths)} 个"
-                    if should_delete
-                    else f"转写完成：成功 {s_count} 个，失败 {f_count} 个"
-                )
+        if not file_paths:
+            message = (
+                f"该博主有 {len(not_found)} 个待转写素材，但视频文件在磁盘上找不到"
+                if not_found
+                else "该博主没有待转写的素材"
             )
-            await update_task_progress(
-                task_id,
-                1.0,
-                msg,
-                "local_transcribe",
-                stage="done",
-                pipeline_progress={"transcribe": {"done": int(total or 0), "total": int(total or 0)}},
+            await self.finalize_failure(message)
+            return
+
+        TaskRepository.patch_payload(
+            task_id, {"creator_uid": uid, "file_paths": file_paths}
+        )
+        await self.report_progress(
+            0.02,
+            f"扫描完成，准备转写 {len(file_paths)} 个文件",
+            stage="queued",
+            pipeline_progress={"transcribe": {"done": 0, "total": int(len(file_paths) or 0)}},
+        )
+
+        downloads_root = get_download_path().resolve()
+        transcripts_root = (get_project_root() / "transcripts").resolve()
+        creator_folder = _derive_creator_folder(file_paths, downloads_root, uid)
+        cache_dir = transcripts_root / creator_folder / ".cache" / task_id
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        TaskRepository.patch_payload(task_id, {"cleanup_cache_dir": str(cache_dir)})
+
+        should_delete = (
+            delete_after
+            if delete_after is not None
+            else get_runtime_setting_bool("auto_delete", True)
+        )
+        result = await run_local_transcribe(
+            file_paths, self._progress_fn, delete_after=False, task_id=task_id
+        )
+        s_count = int(result.get("success_count", 0) or 0)
+        f_count = int(result.get("failed_count", 0) or 0)
+        total = int(result.get("total", s_count + f_count) or (s_count + f_count))
+        success_paths = [
+            Path(p) for p in (result.get("success_paths") or []) if isinstance(p, str)
+        ]
+
+        deleted_count = 0
+        failed_paths: list[Path] = []
+
+        if should_delete:
+            await self.report_progress(
+                0.95,
+                "转写完成，开始清理源文件与临时文件...",
+                stage="cleanup",
             )
-            result_summary = {"success": int(s_count or 0), "failed": int(f_count or 0), "total": int(total or 0)}
-            subtasks = result.get("subtasks") if isinstance(result, dict) else None
-            if f_count == 0:
-                status = "COMPLETED"
-            elif s_count > 0:
-                status = "PARTIAL_FAILED"
-            else:
-                status = "FAILED"
-            error_msg = f"转写失败 {f_count} 个文件" if f_count > 0 else None
-            await _complete_task(
+            cleanup_candidates: list[Path] = []
+            for sp in success_paths:
+                cleanup_candidates.extend(_build_cleanup_candidates(sp))
+
+            outcome = cleanup_paths_allowlist(
+                cleanup_candidates,
+                downloads_root=downloads_root,
+                transcripts_root=transcripts_root,
+            )
+            deleted_count = outcome.deleted_count
+            failed_paths = list(outcome.failed_paths)
+
+            cache_outcome = cleanup_task_cache_dir(cache_dir)
+            deleted_count += cache_outcome.deleted_count
+            failed_paths = [*failed_paths, *cache_outcome.failed_paths]
+
+            TaskRepository.patch_payload(
                 task_id,
-                "local_transcribe",
+                {
+                    "cleanup_deleted_count": deleted_count,
+                    "cleanup_failed_count": len(failed_paths),
+                    "cleanup_failed_paths": [
+                        {"path": fp.path, "reason": fp.reason} for fp in failed_paths
+                    ],
+                    "cleanup_cache_dir": str(cache_dir),
+                },
+            )
+        else:
+            cache_outcome = cleanup_task_cache_dir(cache_dir)
+            TaskRepository.patch_payload(
+                task_id,
+                {
+                    "cleanup_deleted_count": cache_outcome.deleted_count,
+                    "cleanup_failed_count": len(cache_outcome.failed_paths),
+                    "cleanup_cache_dir": str(cache_dir),
+                },
+            )
+
+        msg = (
+            "没有找到有效的音视频文件"
+            if total == 0
+            else (
+                f"转写完成：成功 {s_count} 个，失败 {f_count} 个；"
+                f"清理：已删除 {deleted_count} 个，失败 {len(failed_paths)} 个"
+                if should_delete
+                else f"转写完成：成功 {s_count} 个，失败 {f_count} 个"
+            )
+        )
+        await self.report_progress(
+            1.0,
+            msg,
+            stage="done",
+            pipeline_progress={"transcribe": {"done": int(total or 0), "total": int(total or 0)}},
+        )
+        result_summary = {
+            "success": int(s_count or 0),
+            "failed": int(f_count or 0),
+            "total": int(total or 0),
+        }
+        subtasks = result.get("subtasks") if isinstance(result, dict) else None
+        if f_count == 0:
+            await self.finalize_success(
+                msg, result_summary=result_summary, subtasks=subtasks
+            )
+        elif s_count > 0:
+            await self.finalize_partial(
                 msg,
-                status=status,
-                error_msg=error_msg,
+                error_msg=f"转写失败 {f_count} 个文件",
                 result_summary=result_summary,
                 subtasks=subtasks,
             )
-    except asyncio.CancelledError:
-        raise
-    except (RuntimeError, OSError, ValueError, TypeError) as e:
-        logger.error(f"Creator transcribe worker failed: {e}")
-        await _fail_task(task_id, "local_transcribe", str(e))
-    finally:
-        heartbeat.cancel()
-        try:
-            await heartbeat
-        except asyncio.CancelledError:
-            pass
+        else:
+            await self.finalize_failure(
+                msg,
+                error_msg=f"转写失败 {f_count} 个文件",
+                result_summary=result_summary,
+                subtasks=subtasks,
+            )
+
+    async def _progress_fn(
+        self, p: float, m: str, stage: str = "", pipeline_progress: dict | None = None
+    ) -> None:
+        await self.report_progress(p, m, stage=stage, pipeline_progress=pipeline_progress)
+

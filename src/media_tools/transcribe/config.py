@@ -20,7 +20,9 @@ class AppPaths:
 
 
 @dataclass(frozen=True)
-class AppConfig:
+class TranscribeConfig:
+    """转写模块专属配置（Qwen API 相关）。"""
+
     base_url: str
     app_url: str
     default_account: str
@@ -70,7 +72,7 @@ def parse_float_setting(name: str, default: float, *, minimum: Optional[float] =
     return value
 
 
-def load_config() -> AppConfig:
+def load_config() -> TranscribeConfig:
     base_url = _strip(os.environ.get("QWEN_BASE_URL"), "https://www.qianwen.com")
     app_url = _strip(os.environ.get("QWEN_APP_URL"), f"{base_url}/discover")
     auth_state_path = as_absolute(_strip(os.environ.get("QWEN_AUTH_STATE_PATH"), "data/auth/qwen-storage-state.json"))
@@ -82,7 +84,7 @@ def load_config() -> AppConfig:
     network_log_dir = as_absolute(_strip(os.environ.get("QWEN_NETWORK_LOG_DIR"), "data/logs/network"))
     download_dir = as_absolute(_strip(os.environ.get("QWEN_DOWNLOAD_DIR"), "data/downloads"))
 
-    return AppConfig(
+    return TranscribeConfig(
         base_url=base_url,
         app_url=app_url,
         default_account=_strip(os.environ.get("QWEN_ACCOUNT"), ""),

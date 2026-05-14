@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 
 class BilibiliCreatorDownloadTaskTests(unittest.IsolatedAsyncioTestCase):
     async def test_creator_download_triggers_transcribe_and_deletes_video_when_enabled(self) -> None:
-        from media_tools.workers.creator_sync import background_creator_download_worker
+        from media_tools.workers.creator_sync import CreatorSyncWorker
 
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
@@ -69,10 +69,10 @@ class BilibiliCreatorDownloadTaskTests(unittest.IsolatedAsyncioTestCase):
         orchestrator = SimpleNamespace(transcribe_batch=AsyncMock(return_value=report))
 
         with patch("media_tools.workers.creator_sync.get_db_connection", return_value=conn), patch(
-            "media_tools.workers.creator_sync.update_task_progress",
+            "media_tools.workers.base.update_task_progress",
             new=AsyncMock(),
         ), patch(
-            "media_tools.workers.creator_sync.notify_task_update",
+            "media_tools.workers.base._task_heartbeat",
             new=AsyncMock(),
         ), patch(
             "media_tools.workers.creator_sync.asyncio.to_thread",
@@ -81,7 +81,7 @@ class BilibiliCreatorDownloadTaskTests(unittest.IsolatedAsyncioTestCase):
             "media_tools.pipeline.orchestrator.create_orchestrator",
             return_value=orchestrator,
         ):
-            await background_creator_download_worker(task_id, creator_uid, "incremental")
+            await CreatorSyncWorker().execute(task_id, uid=creator_uid, mode="incremental")
 
         orchestrator.transcribe_batch.assert_awaited_once()
         self.assertFalse(tmp_video.exists())

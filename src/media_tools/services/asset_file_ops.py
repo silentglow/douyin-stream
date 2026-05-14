@@ -9,9 +9,9 @@ from pathlib import Path
 
 from media_tools.common.paths import get_download_path, get_project_root
 from media_tools.db.core import resolve_safe_path
+from media_tools.services.local_asset_service import LOCAL_CREATOR_UID
 
 logger = logging.getLogger(__name__)
-LOCAL_CREATOR_UID = "local:upload"
 
 
 def _resolve_asset_video_file(

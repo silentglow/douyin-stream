@@ -1,11 +1,11 @@
 from __future__ import annotations
 """Pipeline 配置管理 — 委托给统一配置系统。"""
 
-from media_tools.core.config import get_pipeline_config, PipelineConfig
+from media_tools.core.config import get_app_config, AppConfig
 
-__all__ = ["PipelineConfig", "load_pipeline_config"]
+__all__ = ["AppConfig", "load_pipeline_config"]
 
 
-def load_pipeline_config() -> PipelineConfig:
-    """加载 Pipeline 配置（从环境变量）。"""
-    return get_pipeline_config()
+def load_pipeline_config() -> AppConfig:
+    """加载 Pipeline 配置（从统一配置系统）。"""
+    return get_app_config()

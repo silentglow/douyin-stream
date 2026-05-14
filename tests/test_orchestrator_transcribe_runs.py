@@ -15,7 +15,6 @@ from unittest.mock import AsyncMock, patch, MagicMock
 import pytest
 
 from media_tools.db.core import init_db
-from media_tools.pipeline.config import PipelineConfig
 from media_tools.pipeline.error_types import ErrorType
 from media_tools.pipeline.models import AccountPool
 from media_tools.pipeline.orchestrator import OrchestratorV2
@@ -41,15 +40,19 @@ def db(tmp_path: Path):
 
 
 def _build_orchestrator(tmp_path: Path) -> OrchestratorV2:
-    cfg = PipelineConfig(
-        export_format="md",
-        output_dir=str(tmp_path / "out"),
-        delete_after_export=False,
-        concurrency=1,
-    )
+    cfg = MagicMock()
+    cfg.export_format = "md"
+    cfg.pipeline_export_format = "md"
+    cfg.output_dir = str(tmp_path / "out")
+    cfg.pipeline_output_dir = str(tmp_path / "out")
+    cfg.delete_after_export = False
+    cfg.pipeline_delete_after_export = False
+    cfg.concurrency = 1
+    cfg.output_path = tmp_path / "out"
     orch = OrchestratorV2(config=cfg)
-    # 注入一个 1 个账号的 pool，跳过 _resolve_qwen_execution_accounts 的真实查询
-    orch._account_pool = AccountPool(
+    # 注入一个 1 个账号的 pool，跳过 resolve_accounts 的真实查询
+    from media_tools.pipeline.models import AccountPool
+    orch._account_pool_service._account_pool = AccountPool(
         [{"account_id": "acc-1", "auth_state_path": tmp_path / "auth.json"}],
     )
     return orch

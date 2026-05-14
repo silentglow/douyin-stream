@@ -27,23 +27,27 @@ def search(
     with get_db_connection() as conn:
         conn.row_factory = lambda cursor, row: dict(zip([col[0] for col in cursor.description], row))
         
-        # 搜索素材（使用 FTS5 全文索引）
+        # 搜索素材（使用 FTS5 全文索引，与 assets.py 保持一致）
+        cleaned = "".join(c for c in query if c.isprintable() or c.isspace()).strip()
+        safe_q = cleaned.replace('"', '""')
+        fts_query = f'"{safe_q}"*' if cleaned else ""
         asset_results = conn.execute(
             """
-            SELECT 
+            SELECT
                 'asset' as type,
                 ma.asset_id as id,
                 ma.title,
                 c.nickname as subtitle,
                 ma.transcript_status as status
             FROM media_assets ma
+            INNER JOIN assets_fts f ON ma.asset_id = f.asset_id
             LEFT JOIN creators c ON ma.creator_uid = c.uid
-            WHERE ma.title LIKE ?
+            WHERE assets_fts MATCH ?
             ORDER BY ma.create_time DESC
             LIMIT ?
             """,
-            (f"%{query}%", limit // 3),
-        ).fetchall()
+            (fts_query, limit // 3),
+        ).fetchall() if fts_query else []
         
         results.extend(asset_results)
         

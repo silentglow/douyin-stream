@@ -146,7 +146,10 @@ class TranscribeRunRepository:
 
     @staticmethod
     def find_saved_for_asset(asset_id: str) -> Optional[Dict[str, Any]]:
-        """查询某个 asset 是否已经有成功落盘的 run。用于跨任务去重。"""
+        """查询某个 asset 是否已经有成功落盘的 run。用于跨任务去重。
+
+        仅返回 transcript_path 非空的有效记录，避免空文件/损坏文件被判定为成功。
+        """
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute(
@@ -154,6 +157,7 @@ class TranscribeRunRepository:
                 SELECT run_id, transcript_path, account_id
                 FROM transcribe_runs
                 WHERE asset_id = ? AND stage = 'saved'
+                  AND transcript_path IS NOT NULL AND transcript_path != ''
                 ORDER BY updated_at DESC
                 LIMIT 1
                 """,

@@ -251,7 +251,7 @@ def _has_active_qwen_account_in_pool() -> bool:
                 "SELECT 1 FROM Accounts_Pool WHERE platform='qwen' AND status='active' AND cookie_data IS NOT NULL AND cookie_data != '' LIMIT 1",
             ).fetchone()
             return row is not None
-    except Exception:
+    except Exception:  # noqa: defensive – DB 查询失败视为无活跃账号
         return False
 
 

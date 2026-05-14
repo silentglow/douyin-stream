@@ -23,7 +23,7 @@ from typing import Any, Callable, Optional, Union
 
 logger = logging.getLogger(__name__)
 
-from media_tools.db.core import get_db_connection, validate_identifier
+from media_tools.db.core import get_db_connection
 
 
 class ConfigError(Exception):
@@ -229,7 +229,10 @@ class AppConfig:
     
     @property
     def concurrency(self) -> int:
-        """并发数（同时处理的任务数量）"""
+        """并发数（同时处理的任务数量）。支持 PIPELINE_CONCURRENCY 环境变量覆盖。"""
+        env_val = _get_env_int("PIPELINE_CONCURRENCY", 0)
+        if env_val > 0:
+            return env_val
         return get_runtime_setting_int("concurrency", 10)
 
     @property
@@ -318,6 +321,28 @@ class AppConfig:
     def pipeline_account_id(self) -> str:
         """Pipeline 默认账号 ID"""
         return _get_env_str("PIPELINE_ACCOUNT_ID", "")
+
+    # --- Compatibility aliases (deprecated, kept for transition) ---
+
+    @property
+    def export_format(self) -> str:
+        """Pipeline 导出格式（兼容别名，请使用 pipeline_export_format）"""
+        return self.pipeline_export_format
+
+    @property
+    def output_dir(self) -> str:
+        """Pipeline 输出目录（兼容别名，请使用 pipeline_output_dir）"""
+        return self.pipeline_output_dir
+
+    @property
+    def delete_after_export(self) -> bool:
+        """导出后是否删除源文件（兼容别名，请使用 pipeline_delete_after_export）"""
+        return self.pipeline_delete_after_export
+
+    @property
+    def account_id(self) -> str:
+        """Pipeline 默认账号 ID（兼容别名，请使用 pipeline_account_id）"""
+        return self.pipeline_account_id
 
     # === Derived properties ===
     
@@ -410,76 +435,8 @@ def get_app_config() -> AppConfig:
     return _app_config
 
 
-# --- Pipeline config (for backward compatibility) ---
-
-class PipelineConfig:
-    """Pipeline 配置 — 从环境变量读取（启动参数），支持实例化覆盖。
-    
-    保留此类以保持向后兼容，新代码建议使用 AppConfig。
-    """
-
-    def __init__(
-        self,
-        export_format: str = "",
-        output_dir: str = "",
-        delete_after_export: Optional[bool] = None,
-        account_id: str = "",
-        concurrency: Optional[int] = None,
-        export_concurrency: Optional[int] = None,
-    ):
-        self._export_format = export_format
-        self._output_dir = output_dir
-        self._delete_after_export = delete_after_export
-        self._account_id = account_id
-        self._concurrency = concurrency
-        self._export_concurrency = export_concurrency
-
-    @property
-    def export_format(self) -> str:
-        if self._export_format:
-            return self._export_format
-        return get_app_config().pipeline_export_format
-
-    @property
-    def output_dir(self) -> str:
-        if self._output_dir:
-            return self._output_dir
-        return get_app_config().pipeline_output_dir
-
-    @property
-    def output_path(self) -> Path:
-        if self._output_dir:
-            return Path(self._output_dir).resolve()
-        return get_app_config().output_path
-
-    @property
-    def delete_after_export(self) -> bool:
-        if self._delete_after_export is not None:
-            return self._delete_after_export
-        return get_app_config().pipeline_delete_after_export
-
-    @property
-    def account_id(self) -> str:
-        if self._account_id:
-            return self._account_id
-        return get_app_config().pipeline_account_id
-
-    @property
-    def concurrency(self) -> int:
-        if self._concurrency is not None:
-            return self._concurrency
-        return get_app_config().concurrency
-
-    @property
-    def export_concurrency(self) -> int:
-        if self._export_concurrency is not None:
-            return self._export_concurrency
-        return _get_env_int("QWEN_EXPORT_CONCURRENCY", 2)
-
-
-_pipeline_config = PipelineConfig()
-
-
-def get_pipeline_config() -> PipelineConfig:
-    """获取全局 PipelineConfig 实例。"""
-    return _pipeline_config
+# --- Deprecated: PipelineConfig 已删除，直接使用 AppConfig ---
+# 保留别名供迁移期兼容
+def load_pipeline_config() -> AppConfig:
+    """获取全局 AppConfig 实例（PipelineConfig 的兼容别名）。"""
+    return _app_config

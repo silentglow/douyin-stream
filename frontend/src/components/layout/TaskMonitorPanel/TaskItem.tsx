@@ -334,6 +334,7 @@ export const TaskItem = memo(function TaskItem({ task, onRetry, isExpanded, onTo
     task.task_type === 'pipeline' ||
     task.task_type === 'download' ||
     task.task_type === 'local_transcribe' ||
+    task.task_type === 'creator_transcribe' ||
     task.task_type.startsWith('creator_sync_');
   const pp = parsed?.pipeline_progress;
   const shouldShowTaskCenterProgress = showTaskCenterProgress && !!pp;
@@ -348,11 +349,16 @@ export const TaskItem = memo(function TaskItem({ task, onRetry, isExpanded, onTo
     const downloadTotal = pp?.download?.total ?? 0;
 
     // pipeline_progress.download.done 从 progress 字段估算，下载进行中时 progress 为 0
-    // 从消息文本解析实际下载进度（格式: "正在下载 (3/10)" 或 "正在下载 3/10"）
-    if (downloadDone === 0 && isRunning && message) {
-      const m = message.match(/正在下载\s*\(?\s*(\d+)\s*\/\s*(\d+)\s*\)?/);
-      if (m) {
-        downloadDone = parseInt(m[1], 10);
+    // 优先使用 current_index（表示正在处理第几个视频），其次从消息文本解析
+    if (downloadDone === 0 && isRunning) {
+      const currentIndex = pp?.download?.current_index ?? 0;
+      if (currentIndex > 0) {
+        downloadDone = currentIndex;
+      } else if (message) {
+        const m = message.match(/正在下载\s*\(?\s*(\d+)\s*\/\s*(\d+)\s*\)?/);
+        if (m) {
+          downloadDone = parseInt(m[1], 10);
+        }
       }
     }
 

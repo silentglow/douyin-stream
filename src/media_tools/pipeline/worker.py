@@ -23,15 +23,16 @@ async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, d
 
     config = load_pipeline_config()
     orchestrator = create_orchestrator(config)
-    if hasattr(orchestrator, '_resolve_qwen_execution_accounts'):
-        orchestrator._resolve_qwen_execution_accounts()
+    if hasattr(orchestrator, '_account_pool_service'):
+        orchestrator._account_pool_service.resolve_accounts()
+        effective_concurrency = orchestrator._account_pool_service.effective_concurrency or config.concurrency
+    else:
+        effective_concurrency = config.concurrency
     output_root = Path(config.output_dir).resolve()
 
     success_count = 0
     failed_count = 0
     total = len(valid_paths)
-
-    effective_concurrency = getattr(orchestrator, '_effective_concurrency', config.concurrency)
     await call_progress(
         update_progress_fn,
         0.02,
@@ -249,9 +250,17 @@ async def run_pipeline_for_user(url: str, max_counts: int, update_progress_fn, d
     total = len(new_files)
 
     # 使用批量并发转写
+    # _fire_progress 在 transcribe_with_retry 内按单视频语义上报 (current=0/1, total=1)，
+    # 但前端需要批量进度。闭包内自己维护 done 计数，按 "current==1 and total==1"
+    # 识别单个视频完成，从而把进度平滑推进到 0.4→1.0。
+    _pb_done = 0
+
     def _progress_callback(current: int, total: int, video_path: Path, status: str, account_id: Optional[str] = None):
-        progress = 0.4 + 0.6 * (current / total) if total > 0 else 0.4
-        transcribe_info: dict[str, Any] = {"done": current, "total": total}
+        nonlocal _pb_done
+        if current == 1 and total == 1:
+            _pb_done += 1
+        progress = 0.4 + 0.6 * (_pb_done / total) if total > 0 else 0.4
+        transcribe_info: dict[str, Any] = {"done": _pb_done, "total": total}
         if account_id:
             transcribe_info["account_id"] = account_id
         pp = {"transcribe": transcribe_info}
@@ -367,10 +376,19 @@ async def run_batch_pipeline(video_urls: list[str], update_progress_fn, delete_a
     config = load_pipeline_config()
     orchestrator = create_orchestrator(config)
 
+    total = len(new_files)
+
     # 使用批量并发转写
+    # 与 run_pipeline_for_user 同理：_fire_progress 按单视频语义上报，
+    # 闭包内维护 done 计数，把进度平滑推进。
+    _pb_done = 0
+
     def _progress_callback(current: int, total: int, video_path: Path, status: str, account_id: Optional[str] = None):
-        progress = 0.4 + 0.6 * (current / total) if total > 0 else 0.4
-        transcribe_info: dict[str, Any] = {"done": current, "total": total}
+        nonlocal _pb_done
+        if current == 1 and total == 1:
+            _pb_done += 1
+        progress = 0.4 + 0.6 * (_pb_done / total) if total > 0 else 0.4
+        transcribe_info: dict[str, Any] = {"done": _pb_done, "total": total}
         if account_id:
             transcribe_info["account_id"] = account_id
         pp = {"transcribe": transcribe_info}

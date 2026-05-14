@@ -21,7 +21,11 @@ from media_tools.api.schemas import (
     CreatorTranscribeCleanupRetryRequest,
     RetryFailedAssetsRequest,
 )
-from media_tools.workers.task_dispatcher import _start_task_worker, _create_task, _retry_task_worker
+from media_tools.workers.task_dispatcher import (
+    _start_task_worker,
+    _retry_task_worker,
+    dispatch_new_task,
+)
 from media_tools.douyin.core.cancel_registry import set_cancel_event, clear_cancel_event, clear_download_progress
 from media_tools.common.paths import get_download_path, get_project_root
 from media_tools.db.core import get_db_connection
@@ -38,30 +42,14 @@ from media_tools.services.task_ops import (
 )
 from media_tools.services.task_state import (
     _active_tasks,
-    _register_background_task,
 )
-from media_tools.services.local_asset_service import _register_local_assets
 from media_tools.services.pipeline_progress import build_pipeline_progress
 from media_tools.services.transcript_reconciler import reconcile_transcripts
 from media_tools.services.file_browser import select_folder, scan_directory
 from media_tools.services.cleanup import cleanup_paths_allowlist
 
-# Workers
-from media_tools.workers.pipeline_worker import (
-    _background_pipeline_worker,
-    _background_batch_worker,
-    _background_download_worker,
-)
-from media_tools.workers.full_sync_worker import _background_full_sync_worker
-from media_tools.workers.local_transcribe_worker import _background_local_transcribe_worker
-
 router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"], redirect_slashes=False)
 logger = logging.getLogger(__name__)
-
-
-def _get_global_setting_bool(key: str, default: bool = False) -> bool:
-    """从数据库 SystemSettings 表读取布尔配置（前端设置页面的值）。"""
-    return get_runtime_setting_bool(key, default)
 
 
 router.websocket("/ws")(websocket_endpoint)
@@ -70,9 +58,11 @@ router.websocket("/ws")(websocket_endpoint)
 @router.post("/pipeline")
 async def trigger_pipeline(req: PipelineRequest):
     task_id = str(uuid.uuid4())
-    await _create_task(task_id, "pipeline", {"url": req.url, "max_counts": req.max_counts, "auto_delete": req.auto_delete})
-    _register_background_task(task_id, _background_pipeline_worker(task_id, req))
-    return {"task_id": task_id, "status": "started"}
+    return await dispatch_new_task(task_id, "pipeline", {
+        "url": req.url,
+        "max_counts": req.max_counts,
+        "auto_delete": req.auto_delete,
+    })
 
 
 @router.get("/active")
@@ -331,21 +321,15 @@ async def retry_failed_subtasks(task_id: str):
 
         delete_after = bool(payload.get("delete_after", get_runtime_setting_bool("auto_delete", True)))
         directory_root = payload.get("directory_root") if isinstance(payload.get("directory_root"), str) else None
-        req = LocalTranscribeRequest(file_paths=failed_paths, delete_after=delete_after, directory_root=directory_root)
         new_task_id = str(uuid.uuid4())
-        _register_local_assets(req.file_paths, delete_after, req.directory_root)
-        await _create_task(
-            new_task_id,
-            "local_transcribe",
-            {
-                "file_paths": req.file_paths,
-                "delete_after": delete_after,
-                "directory_root": req.directory_root,
-                "retry_failed_from_task_id": task_id,
-            },
-        )
-        _register_background_task(new_task_id, _background_local_transcribe_worker(new_task_id, req))
-        return {"task_id": new_task_id, "status": "started", "file_count": len(failed_paths)}
+        result = await dispatch_new_task(new_task_id, "local_transcribe", {
+            "file_paths": failed_paths,
+            "delete_after": delete_after,
+            "directory_root": directory_root,
+            "retry_failed_from_task_id": task_id,
+        })
+        result["file_count"] = len(failed_paths)
+        return result
 
     except HTTPException:
         raise
@@ -415,28 +399,17 @@ async def retry_failed_assets(req: RetryFailedAssetsRequest):
             except Exception:  # noqa: BLE001  记录失败不阻塞主流程
                 logger.warning(f"mark_transcribe_running({aid}) failed", exc_info=True)
 
-        local_req = LocalTranscribeRequest(
-            file_paths=file_paths,
-            delete_after=delete_after,
-            directory_root=None,
-        )
-        _register_local_assets(local_req.file_paths, delete_after, local_req.directory_root)
-        await _create_task(
-            new_task_id,
-            "local_transcribe",
-            {
-                "file_paths": local_req.file_paths,
-                "delete_after": delete_after,
-                "directory_root": None,
-                "retry_failed_assets": {
-                    "creator_uid": req.creator_uid,
-                    "platform": req.platform,
-                    "error_types": req.error_types,
-                    "asset_ids": asset_ids,
-                },
+        result = await dispatch_new_task(new_task_id, "local_transcribe", {
+            "file_paths": file_paths,
+            "delete_after": delete_after,
+            "directory_root": None,
+            "retry_failed_assets": {
+                "creator_uid": req.creator_uid,
+                "platform": req.platform,
+                "error_types": req.error_types,
+                "asset_ids": asset_ids,
             },
-        )
-        _register_background_task(new_task_id, _background_local_transcribe_worker(new_task_id, local_req))
+        })
         return {
             "task_id": new_task_id,
             "status": "started",
@@ -453,61 +426,59 @@ async def retry_failed_assets(req: RetryFailedAssetsRequest):
 @router.post("/pipeline/batch")
 async def trigger_batch_pipeline(req: BatchPipelineRequest):
     task_id = str(uuid.uuid4())
-    await _create_task(task_id, "pipeline", {"video_urls": req.video_urls, "auto_delete": req.auto_delete})
-    _register_background_task(task_id, _background_batch_worker(task_id, req))
-    return {"task_id": task_id, "status": "started"}
+    return await dispatch_new_task(task_id, "pipeline", {
+        "video_urls": req.video_urls,
+        "auto_delete": req.auto_delete,
+    })
 
 
 @router.post("/download/batch")
 async def trigger_download_batch(req: DownloadBatchRequest):
     task_id = str(uuid.uuid4())
-    await _create_task(task_id, "download", {"video_urls": req.video_urls})
-    _register_background_task(task_id, _background_download_worker(task_id, req))
-    return {"task_id": task_id, "status": "started"}
+    return await dispatch_new_task(task_id, "download", {
+        "video_urls": req.video_urls,
+    })
 
 
 @router.post("/download/creator")
 async def trigger_creator_download(req: CreatorDownloadRequest):
     task_id = str(uuid.uuid4())
-    await _create_task(task_id, f"creator_sync_{req.mode}", {"uid": req.uid, "mode": req.mode, "batch_size": req.batch_size})
-    from media_tools.workers.creator_sync import background_creator_download_worker
-    _register_background_task(task_id, background_creator_download_worker(task_id, req.uid, req.mode, req.batch_size, {}))
-    return {"task_id": task_id, "status": "started"}
+    return await dispatch_new_task(task_id, f"creator_sync_{req.mode}", {
+        "uid": req.uid,
+        "mode": req.mode,
+        "batch_size": req.batch_size,
+    })
 
 
 @router.post("/download/full-sync")
 async def trigger_full_sync(req: FullSyncRequest):
     task_id = str(uuid.uuid4())
-    await _create_task(task_id, f"full_sync_{req.mode}", {"mode": req.mode, "batch_size": req.batch_size})
-    _register_background_task(task_id, _background_full_sync_worker(task_id, req.mode, req.batch_size, {}))
-    return {"task_id": task_id, "status": "started"}
+    return await dispatch_new_task(task_id, f"full_sync_{req.mode}", {
+        "mode": req.mode,
+        "batch_size": req.batch_size,
+    })
 
 
 @router.post("/transcribe/local")
 async def trigger_local_transcribe(req: LocalTranscribeRequest):
     task_id = str(uuid.uuid4())
     delete_after = req.delete_after if req.delete_after is not None else False
-    req.delete_after = delete_after
-    _register_local_assets(req.file_paths, delete_after, req.directory_root)
-    await _create_task(
-        task_id,
-        "local_transcribe",
-        {"file_paths": req.file_paths, "delete_after": delete_after, "directory_root": req.directory_root},
-    )
-    _register_background_task(task_id, _background_local_transcribe_worker(task_id, req))
-    return {"task_id": task_id, "status": "started"}
+    return await dispatch_new_task(task_id, "local_transcribe", {
+        "file_paths": req.file_paths,
+        "delete_after": delete_after,
+        "directory_root": req.directory_root,
+    })
 
 
 @router.post("/transcribe/creator")
 async def trigger_creator_transcribe(req: CreatorTranscribeRequest):
     task_id = str(uuid.uuid4())
-    await _create_task(
-        task_id,
-        "local_transcribe",
-        {"file_paths": [], "delete_after": req.delete_after, "directory_root": None, "creator_uid": req.uid},
-    )
-    from media_tools.workers.creator_transcribe_worker import background_creator_transcribe_worker
-    _register_background_task(task_id, background_creator_transcribe_worker(task_id, req.uid, delete_after=req.delete_after))
+    result = await dispatch_new_task(task_id, "creator_transcribe", {
+        "file_paths": [],
+        "delete_after": req.delete_after,
+        "directory_root": None,
+        "creator_uid": req.uid,
+    })
     file_count = 0
     try:
         with get_db_connection() as conn:
@@ -525,7 +496,8 @@ async def trigger_creator_transcribe(req: CreatorTranscribeRequest):
     except (sqlite3.Error, OSError, ValueError):
         file_count = 0
 
-    return {"task_id": task_id, "status": "started", "file_count": file_count}
+    result["file_count"] = file_count
+    return result
 
 
 @router.post("/transcribe/creator/cleanup-retry")
@@ -614,15 +586,11 @@ def retry_creator_transcribe_cleanup(req: CreatorTranscribeCleanupRetryRequest):
 @router.post("/recover/aweme")
 async def trigger_recover_aweme_transcribe(req: RecoverAwemeTranscribeRequest):
     task_id = str(uuid.uuid4())
-    await _create_task(
-        task_id,
-        "recover_aweme_transcribe",
-        {"creator_uid": req.creator_uid, "aweme_id": req.aweme_id, "title": req.title},
-    )
-    from media_tools.workers.aweme_recover_worker import recover_aweme_transcribe
-
-    _register_background_task(task_id, recover_aweme_transcribe(task_id, req.creator_uid, req.aweme_id, req.title))
-    return {"task_id": task_id, "status": "started"}
+    return await dispatch_new_task(task_id, "recover_aweme_transcribe", {
+        "creator_uid": req.creator_uid,
+        "aweme_id": req.aweme_id,
+        "title": req.title,
+    })
 
 
 @router.post("/transcribe/select-folder")

@@ -32,10 +32,10 @@ def _is_auto_retry_supported(task_type: Optional[str], payload: Optional[dict]) 
         return True
     if any(task_type.startswith(p) for p in _AUTO_RETRY_SUPPORTED_PREFIXES):
         return True
-    # local_transcribe 仅在能拿到 file_paths 列表时才能复现；
-    # creator_transcribe 路径只有 creator_uid，重试无法继续转写
+    # local_transcribe 仅在能拿到 file_paths 列表时才能复现
     if task_type == "local_transcribe":
         return bool(payload and isinstance(payload.get("file_paths"), list) and payload["file_paths"])
+    # creator_transcribe 只有 creator_uid，重试无法继续转写
     return False
 
 

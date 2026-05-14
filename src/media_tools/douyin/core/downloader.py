@@ -478,7 +478,7 @@ def _sync_media_assets(uid: str, nickname: str, folder_name: str):
                 logger.warning(f"Path traversal blocked for folder: {folder_name}")
                 user_dir = resolve_safe_path(downloads_path, uid) or downloads_path
             file_lookup = {}  # {aweme_id: filename}
-            keyword_lookup = {}  # {keyword: filename}
+            keyword_lookup = {}  # {keyword: [filename, ...]}
 
             if user_dir and user_dir.exists():
                 # 一次性获取所有mp4文件，过滤掉下载失败的垃圾文件
@@ -492,38 +492,63 @@ def _sync_media_assets(uid: str, nickname: str, folder_name: str):
                     for aweme_id in aweme_matches:
                         file_lookup[aweme_id] = f"{folder_name}/{f.name}"
 
-                    # 构建关键词查找表
+                    # 构建关键词查找表（同一关键词对应多个文件时用列表保留）
                     clean_stem = f.stem.lower()
                     chinese_words = re.findall(r'[\u4e00-\u9fa5]{2,}', clean_stem)
                     for word in chinese_words:
-                        if word not in keyword_lookup:
-                            keyword_lookup[word] = f"{folder_name}/{f.name}"
+                        keyword_lookup.setdefault(word, []).append(f"{folder_name}/{f.name}")
 
             now = datetime.now().isoformat()
+
+            # 方法0：先构建 aweme_id -> local_filename 的精确映射
+            # _rename_videos_in_downloads 已在重命名时写入此字段
+            local_filename_map: dict[str, str] = {}
+            cursor.execute(
+                "SELECT aweme_id, local_filename FROM video_metadata WHERE uid = ? AND local_filename IS NOT NULL AND local_filename != ''",
+                (uid,)
+            )
+            for row in cursor.fetchall():
+                local_filename_map[row[0]] = row[1]
 
             for aweme_id, desc, duration in videos:
                 # 尝试在查找表中寻找该视频文件
                 video_path = ""
                 video_status = "pending"
 
+                # 方法0：通过 video_metadata.local_filename 精确匹配（最可靠）
+                if aweme_id in local_filename_map:
+                    candidate = f"{folder_name}/{local_filename_map[aweme_id]}"
+                    abs_path = downloads_path / candidate
+                    if abs_path.exists():
+                        video_path = candidate
+                        video_status = "downloaded" if _is_probably_valid_mp4(abs_path) else "corrupt_file"
+
                 # 方法1：通过aweme_id匹配 + 校验文件存在
-                if aweme_id in file_lookup:
+                if not video_path and aweme_id in file_lookup:
                     candidate = file_lookup[aweme_id]
                     abs_path = downloads_path / candidate
                     if abs_path.exists():
                         video_path = candidate
                         video_status = "downloaded" if _is_probably_valid_mp4(abs_path) else "corrupt_file"
-                else:
-                    # 方法2：通过中文关键词匹配 + 校验文件存在
+
+                # 方法2：通过中文关键词匹配 + 校验文件存在（兜底，加防误匹配校验）
+                if not video_path:
                     clean_title = _clean_video_title(desc)
-                    chinese_words = re.findall(r'[\u4e00-\u9fa5]{2,}', clean_title)
+                    chinese_words = re.findall(r'[一-龥]{2,}', clean_title)
                     for word in chinese_words[:3]:
                         if word in keyword_lookup:
-                            candidate = keyword_lookup[word]
-                            abs_path = downloads_path / candidate
-                            if abs_path.exists():
-                                video_path = candidate
-                                video_status = "downloaded" if _is_probably_valid_mp4(abs_path) else "corrupt_file"
+                            for candidate in keyword_lookup[word]:
+                                abs_path = downloads_path / candidate
+                                if abs_path.exists():
+                                    # 防误匹配：候选文件名必须包含标题前8个汉字中的至少2个关键词
+                                    candidate_stem = Path(candidate).stem.lower()
+                                    title_prefix = ''.join(chinese_words)[:8]
+                                    match_count = sum(1 for w in re.findall(r'[一-龥]{2,}', title_prefix) if w in candidate_stem)
+                                    if match_count >= 2 or len(title_prefix) <= 4:
+                                        video_path = candidate
+                                        video_status = "downloaded" if _is_probably_valid_mp4(abs_path) else "corrupt_file"
+                                        break
+                            if video_path:
                                 break
 
                 # 插入或更新 media_assets 表
@@ -753,7 +778,8 @@ async def _download_with_stats(
                         update_stage(task_id, Stage.DOWNLOADING)
 
                     # 逐个下载视频，追踪进度
-                    for video in new_videos:
+                    new_videos_total = len(new_videos)
+                    for video_idx, video in enumerate(new_videos, 1):
                         aweme_id = video.get('aweme_id', '') if isinstance(video, dict) else getattr(video, 'aweme_id', '')
                         title = video.get('desc', '') if isinstance(video, dict) else getattr(video, 'desc', '')
                         video_title = str(title or aweme_id or "未知")
@@ -762,7 +788,7 @@ async def _download_with_stats(
                         if task_id:
                             update_current_video(task_id, video_title)
 
-                        logger.info(info(f"[下载] {video_title[:50]}..."))
+                        logger.info(info(f"[下载] ({video_idx}/{new_videos_total}) {video_title[:50]}..."))
 
                         try:
                             # 单视频下载
@@ -860,6 +886,8 @@ async def _download_with_stats(
                             new_files.append(str(full_path))
         except (sqlite3.Error, OSError) as e:
             logger.error(f"查询新文件路径失败: {e}")
+    # 去重：同一个物理文件不应被转写多次
+    new_files = list(dict.fromkeys(new_files))
 
     # 更新状态为完成
     if task_id:

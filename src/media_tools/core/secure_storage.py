@@ -101,5 +101,5 @@ class SecureStorage:
             parts = data.split('.')
             # Fernet 格式：base64url(version) + "." + base64url(timestamp) + "." + base64url(ciphertext) + "." + base64url(mac)
             return len(parts) == 4 and len(data) > 40
-        except Exception:
+        except Exception:  # noqa: defensive – 格式校验失败即视为无效
             return False

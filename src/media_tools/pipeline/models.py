@@ -187,12 +187,6 @@ class BatchReport:
     def to_json(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent)
 
-    def save_to_file(self, path: Path) -> None:
-        ensure_dir(path.parent)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(self.to_json())
-        logger.info(f"报告已保存到: {path}")
-
 
 # ---------------------------------------------------------------------------
 # 任务进度模型（从 domain/entities/task.py 迁移，原 DDD 目录已被清理）

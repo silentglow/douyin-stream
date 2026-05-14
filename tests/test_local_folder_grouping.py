@@ -75,7 +75,8 @@ def test_register_local_assets_writes_folder_path(tmp_path, monkeypatch) -> None
 
     monkeypatch.setattr("media_tools.services.local_asset_service.get_db_connection", lambda: conn)
 
-    tasks_router._register_local_assets([str(f)], delete_after=False, directory_root=str(root))
+    from media_tools.services.local_asset_service import _register_local_assets
+    _register_local_assets([str(f)], delete_after=False, directory_root=str(root))
 
     row = conn.execute("SELECT folder_path FROM media_assets").fetchone()
     assert row is not None
