@@ -26,9 +26,15 @@ const tintMap = {
 };
 
 const sizeClass = {
-  small: 'col-span-1 md:col-span-1 max-sm:col-span-1',
-  medium: 'col-span-2 md:col-span-2 max-sm:col-span-2',
-  large: 'col-span-4 md:col-span-3 max-sm:col-span-2',
+  small: 'col-span-1',
+  medium: 'col-span-2',
+  large: 'col-span-2 sm:col-span-3 lg:col-span-4',
+};
+
+const minHeightClass = {
+  small: 'min-h-[140px]',
+  medium: 'min-h-[160px]',
+  large: 'min-h-[180px]',
 };
 
 export function Widget({
@@ -54,6 +60,7 @@ export function Widget({
         'hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)]',
         'hover:scale-[0.98]',
         sizeClass[size],
+        minHeightClass[size],
         tintMap[tint],
         className,
       )}

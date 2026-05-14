@@ -181,9 +181,9 @@ export default function Home() {
 
   return (
     <div className="h-full p-7 px-8 max-sm:p-4 max-sm:pb-20 overflow-y-auto">
-      {/* ── 4 列网格（桌面） / 2 列（手机） ── */}
-      <div className="grid grid-cols-4 md:grid-cols-3 max-sm:grid-cols-2 gap-4 max-sm:gap-3">
-        {/* 行 1: Small × 2 */}
+      {/* 手机2列 / 平板3列 / 桌面4列 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-sm:gap-3">
+        {/* ── 行1: 4个 Small ── */}
         <Widget
           size="small"
           icon={<Play className="size-4" style={{ color: C.blue }} />}
@@ -209,7 +209,36 @@ export default function Home() {
           </div>
         </Widget>
 
-        {/* 行 2: Large 实时进度 */}
+        <Widget
+          size="small"
+          icon={<Star className="size-4" style={{ color: C.purple }} />}
+          iconBg="bg-[rgba(175,82,222,0.12)]"
+          title="Qwen 额度"
+          tint="purple"
+        >
+          <div className="text-[34px] font-bold tracking-tight leading-none" style={{ color: C.textPrimary }}>
+            {Math.round(totalQuotaHours)}h
+          </div>
+          <div className="text-xs mt-1" style={{ color: C.textSecondary }}>
+            {(dashboard?.quota_status?.accounts?.length || 0)} 个账号可用
+          </div>
+        </Widget>
+
+        <Widget
+          size="small"
+          icon={<Users className="size-4" style={{ color: C.orange }} />}
+          iconBg="bg-[rgba(255,159,10,0.12)]"
+          title="创作者"
+        >
+          <div className="text-[34px] font-bold tracking-tight leading-none" style={{ color: C.textPrimary }}>
+            {creators.length}
+          </div>
+          <div className="text-xs mt-1" style={{ color: C.textSecondary }}>
+            {creators.length} 个创作者 · {autoSyncCount} 个自动同步
+          </div>
+        </Widget>
+
+        {/* ── 行2: Large 实时进度 ── */}
         {topTask ? (
           <Widget
             size="large"
@@ -254,72 +283,7 @@ export default function Home() {
           </Widget>
         )}
 
-        {/* 行 3: Small × 2 */}
-        <Widget
-          size="small"
-          icon={<Star className="size-4" style={{ color: C.purple }} />}
-          iconBg="bg-[rgba(175,82,222,0.12)]"
-          title="Qwen 额度"
-          tint="blue"
-        >
-          <div className="text-[34px] font-bold tracking-tight leading-none" style={{ color: C.textPrimary }}>
-            {Math.round(totalQuotaHours)}h
-          </div>
-          <div className="text-xs mt-1" style={{ color: C.textSecondary }}>
-            {(dashboard?.quota_status?.accounts?.length || 0)} 个账号可用
-          </div>
-        </Widget>
-
-        <Widget
-          size="small"
-          icon={<Users className="size-4" style={{ color: C.orange }} />}
-          iconBg="bg-[rgba(255,159,10,0.12)]"
-          title="创作者"
-        >
-          <div className="text-[34px] font-bold tracking-tight leading-none" style={{ color: C.textPrimary }}>
-            {creators.length}
-          </div>
-          <div className="text-xs mt-1" style={{ color: C.textSecondary }}>
-            {creators.length} 个创作者 · {autoSyncCount} 个自动同步
-          </div>
-        </Widget>
-
-        {/* 行 4: Large 快捷操作 */}
-        <Widget
-          size="large"
-          icon={<Plus className="size-4" style={{ color: C.blue }} />}
-          iconBg="bg-[rgba(10,132,255,0.12)]"
-          title="快捷操作"
-        >
-          <div className="flex flex-wrap gap-3">
-            {[
-              { icon: <Link2 className="size-4" />, label: '粘贴链接下载', onClick: handlePasteLink },
-              { icon: <Plus className="size-4" />, label: '添加创作者', onClick: () => navigate('/library') },
-              { icon: <FileAudio className="size-4" />, label: '本地转写', onClick: () => toast.info('本地转写功能开发中') },
-              { icon: <Trash2 className="size-4" />, label: '清理历史任务', onClick: () => toast.info('清理功能开发中') },
-            ].map((btn) => (
-              <button
-                key={btn.label}
-                onClick={btn.onClick}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl text-[15px] font-medium transition-all active:scale-[0.96]"
-                style={{ background: C.bgWidgetSecondary }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = C.blue;
-                  (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = C.bgWidgetSecondary;
-                  (e.currentTarget as HTMLButtonElement).style.color = '';
-                }}
-              >
-                {btn.icon}
-                {btn.label}
-              </button>
-            ))}
-          </div>
-        </Widget>
-
-        {/* 行 5: Medium × 2 */}
+        {/* ── 行3: Medium × 2 ── */}
         <Widget
           size="medium"
           icon={<Play className="size-4" style={{ color: C.blue }} />}
@@ -331,7 +295,7 @@ export default function Home() {
               <div
                 key={task.task_id}
                 className="flex items-center gap-3 py-1.5"
-                style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}
+                style={{ borderBottom: '1px solid rgba(0,0,0,0.08)' }}
               >
                 <div
                   className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
@@ -374,7 +338,7 @@ export default function Home() {
               <div
                 key={act.id}
                 className="flex items-center gap-3 py-1.5"
-                style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}
+                style={{ borderBottom: '1px solid rgba(0,0,0,0.08)' }}
               >
                 <div
                   className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
@@ -403,7 +367,42 @@ export default function Home() {
           </div>
         </Widget>
 
-        {/* 行 6: Large 创作者概览 */}
+        {/* ── 行4: Large 快捷操作 ── */}
+        <Widget
+          size="large"
+          icon={<Plus className="size-4" style={{ color: C.blue }} />}
+          iconBg="bg-[rgba(10,132,255,0.12)]"
+          title="快捷操作"
+        >
+          <div className="flex flex-wrap gap-3">
+            {[
+              { icon: <Link2 className="size-4" />, label: '粘贴链接下载', onClick: handlePasteLink },
+              { icon: <Plus className="size-4" />, label: '添加创作者', onClick: () => navigate('/library') },
+              { icon: <FileAudio className="size-4" />, label: '本地转写', onClick: () => toast.info('本地转写功能开发中') },
+              { icon: <Trash2 className="size-4" />, label: '清理历史任务', onClick: () => toast.info('清理功能开发中') },
+            ].map((btn) => (
+              <button
+                key={btn.label}
+                onClick={btn.onClick}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl text-[15px] font-medium transition-all active:scale-[0.96]"
+                style={{ background: C.bgWidgetSecondary }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = C.blue;
+                  (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = C.bgWidgetSecondary;
+                  (e.currentTarget as HTMLButtonElement).style.color = '';
+                }}
+              >
+                {btn.icon}
+                {btn.label}
+              </button>
+            ))}
+          </div>
+        </Widget>
+
+        {/* ── 行5: Large 创作者概览 ── */}
         <Widget
           size="large"
           icon={<Users className="size-4" style={{ color: C.orange }} />}
@@ -416,7 +415,7 @@ export default function Home() {
               <div
                 key={creator.uid}
                 className="flex items-center gap-3 py-1.5"
-                style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}
+                style={{ borderBottom: '1px solid rgba(0,0,0,0.08)' }}
               >
                 <div
                   className={cn('w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold text-white shrink-0 bg-gradient-to-br', gradients[i % gradients.length])}
@@ -463,7 +462,7 @@ export default function Home() {
                 <div
                   key={b.error_type}
                   className="flex items-center justify-between py-1.5"
-                  style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}
+                  style={{ borderBottom: '1px solid rgba(0,0,0,0.08)' }}
                 >
                   <span className="text-sm truncate" style={{ color: C.textPrimary }}>{b.error_type}</span>
                   <span className="text-sm font-semibold" style={{ color: C.red }}>{b.count}</span>
