@@ -10,12 +10,4 @@ from media_tools.download.worker import DownloadWorker  # noqa: F401
 from .transcribe import transcribe_files  # noqa: F401
 
 from media_tools.scheduler.base import BaseWorker  # noqa: F401
-from media_tools.scheduler.registry import get_worker_class, list_worker_types, register_worker  # noqa: F401
-
-__all__ = [
-    "BaseWorker",
-    "get_worker_class",
-    "list_worker_types",
-    "register_worker",
-    "transcribe_files",
-]
+from media_tools.scheduler.registry import register_worker  # noqa: F401

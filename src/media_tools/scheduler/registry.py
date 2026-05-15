@@ -16,17 +16,3 @@ def register_worker(task_type: str):
         return cls
 
     return decorator
-
-
-def get_worker_class(task_type: str) -> Optional[type]:
-    """按 task_type 查找 Worker 类，支持前缀匹配（creator_sync_*, full_sync_*）。"""
-    if task_type in _WORKER_REGISTRY:
-        return _WORKER_REGISTRY[task_type]
-    for registered_type in _WORKER_REGISTRY:
-        if task_type.startswith(registered_type + "_"):
-            return _WORKER_REGISTRY[registered_type]
-    return None
-
-
-def list_worker_types() -> list[str]:
-    return list(_WORKER_REGISTRY.keys())
