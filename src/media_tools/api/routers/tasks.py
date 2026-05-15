@@ -27,7 +27,7 @@ from media_tools.scheduler.dispatcher import (
     dispatch_new_task,
 )
 from media_tools.douyin.core.cancel_registry import set_cancel_event, clear_cancel_event, clear_download_progress
-from media_tools.common.paths import get_download_path, get_project_root
+from media_tools.common.paths import get_download_path, get_transcripts_path
 from media_tools.store.db import get_db_connection
 from media_tools.scheduler.repository import TaskRepository
 from media_tools.assets.repository import AssetRepository
@@ -536,7 +536,7 @@ def retry_creator_transcribe_cleanup(req: CreatorTranscribeCleanupRetryRequest):
             }
 
         downloads_root = get_download_path()
-        transcripts_root = get_project_root() / "transcripts"
+        transcripts_root = get_transcripts_path()
         outcome = cleanup_paths_allowlist(
             failed_paths,
             downloads_root=downloads_root,

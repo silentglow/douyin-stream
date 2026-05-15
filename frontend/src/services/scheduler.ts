@@ -15,3 +15,13 @@ export const toggleSchedule = async (taskId: string, enabled: boolean, signal?: 
   const response = await apiClient.put(`/scheduler/${taskId}/toggle`, { enabled }, { signal });
   return response.data;
 };
+
+export const deleteSchedule = async (taskId: string, signal?: AbortSignal): Promise<unknown> => {
+  const response = await apiClient.delete(`/scheduler/${taskId}`, { signal });
+  return response.data;
+};
+
+export const runScheduleNow = async (taskId: string, signal?: AbortSignal): Promise<{task_id: string}> => {
+  const response = await apiClient.post(`/scheduler/run_now`, { task_id: taskId }, { signal });
+  return response.data;
+};

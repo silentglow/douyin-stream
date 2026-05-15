@@ -132,7 +132,8 @@ class MediaAssetService:
         else:
             transcript_name = ""
 
-        asset_id = _resolve_asset_id_from_video_path(video_path)
+        # 优先用三段式 fallback 找 asset_id，避免只依赖文件名正则
+        asset_id = MediaAssetService.find_asset_id_for_video_path(video_path)
         try:
             with get_db_connection() as conn:
                 if asset_id:
@@ -149,7 +150,8 @@ class MediaAssetService:
                         (transcript_name, preview, full_text, asset_id),
                     )
                 else:
-                    conn.execute(
+                    # 兜底：只更新最可能的一条（最近更新的），避免批量污染
+                    cur = conn.execute(
                         """
                         UPDATE media_assets
                         SET transcript_path = ?, transcript_status = 'completed',
@@ -157,11 +159,21 @@ class MediaAssetService:
                             transcript_last_error = NULL, transcript_error_type = NULL,
                             transcript_failed_at = NULL,
                             update_time = CURRENT_TIMESTAMP
-                        WHERE video_path LIKE ? OR title LIKE ?
+                        WHERE rowid = (
+                            SELECT rowid FROM media_assets
+                            WHERE video_path LIKE ? OR title LIKE ?
+                            ORDER BY update_time DESC
+                            LIMIT 1
+                        )
                         """,
                         (transcript_name, preview, full_text,
                          f"%{video_path.name}%", f"%{video_path.stem}%"),
                     )
+                    if cur.rowcount == 0:
+                        logger.warning(
+                            f"mark_transcribe_completed: 无法定位 asset，跳过更新 "
+                            f"(video_path={video_path}, transcript_path={transcript_path})"
+                        )
 
                 if asset_id:
                     try:
@@ -185,7 +197,8 @@ class MediaAssetService:
     ) -> None:
         """转写失败：写入错误类型/信息，retry_count +1，failed_at 戳为当前时间。"""
         err_text = (error_message or "")[:500]
-        asset_id = _resolve_asset_id_from_video_path(video_path)
+        # 优先用三段式 fallback 找 asset_id，避免只依赖文件名正则
+        asset_id = MediaAssetService.find_asset_id_for_video_path(video_path)
         try:
             with get_db_connection() as conn:
                 if asset_id:
@@ -204,7 +217,8 @@ class MediaAssetService:
                         (err_text, error_type, task_id, asset_id),
                     )
                 else:
-                    conn.execute(
+                    # 兜底：只更新最可能的一条（最近更新的），避免批量污染
+                    cur = conn.execute(
                         """
                         UPDATE media_assets
                         SET transcript_status = 'failed',
@@ -214,11 +228,21 @@ class MediaAssetService:
                             transcript_failed_at = CURRENT_TIMESTAMP,
                             last_task_id = COALESCE(?, last_task_id),
                             update_time = CURRENT_TIMESTAMP
-                        WHERE video_path LIKE ? OR title LIKE ?
+                        WHERE rowid = (
+                            SELECT rowid FROM media_assets
+                            WHERE video_path LIKE ? OR title LIKE ?
+                            ORDER BY update_time DESC
+                            LIMIT 1
+                        )
                         """,
                         (err_text, error_type, task_id,
                          f"%{video_path.name}%", f"%{video_path.stem}%"),
                     )
+                    if cur.rowcount == 0:
+                        logger.warning(
+                            f"mark_transcribe_failed: 无法定位 asset，跳过更新 "
+                            f"(video_path={video_path})"
+                        )
         except sqlite3.Error as e:
             logger.warning(f"mark_transcribe_failed({video_path}) 失败: {e}")
 

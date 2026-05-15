@@ -4,13 +4,13 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 from media_tools.store.db import get_db_connection
+from media_tools.common.paths import get_transcripts_path
 
 logger = logging.getLogger(__name__)
 
 
 def reconcile_transcripts():
-    project_root = Path(__file__).parent.parent.parent.parent
-    transcripts_dir = project_root / "transcripts"
+    transcripts_dir = get_transcripts_path()
 
     if not transcripts_dir.exists():
         raise RuntimeError(f"transcripts 目录不存在: {transcripts_dir}")
@@ -200,8 +200,7 @@ def reconcile_transcribe_runs():
         "runs_marked_ghost": 0,
     }
     now = datetime.now().isoformat()
-    project_root = Path(__file__).parent.parent.parent.parent
-    transcripts_dir = project_root / "transcripts"
+    transcripts_dir = get_transcripts_path()
 
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row

@@ -47,11 +47,13 @@ export {
   getCreators,
   addCreator,
   deleteCreator,
+  toggleCreatorAutoSync,
 } from '@/services/creators';
 
 export {
   getAssets,
   getAssetsByCreator,
+  getRecentTranscripts,
   searchAssets,
   getAssetTranscript,
   deleteAsset,
@@ -60,7 +62,10 @@ export {
   markAsset,
   bulkMarkAssets,
   exportTranscripts,
+  getAssetFileUrl,
+  browseAssetFolder,
 } from '@/services/assets';
+export type { FolderFile, FolderBrowseResult } from '@/services/assets';
 
 export {
   getTaskHistory,
@@ -91,6 +96,8 @@ export {
   addQwenAccount,
   deleteQwenAccount,
   updateQwenAccountRemark,
+  updateQwenAccountCookie,
+  rehydrateQwenAccounts,
   addDouyinAccount,
   deleteDouyinAccount,
   updateDouyinAccountRemark,
@@ -106,6 +113,8 @@ export {
   getSchedules,
   addSchedule,
   toggleSchedule,
+  deleteSchedule,
+  runScheduleNow,
 } from '@/services/scheduler';
 
 export {
@@ -114,6 +123,11 @@ export {
   scanDirectory,
   triggerLocalTranscribe,
 } from '@/services/discovery';
+
+export {
+  globalSearch,
+} from '@/services/search';
+export type { SearchResult } from '@/services/search';
 
 export {
   getDashboard,

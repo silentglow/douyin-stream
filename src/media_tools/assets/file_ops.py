@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 
-from media_tools.common.paths import get_download_path, get_project_root
+from media_tools.common.paths import get_download_path, get_transcripts_path
 from media_tools.store.db import resolve_safe_path
 from media_tools.assets.local import LOCAL_CREATOR_UID
 
@@ -61,7 +61,7 @@ def delete_asset_files(
     if download_dir is None:
         download_dir = get_download_path()
     if transcripts_dir is None:
-        transcripts_dir = get_project_root() / "transcripts"
+        transcripts_dir = get_transcripts_path()
 
     # Delete video file
     # 注：本地素材的 video 是用户主目录中的原始文件（不在 downloads 内），

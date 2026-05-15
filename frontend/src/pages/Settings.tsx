@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import {
-  KeyRound, Users, Loader2, ChevronRight, Trash2, FileText, Zap, Info, X,
+  KeyRound, Users, Loader2, ChevronRight, Trash2, FileText, Zap, Info, X, Clock, Plus,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '@/store/useStore';
@@ -11,14 +11,24 @@ import {
   cleanupMissingAssets,
   addQwenAccount,
   deleteQwenAccount,
+  updateQwenAccountRemark,
+  updateQwenAccountCookie,
   addDouyinAccount,
   deleteDouyinAccount,
+  updateDouyinAccountRemark,
   addBilibiliAccount,
   deleteBilibiliAccount,
+  updateBilibiliAccountRemark,
   updateGlobalSettings,
   getQwenStatus,
   claimQwenQuota,
+  getSchedules,
+  addSchedule,
+  toggleSchedule,
+  deleteSchedule,
+  runScheduleNow,
 } from '@/lib/api';
+import type { ScheduleTask } from '@/types';
 
 export default function Settings() {
   const settings = useStore((state) => state.settings);
@@ -56,11 +66,18 @@ export default function Settings() {
   const [autoDeleteVideo, setAutoDeleteVideo] = useState(true);
   const [autoTranscribe, setAutoTranscribe] = useState(true);
   const [exportFormat, setExportFormat] = useState('md');
+  const [transcriptOutputDir, setTranscriptOutputDir] = useState('');
 
   // Quota
   const [qwenRemainingHoursById, setQwenRemainingHoursById] = useState<Record<string, number>>({});
   const [isLoadingQwenStatus, setIsLoadingQwenStatus] = useState(false);
   const [qwenStatusError, setQwenStatusError] = useState('');
+
+  // Scheduler
+  const [schedules, setSchedules] = useState<ScheduleTask[]>([]);
+  const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
+  const [newCronExpr, setNewCronExpr] = useState('0 2 * * *');
+  const [isAddingSchedule, setIsAddingSchedule] = useState(false);
 
   // Expand
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -68,15 +85,17 @@ export default function Settings() {
   // Confirm dialog
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: string; name: string } | null>(null);
 
+  // Inline remark editing
+  const [editingRemark, setEditingRemark] = useState<{ type: string; id: string; value: string } | null>(null);
+
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
 
   useEffect(() => {
     if (!settings) return;
-    queueMicrotask(() => {
-      setAutoDeleteVideo(settings.global_settings.auto_delete);
-      setAutoTranscribe(settings.global_settings.auto_transcribe);
-      setExportFormat(settings.global_settings.export_format || 'md');
-    });
+    setAutoDeleteVideo(settings.global_settings.auto_delete);
+    setAutoTranscribe(settings.global_settings.auto_transcribe);
+    setExportFormat(settings.global_settings.export_format || 'md');
+    setTranscriptOutputDir(settings.global_settings.transcript_output_dir || '');
   }, [settings]);
 
   // Load Qwen quota
@@ -109,6 +128,61 @@ export default function Settings() {
   useEffect(() => {
     loadQwenStatus();
   }, [loadQwenStatus]);
+
+  // Load schedules
+  const loadSchedules = useCallback(async () => {
+    setIsLoadingSchedules(true);
+    try {
+      const data = await getSchedules();
+      setSchedules(data);
+    } catch {
+      toast.error('加载定时任务失败');
+    } finally {
+      setIsLoadingSchedules(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSchedules();
+  }, [loadSchedules]);
+
+  const handleAddSchedule = useCallback(async () => {
+    if (!newCronExpr.trim()) return;
+    setIsAddingSchedule(true);
+    try {
+      await addSchedule(newCronExpr.trim(), true);
+      toast.success('定时任务添加成功');
+      setNewCronExpr('0 2 * * *');
+      await loadSchedules();
+    } catch {
+      toast.error('添加失败，请检查 Cron 表达式格式');
+    } finally {
+      setIsAddingSchedule(false);
+    }
+  }, [newCronExpr, loadSchedules]);
+
+  const handleToggleSchedule = useCallback(async (taskId: string, enabled: boolean) => {
+    try {
+      await toggleSchedule(taskId, enabled);
+      setSchedules((prev) =>
+        prev.map((s) => (s.task_id === taskId ? { ...s, enabled } : s))
+      );
+      toast.success(enabled ? '已启用' : '已禁用');
+    } catch {
+      toast.error('操作失败');
+    }
+  }, []);
+
+  const handleDeleteSchedule = useCallback(async (taskId: string) => {
+    if (!confirm('确定要删除这个定时任务吗？')) return;
+    try {
+      await deleteSchedule(taskId);
+      setSchedules((prev) => prev.filter((s) => s.task_id !== taskId));
+      toast.success('已删除');
+    } catch {
+      toast.error('删除失败');
+    }
+  }, []);
 
   // ===== Actions =====
   const handleSaveQwen = useCallback(async () => {
@@ -204,31 +278,40 @@ export default function Settings() {
   const handleToggleAutoTranscribe = useCallback(async (value: boolean) => {
     setAutoTranscribe(value);
     try {
-      await updateGlobalSettings(autoDeleteVideo, value, exportFormat);
+      await updateGlobalSettings(autoDeleteVideo, value, exportFormat, transcriptOutputDir);
       toast.success(value ? '已开启自动转写' : '已关闭自动转写');
     } catch {
       setAutoTranscribe(!value);
     }
-  }, [autoDeleteVideo, exportFormat]);
+  }, [autoDeleteVideo, exportFormat, transcriptOutputDir]);
 
   const handleToggleAutoDelete = useCallback(async (value: boolean) => {
     setAutoDeleteVideo(value);
     try {
-      await updateGlobalSettings(value, autoTranscribe, exportFormat);
+      await updateGlobalSettings(value, autoTranscribe, exportFormat, transcriptOutputDir);
       toast.success(value ? '已开启自动删除' : '已关闭自动删除');
     } catch {
       setAutoDeleteVideo(!value);
     }
-  }, [autoTranscribe, exportFormat]);
+  }, [autoTranscribe, exportFormat, transcriptOutputDir]);
 
   const handleChangeExportFormat = useCallback(async (format: string) => {
     setExportFormat(format);
     try {
-      await updateGlobalSettings(autoDeleteVideo, autoTranscribe, format);
+      await updateGlobalSettings(autoDeleteVideo, autoTranscribe, format, transcriptOutputDir);
     } catch {
       // revert on error
     }
-  }, [autoDeleteVideo, autoTranscribe]);
+  }, [autoDeleteVideo, autoTranscribe, transcriptOutputDir]);
+
+  const handleSaveTranscriptOutputDir = useCallback(async () => {
+    try {
+      await updateGlobalSettings(autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir);
+      toast.success('转写输出目录已保存');
+    } catch {
+      toast.error('保存失败');
+    }
+  }, [autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir]);
 
   const handleClaimQuota = useCallback(async () => {
     setIsClaimingQuota(true);
@@ -247,6 +330,30 @@ export default function Settings() {
       setIsClaimingQuota(false);
     }
   }, []);
+
+  const handleSaveRemark = useCallback(async (type: string, id: string, remark: string) => {
+    try {
+      if (type === 'qwen') await updateQwenAccountRemark(id, remark);
+      else if (type === 'douyin') await updateDouyinAccountRemark(id, remark);
+      else if (type === 'bilibili') await updateBilibiliAccountRemark(id, remark);
+      toast.success('备注已更新');
+      setEditingRemark(null);
+      await refreshSettings(true);
+    } catch {
+      toast.error('更新失败');
+    }
+  }, [refreshSettings]);
+
+  const handleUpdateQwenCookie = useCallback(async (id: string, newCookie: string) => {
+    if (!newCookie.trim()) return;
+    try {
+      await updateQwenAccountCookie(id, newCookie.trim());
+      toast.success('Cookie 已更新');
+      await refreshSettings(true);
+    } catch {
+      toast.error('更新失败');
+    }
+  }, [refreshSettings]);
 
   if (!settings) {
     return (
@@ -271,7 +378,7 @@ export default function Settings() {
   function SettingsGroup({ title, children }: { title: string; children: React.ReactNode }) {
     return (
       <div className="mb-8">
-        <div className="text-caption font-semibold text-[#8E8E93] uppercase tracking-wide mb-2 px-3">
+        <div className="text-caption font-semibold text-muted-foreground uppercase tracking-wide mb-2 px-3">
           {title}
         </div>
         <div className="bg-card rounded-[22px] apple-shadow-widget overflow-hidden">
@@ -318,10 +425,10 @@ export default function Settings() {
             <span className="text-body text-muted-foreground mr-1">{value}</span>
           )}
           {hasChildren && (
-            <ChevronRight className={cn("size-[14px] text-[#C7C7CC] transition-transform", isExpanded && "rotate-90")} />
+            <ChevronRight className={cn("size-[14px] text-muted-foreground/50 transition-transform", isExpanded && "rotate-90")} />
           )}
           {!hasChildren && onClick && (
-            <ChevronRight className="size-[14px] text-[#C7C7CC]" />
+            <ChevronRight className="size-[14px] text-muted-foreground/50" />
           )}
         </div>
         <AnimatePresence>
@@ -330,7 +437,7 @@ export default function Settings() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ type: 'tween', duration: 0.25, ease: 'easeInOut' }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               className="overflow-hidden"
             >
               <div className="px-4 pb-4 border-t border-border/40">
@@ -345,8 +452,8 @@ export default function Settings() {
 
   function AccountExpandable({
     accounts, cookie, setCookie, remark, setRemark,
-    isAdding, cookieError, setCookieError, onAdd, onDelete,
-    placeholder, showQuota,
+    isAdding, cookieError, setCookieError, onAdd, onDelete, onUpdateCookie,
+    placeholder, showQuota, accountType,
   }: {
     accounts: Array<{ id: string; status: string; remark: string; last_used: string | null; create_time: string | null }>;
     cookie: string;
@@ -358,9 +465,21 @@ export default function Settings() {
     setCookieError: (v: string) => void;
     onAdd: () => void;
     onDelete: (id: string) => void;
+    onUpdateCookie?: (id: string, newCookie: string) => void;
     placeholder: string;
     showQuota?: boolean;
+    accountType: 'qwen' | 'douyin' | 'bilibili';
   }) {
+    const handleStartEditRemark = (id: string, currentRemark: string) => {
+      setEditingRemark({ type: accountType, id, value: currentRemark });
+    };
+
+    const handleSaveRemarkInline = async () => {
+      if (editingRemark) {
+        await handleSaveRemark(editingRemark.type, editingRemark.id, editingRemark.value);
+      }
+    };
+
     return (
       <div className="pt-3 space-y-3">
         <div className="flex gap-2">
@@ -395,51 +514,94 @@ export default function Settings() {
           {accounts.length === 0 ? (
             <div className="text-sm text-muted-foreground py-2">还没有账号</div>
           ) : (
-            accounts.map((account, index) => (
-              <div key={account.id} className="flex items-center justify-between py-2 px-3 bg-secondary/50 rounded-lg">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">
-                    {account.remark || `账号 ${index + 1}`}
-                  </div>
-                  <div className="text-xs text-muted-foreground font-mono mt-0.5">
-                    {account.id.slice(0, 12)}...
-                    {showQuota ? (
-                      <span className="ml-2 text-primary">
-                        {isLoadingQwenStatus
-                          ? '加载中...'
-                          : qwenStatusError
-                            ? '获取失败'
-                            : `${qwenRemainingHoursById[account.id] ?? '--'}h`}
-                      </span>
+            accounts.map((account, index) => {
+              const isEditing = editingRemark?.id === account.id;
+              return (
+                <div key={account.id} className="flex items-center justify-between py-2 px-3 bg-secondary/50 rounded-lg">
+                  <div className="min-w-0 flex-1">
+                    {isEditing ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={editingRemark.value}
+                          onChange={(e) => setEditingRemark({ ...editingRemark, value: e.target.value })}
+                          className="flex-1 bg-background rounded px-2 py-1 text-sm outline-none border border-primary/50"
+                          autoFocus
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleSaveRemarkInline(); if (e.key === 'Escape') setEditingRemark(null); }}
+                        />
+                        <button onClick={handleSaveRemarkInline} className="text-xs text-primary font-medium">保存</button>
+                        <button onClick={() => setEditingRemark(null)} className="text-xs text-muted-foreground">取消</button>
+                      </div>
                     ) : (
-                      <span className="ml-2 text-muted-foreground">[无额度]</span>
+                      <div
+                        className="text-sm font-medium cursor-pointer hover:text-primary transition-colors"
+                        onDoubleClick={() => handleStartEditRemark(account.id, account.remark)}
+                        title="双击编辑备注"
+                      >
+                        {account.remark || `账号 ${index + 1}`}
+                      </div>
                     )}
+                    <div className="text-xs text-muted-foreground font-mono mt-0.5">
+                      {account.id.slice(0, 12)}...
+                      {showQuota ? (
+                        <span className="ml-2 text-primary">
+                          {isLoadingQwenStatus
+                            ? '加载中...'
+                            : qwenStatusError
+                              ? '获取失败'
+                              : `${qwenRemainingHoursById[account.id] ?? '--'}h`}
+                        </span>
+                      ) : (
+                        <span className="ml-2 text-muted-foreground">[无额度]</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={cn(
+                      "text-small font-semibold px-2 py-0.5 rounded-full",
+                      account.status === 'active' ? 'bg-success/12 text-success' : 'bg-warning/14 text-warning'
+                    )}>
+                      {account.status === 'active' ? '可用' : account.status === 'inactive' ? '停用' : account.status === 'expired' ? '过期' : account.status}
+                    </span>
+                    {onUpdateCookie && accountType === 'qwen' && (
+                      <button
+                        onClick={() => {
+                          const newCookie = prompt('输入新的 Qwen Cookie:');
+                          if (newCookie?.trim()) {
+                            onUpdateCookie(account.id, newCookie.trim());
+                          }
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                        title="更新 Cookie"
+                      >
+                        <KeyRound className="size-3.5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onDelete(account.id)}
+                      disabled={isDeleting === account.id}
+                      className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      {isDeleting === account.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={cn(
-                    "text-small font-semibold px-2 py-0.5 rounded-full",
-                    account.status === 'active' ? 'bg-success/12 text-success' : 'bg-warning/14 text-warning'
-                  )}>
-                    {account.status === 'active' ? '可用' : account.status === 'inactive' ? '停用' : account.status === 'expired' ? '过期' : account.status}
-                  </span>
-                  <button
-                    onClick={() => onDelete(account.id)}
-                    disabled={isDeleting === account.id}
-                    className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                  >
-                    {isDeleting === account.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                  </button>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
         {showQuota && qwenReady && (
           <div className="flex items-center justify-between pt-2 border-t border-border/40">
             <span className="text-xs text-muted-foreground">
-              {isLoadingQwenStatus ? '加载额度中...' : qwenStatusError ? `额度: ${qwenStatusError}` : '可领取今日额度'}
+              {isLoadingQwenStatus
+                ? '加载额度中...'
+                : qwenStatusError
+                  ? `额度: ${qwenStatusError}`
+                  : (() => {
+                      const total = Object.values(qwenRemainingHoursById).reduce((s, v) => s + v, 0);
+                      return `总剩余 ${total}h`;
+                    })()}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -489,6 +651,7 @@ export default function Settings() {
               onAdd={handleAddDouyin}
               onDelete={(id) => setConfirmDelete({ type: 'douyin', id, name: '抖音账号' })}
               placeholder="粘贴 douyin.com Cookie"
+              accountType="douyin"
             />
           </SettingsItem>
 
@@ -510,6 +673,7 @@ export default function Settings() {
               onAdd={handleAddBilibili}
               onDelete={(id) => setConfirmDelete({ type: 'bilibili', id, name: 'B站账号' })}
               placeholder="粘贴 bilibili Cookie"
+              accountType="bilibili"
             />
           </SettingsItem>
 
@@ -533,8 +697,10 @@ export default function Settings() {
               setCookieError={setQwenCookieError}
               onAdd={handleSaveQwen}
               onDelete={(id) => setConfirmDelete({ type: 'qwen', id, name: 'Qwen账号' })}
+              onUpdateCookie={handleUpdateQwenCookie}
               placeholder="粘贴 tongyi/qianwen Cookie"
               showQuota={true}
+              accountType="qwen"
             />
           </SettingsItem>
         </SettingsGroup>
@@ -580,6 +746,105 @@ export default function Settings() {
               ))}
             </div>
           </SettingsItem>
+          <SettingsItem
+            icon={<FileText className="size-4 text-[#30D158]" />}
+            iconBg="bg-[rgba(48,209,88,0.12)]"
+            label="转写输出目录"
+            value={transcriptOutputDir || '默认'}
+          >
+            <div className="pt-3 space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="留空使用默认目录"
+                  value={transcriptOutputDir}
+                  onChange={(e) => setTranscriptOutputDir(e.target.value)}
+                  className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm outline-none border border-transparent focus:border-primary/50"
+                />
+                <button
+                  onClick={handleSaveTranscriptOutputDir}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-all active:scale-[0.96]"
+                >
+                  保存
+                </button>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                默认位置：项目根目录下的 transcripts 文件夹
+              </div>
+            </div>
+          </SettingsItem>
+        </SettingsGroup>
+
+        {/* 定时任务 */}
+        <SettingsGroup title="定时任务">
+          <SettingsItem
+            icon={<Clock className="size-4 text-[#FF9500]" />}
+            iconBg="bg-[rgba(255,159,10,0.12)]"
+            label="同步关注列表"
+            value={schedules.length > 0 ? `${schedules.filter(s => s.enabled).length} 个任务` : '未配置'}
+          >
+            <div className="pt-3 space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Cron 表达式，如 0 2 * * *"
+                  value={newCronExpr}
+                  onChange={(e) => setNewCronExpr(e.target.value)}
+                  className="flex-1 bg-secondary rounded-lg px-3 py-2 text-sm outline-none border border-transparent focus:border-primary/50"
+                />
+                <button
+                  onClick={handleAddSchedule}
+                  disabled={!newCronExpr.trim() || isAddingSchedule}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-all active:scale-[0.96] disabled:opacity-50"
+                >
+                  {isAddingSchedule ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                </button>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                每天凌晨 2 点: 0 2 * * * · 每 6 小时: 0 */6 * * *
+              </div>
+
+              <div className="space-y-2">
+                {isLoadingSchedules ? (
+                  <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" /> 加载中...
+                  </div>
+                ) : schedules.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-2">还没有定时任务</div>
+                ) : (
+                  schedules.map((task) => (
+                    <div key={task.task_id} className="flex items-center justify-between py-2 px-3 bg-secondary/50 rounded-lg">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium font-mono">{task.cron_expr}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {task.enabled ? '已启用' : '已禁用'} · {task.task_type === 'scan_all_following' ? '同步关注' : task.task_type}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => runScheduleNow(task.task_id).then(() => toast.success('已触发立即执行')).catch(() => toast.error('执行失败'))}
+                          className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                          title="立即执行"
+                        >
+                          <Zap className="size-3.5" />
+                        </button>
+                        <Switch
+                          checked={task.enabled}
+                          onCheckedChange={(v) => handleToggleSchedule(task.task_id, v)}
+                        />
+                        <button
+                          onClick={() => handleDeleteSchedule(task.task_id)}
+                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </SettingsItem>
         </SettingsGroup>
 
         {/* 系统 */}
@@ -613,20 +878,21 @@ export default function Settings() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            transition={{ duration: 0.2 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
             onClick={() => setConfirmDelete(null)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.92, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+              exit={{ scale: 0.92, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               className="bg-card rounded-[22px] p-6 w-full max-w-sm mx-4 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">删除确认</h3>
-                <button onClick={() => setConfirmDelete(null)} className="p-1 rounded-lg hover:bg-secondary">
+                <button onClick={() => setConfirmDelete(null)} className="p-1.5 rounded-lg hover:bg-secondary active:scale-[0.92] transition-colors">
                   <X className="size-4" />
                 </button>
               </div>
@@ -636,7 +902,7 @@ export default function Settings() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmDelete(null)}
-                  className="flex-1 py-2.5 rounded-xl bg-secondary text-sm font-medium hover:bg-secondary/80 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl bg-secondary text-sm font-medium hover:bg-secondary/80 transition-colors active:scale-[0.96]"
                 >
                   取消
                 </button>
@@ -646,7 +912,7 @@ export default function Settings() {
                     else if (confirmDelete.type === 'bilibili') handleDeleteBilibili(confirmDelete.id);
                     else if (confirmDelete.type === 'qwen') handleDeleteQwen(confirmDelete.id);
                   }}
-                  className="flex-1 py-2.5 rounded-xl bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 transition-colors active:scale-[0.96]"
                 >
                   删除
                 </button>

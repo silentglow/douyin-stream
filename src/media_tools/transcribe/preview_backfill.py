@@ -22,8 +22,8 @@ _lock = threading.Lock()
 
 
 def _transcripts_dir() -> Path:
-    from media_tools.common.paths import get_project_root
-    return get_project_root() / "transcripts"
+    from media_tools.common.paths import get_transcripts_path
+    return get_transcripts_path()
 
 
 def _validate_path(base_dir: Path, transcript_path: str) -> Optional[Path]:

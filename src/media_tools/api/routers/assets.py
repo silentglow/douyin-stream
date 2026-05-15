@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel, field_validator
-from media_tools.common.paths import get_download_path, get_project_root
+from media_tools.common.paths import get_download_path, get_transcripts_path
 from media_tools.store.db import get_db_connection, resolve_safe_path, resolve_query_value
 from media_tools.assets.file_ops import (
     delete_asset_files,
@@ -15,6 +15,8 @@ import sqlite3
 import logging
 import io
 import zipfile
+import mimetypes
+import os
 from pathlib import Path
 
 router = APIRouter(prefix="/api/v1/assets", tags=["assets"], redirect_slashes=False)
@@ -87,7 +89,7 @@ def export_transcripts(asset_ids: list[str]):
     if not asset_ids:
         raise HTTPException(status_code=400, detail="No asset IDs provided")
 
-    transcripts_dir = get_project_root() / "transcripts"
+    transcripts_dir = get_transcripts_path()
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -122,7 +124,7 @@ def get_transcript(asset_id: str):
         if not transcript_path:
             raise HTTPException(status_code=404, detail="Transcript not found in database")
 
-        transcripts_dir = get_project_root() / "transcripts"
+        transcripts_dir = get_transcripts_path()
         transcript_file = resolve_safe_path(transcripts_dir, transcript_path)
 
         if not transcript_file or not transcript_file.exists():
@@ -136,6 +138,76 @@ def get_transcript(asset_id: str):
             content = transcript_file.read_text(encoding="utf-8", errors="replace")
         return {"content": content}
 
+    except HTTPException:
+        raise
+    except (OSError, ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{asset_id}/file")
+def get_transcript_file(asset_id: str):
+    """直接 serving 转写文件（支持浏览器内联查看 PDF / 下载 DOCX）"""
+    try:
+        transcript_path = AssetRepository.get_transcript_path(asset_id)
+        if not transcript_path:
+            raise HTTPException(status_code=404, detail="Transcript not found in database")
+
+        transcripts_dir = get_transcripts_path()
+        transcript_file = resolve_safe_path(transcripts_dir, transcript_path)
+        if not transcript_file or not transcript_file.exists():
+            raise HTTPException(status_code=404, detail="Transcript file not found on disk")
+
+        media_type, _ = mimetypes.guess_type(str(transcript_file))
+        if not media_type:
+            media_type = "application/octet-stream"
+
+        # PDF / 图片类浏览器可直接查看；其他格式触发下载
+        disposition = "inline" if media_type in ("application/pdf", "image/png", "image/jpeg", "image/webp", "text/plain", "text/markdown") else "attachment"
+
+        return FileResponse(
+            path=transcript_file,
+            media_type=media_type,
+            filename=transcript_file.name,
+            headers={"Content-Disposition": f"{disposition}; filename*=UTF-8''{transcript_file.name}"},
+        )
+    except HTTPException:
+        raise
+    except (OSError, ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{asset_id}/folder")
+def browse_asset_folder(asset_id: str):
+    """浏览素材对应的本地文件夹内容"""
+    try:
+        row = AssetRepository.find_by_id(asset_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Asset not found")
+
+        folder_path = row.get("folder_path")
+        if not folder_path:
+            raise HTTPException(status_code=404, detail="该素材没有关联文件夹")
+
+        transcripts_dir = get_transcripts_path()
+        target_dir = resolve_safe_path(transcripts_dir, folder_path)
+        if not target_dir or not target_dir.exists() or not target_dir.is_dir():
+            raise HTTPException(status_code=404, detail="文件夹不存在")
+
+        files = []
+        for entry in sorted(target_dir.iterdir(), key=lambda e: e.name):
+            if entry.is_file():
+                stat = entry.stat()
+                files.append({
+                    "name": entry.name,
+                    "size": stat.st_size,
+                    "modified": stat.st_mtime,
+                    "suffix": entry.suffix.lower(),
+                })
+
+        return {
+            "path": str(target_dir.relative_to(transcripts_dir)),
+            "files": files,
+        }
     except HTTPException:
         raise
     except (OSError, ValueError, RuntimeError) as e:
@@ -238,7 +310,7 @@ def bulk_delete_assets(req: BulkAssetDeleteRequest):
         raise HTTPException(status_code=400, detail="ids 不能为空")
 
     download_dir = get_download_path()
-    transcripts_dir = get_project_root() / "transcripts"
+    transcripts_dir = get_transcripts_path()
 
     # Phase 1: 收集 + 删除 DB 行（事务内），磁盘删除留到 commit 后做。
     # 这样即便磁盘删除部分失败，也不会出现「DB 已回滚但文件已删除」的不一致。
@@ -273,7 +345,7 @@ def bulk_delete_assets(req: BulkAssetDeleteRequest):
 def cleanup_missing_assets():
     """清理不存在的素材（视频文件已被删除的记录）"""
     download_dir = get_download_path()
-    transcripts_dir = get_project_root() / "transcripts"
+    transcripts_dir = get_transcripts_path()
 
     deleted = 0
     with get_db_connection() as conn:

@@ -8,8 +8,10 @@ import { useStore } from './store/useStore';
 
 // Lazy load pages for code splitting
 const Home = lazy(() => import('./pages/Home'));
+const Discover = lazy(() => import('./pages/Discover'));
 const Library = lazy(() => import('./pages/Library'));
 const CreatorDetail = lazy(() => import('./pages/CreatorDetail'));
+const Tasks = lazy(() => import('./pages/Tasks'));
 const Settings = lazy(() => import('./pages/Settings'));
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
@@ -73,6 +75,11 @@ function App() {
                   <Home />
                 </Suspense>
               } />
+              <Route path="/discover" element={
+                <Suspense fallback={<SkeletonScreen />}>
+                  <Discover />
+                </Suspense>
+              } />
               <Route path="/library" element={
                 <Suspense fallback={<SkeletonScreen />}>
                   <Library />
@@ -81,6 +88,11 @@ function App() {
               <Route path="/library/:creatorUid" element={
                 <Suspense fallback={<SkeletonScreen />}>
                   <CreatorDetail />
+                </Suspense>
+              } />
+              <Route path="/tasks" element={
+                <Suspense fallback={<SkeletonScreen />}>
+                  <Tasks />
                 </Suspense>
               } />
               <Route path="/settings" element={

@@ -1,19 +1,33 @@
-import { apiClient } from '@/lib/api';
+import { apiClient, API_BASE_URL } from '@/lib/api';
 import type { Asset } from '@/types';
+
+/* 后端返回小写状态，前端统一按大写处理 */
+function normalizeAsset(asset: Asset): Asset {
+  return {
+    ...asset,
+    transcript_status: asset.transcript_status?.toUpperCase() ?? '',
+    video_status: asset.video_status?.toUpperCase() ?? '',
+  };
+}
 
 export const getAssets = async (limit = 500, signal?: AbortSignal): Promise<Asset[]> => {
   const response = await apiClient.get(`/assets?limit=${limit}`, { signal });
-  return response.data;
+  return (response.data as Asset[]).map(normalizeAsset);
 };
 
 export const getAssetsByCreator = async (creatorUid: string, signal?: AbortSignal): Promise<Asset[]> => {
   const response = await apiClient.get(`/assets?creator_uid=${creatorUid}&limit=500`, { signal });
-  return response.data;
+  return (response.data as Asset[]).map(normalizeAsset);
+};
+
+export const getRecentTranscripts = async (limit = 10, signal?: AbortSignal): Promise<Asset[]> => {
+  const response = await apiClient.get(`/assets?transcript_status=completed&limit=${limit}`, { signal });
+  return (response.data as Asset[]).map(normalizeAsset);
 };
 
 export const searchAssets = async (query: string, signal?: AbortSignal): Promise<(Asset & { match_type: string })[]> => {
   const response = await apiClient.get(`/assets/search?q=${encodeURIComponent(query)}`, { signal });
-  return response.data;
+  return (response.data as (Asset & { match_type: string })[]).map(normalizeAsset);
 };
 
 export const getAssetTranscript = async (assetId: string, signal?: AbortSignal): Promise<string> => {
@@ -60,4 +74,25 @@ export const exportTranscripts = async (assetIds: string[], signal?: AbortSignal
   a.click();
   document.body.removeChild(a);
   setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+};
+
+export const getAssetFileUrl = (assetId: string): string => {
+  return `${API_BASE_URL}/assets/${assetId}/file`;
+};
+
+export interface FolderFile {
+  name: string;
+  size: number;
+  modified: number;
+  suffix: string;
+}
+
+export interface FolderBrowseResult {
+  path: string;
+  files: FolderFile[];
+}
+
+export const browseAssetFolder = async (assetId: string, signal?: AbortSignal): Promise<FolderBrowseResult> => {
+  const response = await apiClient.get(`/assets/${assetId}/folder`, { signal });
+  return response.data;
 };

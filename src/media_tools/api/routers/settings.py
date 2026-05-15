@@ -40,6 +40,7 @@ class GlobalSettingsRequest(BaseModel):
     auto_delete: Optional[bool] = None
     auto_transcribe: Optional[bool] = None
     export_format: Optional[str] = None
+    transcript_output_dir: Optional[str] = None
 
 class RemarkRequest(BaseModel):
     remark: str
@@ -54,6 +55,7 @@ def get_settings():
     auto_delete = get_runtime_setting_bool("auto_delete", True)
     auto_transcribe = get_runtime_setting_bool("auto_transcribe", False)
     export_format = get_runtime_setting("export_format", "md")
+    transcript_output_dir = get_runtime_setting("transcript_output_dir", "")
     douyin_accounts_count = len(accounts)
     douyin_primary_configured = get_config().has_cookie()
     douyin_cookie_source = "pool" if douyin_accounts_count > 0 else ("config" if douyin_primary_configured else "none")
@@ -73,6 +75,7 @@ def get_settings():
             "auto_delete": auto_delete,
             "auto_transcribe": auto_transcribe,
             "export_format": export_format,
+            "transcript_output_dir": transcript_output_dir,
         },
         "status_summary": {
             "qwen_ready": qwen_configured or qwen_accounts_count > 0,
@@ -189,7 +192,7 @@ async def claim_qwen_quota_endpoint():
 @router.post("/global")
 def update_global_settings(req: GlobalSettingsRequest):
     try:
-        if req.concurrency is None and req.auto_delete is None and req.auto_transcribe is None and req.export_format is None:
+        if req.concurrency is None and req.auto_delete is None and req.auto_transcribe is None and req.export_format is None and req.transcript_output_dir is None:
             raise HTTPException(status_code=400, detail="No fields to update")
         if req.concurrency is not None:
             if req.concurrency < 1 or req.concurrency > 100:
@@ -203,6 +206,8 @@ def update_global_settings(req: GlobalSettingsRequest):
             if req.export_format not in ("md", "docx", "pdf", "srt", "txt"):
                 raise HTTPException(status_code=400, detail="export_format must be one of: md, docx, pdf, srt, txt")
             set_runtime_setting("export_format", req.export_format)
+        if req.transcript_output_dir is not None:
+            set_runtime_setting("transcript_output_dir", req.transcript_output_dir)
         return {"status": "success"}
     except HTTPException:
         raise

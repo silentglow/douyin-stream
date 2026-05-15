@@ -82,6 +82,15 @@ class CreatorRepository:
                 )
 
     @staticmethod
+    def toggle_auto_sync(uid: str, auto_sync: bool) -> None:
+        """切换创作者自动同步状态"""
+        with get_db_connection() as conn:
+            conn.execute(
+                "UPDATE creators SET auto_sync = ? WHERE uid = ?",
+                (1 if auto_sync else 0, uid),
+            )
+
+    @staticmethod
     def delete(uid: str) -> None:
         """删除创作者"""
         with get_db_connection() as conn:
@@ -110,6 +119,8 @@ class CreatorRepository:
                 else "'' AS homepage_url"
             )
             homepage_group = ", c.homepage_url" if "homepage_url" in creator_columns else ""
+            auto_sync_select = "c.auto_sync" if "auto_sync" in creator_columns else "0 AS auto_sync"
+            auto_sync_group = ", c.auto_sync" if "auto_sync" in creator_columns else ""
             cursor = conn.execute(
                 f"""
                 SELECT
@@ -122,6 +133,7 @@ class CreatorRepository:
                     c.bio,
                     {homepage_select},
                     c.last_fetch_time,
+                    {auto_sync_select},
                     COUNT(ma.asset_id) AS asset_count,
                     COALESCE(SUM(CASE WHEN ma.video_status = 'downloaded' THEN 1 ELSE 0 END), 0) AS downloaded_videos_count,
                     COALESCE(SUM(CASE WHEN ma.transcript_status = 'completed' THEN 1 ELSE 0 END), 0) AS transcript_completed_count,
@@ -130,7 +142,7 @@ class CreatorRepository:
                     COALESCE(SUM(CASE WHEN ma.transcript_status = 'failed' AND ma.video_status IN ('downloaded', 'pending') THEN 1 ELSE 0 END), 0) AS transcript_failed_count
                 FROM creators c
                 LEFT JOIN media_assets ma ON ma.creator_uid = c.uid
-                GROUP BY c.uid, c.nickname, c.sec_user_id{platform_group}, c.sync_status, c.avatar, c.bio{homepage_group}, c.last_fetch_time
+                GROUP BY c.uid, c.nickname, c.sec_user_id{platform_group}, c.sync_status, c.avatar, c.bio{homepage_group}, c.last_fetch_time{auto_sync_group}
                 ORDER BY
                     CASE WHEN c.last_fetch_time IS NULL THEN 1 ELSE 0 END,
                     c.last_fetch_time DESC,

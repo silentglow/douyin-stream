@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutGrid, Library, Settings, Sun, Moon, X } from 'lucide-react';
+import { LayoutGrid, Library, Settings, Sun, Moon, X, Search, Compass, Activity } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
   open?: boolean;
   onClose?: () => void;
+  onOpenSearch?: () => void;
 }
 
 function SidebarItem({
@@ -23,7 +24,7 @@ function SidebarItem({
       className={({ isActive }) =>
         cn(
           "group relative flex items-center gap-2.5 h-10 px-3 rounded-[10px] cursor-pointer select-none",
-          "transition-all duration-200 spring-ease-subtle",
+          "transition-all duration-200 spring-ease-subtle active:scale-[0.97]",
           isActive
             ? "bg-primary text-primary-foreground font-semibold"
             : "hover:bg-secondary text-foreground font-medium",
@@ -53,7 +54,7 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="group flex items-center gap-3 h-10 px-3 rounded-[10px] cursor-pointer select-none transition-all duration-200 spring-ease-subtle hover:bg-secondary text-foreground font-medium w-full"
+      className="group flex items-center gap-3 h-10 px-3 rounded-[10px] cursor-pointer select-none transition-all duration-200 spring-ease-subtle hover:bg-secondary text-foreground font-medium w-full active:scale-[0.97]"
       aria-label={`当前主题: ${isDark ? '深色' : '浅色'}，点击切换`}
     >
       {isDark ? <Moon className="size-[22px] text-muted-foreground group-hover:text-foreground" /> : <Sun className="size-[22px] text-muted-foreground group-hover:text-foreground" />}
@@ -62,7 +63,7 @@ function ThemeToggle() {
   );
 }
 
-export default function Sidebar({ open, onClose }: SidebarProps) {
+export default function Sidebar({ open, onClose, onOpenSearch }: SidebarProps) {
   return (
     <>
       {/* Mobile overlay */}
@@ -94,10 +95,26 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <h1 className="text-[20px] font-bold text-sidebar-foreground tracking-tight">Media Tools</h1>
         </div>
 
+        {/* Search trigger */}
+        {onOpenSearch && (
+          <div className="px-3 mb-2">
+            <button
+              onClick={() => { onOpenSearch(); onClose?.(); }}
+              className="w-full flex items-center gap-2.5 h-9 px-3 rounded-[10px] bg-secondary/60 hover:bg-secondary transition-all cursor-pointer select-none text-muted-foreground text-sm"
+            >
+              <Search className="size-4 shrink-0" />
+              <span className="flex-1 text-left">搜索...</span>
+              <kbd className="text-[10px] px-1.5 py-0.5 bg-card rounded border border-border font-mono">⌘K</kbd>
+            </button>
+          </div>
+        )}
+
         {/* Primary Nav */}
         <nav className="px-3 py-2 space-y-1">
           <SidebarItem icon={LayoutGrid} label="工作台" href="/home" />
+          <SidebarItem icon={Compass} label="发现" href="/discover" />
           <SidebarItem icon={Library} label="内容库" href="/library" />
+          <SidebarItem icon={Activity} label="任务" href="/tasks" />
           <SidebarItem icon={Settings} label="设置" href="/settings" />
         </nav>
 

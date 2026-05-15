@@ -1,7 +1,7 @@
 import asyncio
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
-from media_tools.common.paths import get_download_path, get_project_root
+from media_tools.common.paths import get_download_path, get_transcripts_path
 from media_tools.store.db import get_db_connection, resolve_safe_path, resolve_query_value
 from media_tools.creators.repository import CreatorRepository
 from media_tools.assets.repository import AssetRepository
@@ -26,7 +26,7 @@ _disk_counts_lock = threading.Lock()
 
 def _scan_creator_disk_counts(folder_name: str) -> dict[str, int]:
     download_dir = get_download_path() / folder_name
-    transcripts_dir = get_project_root() / "transcripts" / folder_name
+    transcripts_dir = get_transcripts_path() / folder_name
 
     from collections import Counter
 
@@ -102,7 +102,7 @@ def _get_creator_folder_name(creator: dict) -> str:
             deduped.append(c)
 
     download_base = get_download_path()
-    transcripts_base = get_project_root() / "transcripts"
+    transcripts_base = get_transcripts_path()
     for c in deduped:
         if (download_base / c).exists() or (transcripts_base / c).exists():
             return c
@@ -125,6 +125,10 @@ def _get_cached_creator_disk_counts(folder_name: str) -> dict[str, int]:
 
 class CreatorCreateRequest(BaseModel):
     url: str
+
+
+class ToggleAutoSyncRequest(BaseModel):
+    auto_sync: bool
 
 
 @router.get("")
@@ -199,6 +203,20 @@ async def create_creator(req: CreatorCreateRequest):
     except (RuntimeError, OSError, ValueError) as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.patch("/{uid}/auto-sync")
+def toggle_creator_auto_sync(uid: str, req: ToggleAutoSyncRequest):
+    """切换创作者自动同步状态"""
+    try:
+        if not CreatorRepository.exists(uid):
+            raise HTTPException(status_code=404, detail="Creator not found")
+        CreatorRepository.toggle_auto_sync(uid, req.auto_sync)
+        return {"status": "success", "auto_sync": req.auto_sync}
+    except HTTPException:
+        raise
+    except (sqlite3.Error, RuntimeError) as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/{uid}")
 def delete_creator(uid: str):
     try:
@@ -222,7 +240,7 @@ def delete_creator(uid: str):
 
             # Delete transcript file
             if transcript_name:
-                full_transcript_path = resolve_safe_path(get_project_root() / "transcripts", transcript_name)
+                full_transcript_path = resolve_safe_path(get_transcripts_path(), transcript_name)
                 if full_transcript_path and full_transcript_path.exists():
                     try:
                         full_transcript_path.unlink()

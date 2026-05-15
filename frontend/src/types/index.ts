@@ -17,6 +17,7 @@ export interface Creator {
   disk_asset_count?: number;
   disk_transcript_completed_count?: number;
   disk_transcript_pending_count?: number;
+  auto_sync?: number | boolean;
 }
 
 export interface Asset {
@@ -179,6 +180,7 @@ export interface QwenStatusAccount {
 export interface QwenStatusResponse {
   status: string;
   accounts: QwenStatusAccount[];
+  message?: string;
 }
 
 export interface AddQwenAccountResponse {

@@ -9,6 +9,7 @@ import { WidgetGrid } from '@/components/layout/WidgetGrid';
 import { useStore } from '@/store/useStore';
 import { getDashboard, type DashboardData } from '@/services/dashboard';
 import { getFailureSummary, type FailureSummary } from '@/services/tasks';
+import { getQwenStatus, triggerPipeline } from '@/lib/api';
 import { getTaskDisplayState } from '@/lib/task-utils';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -97,24 +98,50 @@ export default function Home() {
 
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [failureSummary, setFailureSummary] = useState<FailureSummary | null>(null);
+  const [qwenAccounts, setQwenAccounts] = useState<Array<{ accountId: string; remaining_hours: number }>>([]);
   const [loading, setLoading] = useState(true);
+
+  // Fetch all dashboard data
+  const refreshDashboard = useCallback(async () => {
+    try {
+      const [dash, fail] = await Promise.all([getDashboard(), getFailureSummary(1)]);
+      setDashboard(dash);
+      setFailureSummary(fail);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
+
     async function load() {
-      try {
-        const [dash, fail] = await Promise.all([getDashboard(), getFailureSummary(1)]);
-        if (!cancelled) {
-          setDashboard(dash);
-          setFailureSummary(fail);
-        }
-      } catch { /* ignore */ }
-      finally { if (!cancelled) setLoading(false); }
+      await refreshDashboard();
+      fetchCreators();
+
+      getQwenStatus()
+        .then((res) => {
+          if (!cancelled) setQwenAccounts(res.accounts || []);
+        })
+        .catch(() => { /* ignore */ });
     }
     load();
-    fetchCreators();
-    return () => { cancelled = true; };
-  }, [fetchCreators]);
+
+    // Refresh when tab becomes visible again
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        refreshDashboard();
+        getQwenStatus()
+          .then((res) => setQwenAccounts(res.accounts || []))
+          .catch(() => { /* ignore */ });
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [fetchCreators, refreshDashboard]);
 
   /* 活跃任务 */
   const activeTasks = useMemo(() => {
@@ -136,7 +163,7 @@ export default function Home() {
       .slice(0, 5);
     return done.map((t) => ({
       id: t.task_id,
-      type: t.status === 'COMPLETED' ? 'success' : t.status === 'PARTIAL_FAILED' ? 'warning' : 'error' as const,
+      type: (t.status === 'COMPLETED' ? 'success' : t.status === 'PARTIAL_FAILED' ? 'warning' : 'error') as const,
       text: t.task_type === 'pipeline' ? '下载完成' : t.task_type === 'transcribe' ? '转写完成' : '任务完成',
       detail: t.payload ? (() => { try { const p = JSON.parse(t.payload); return p.msg || ''; } catch { return ''; } })() : '',
       time: t.update_time ? new Date(t.update_time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '',
@@ -146,19 +173,30 @@ export default function Home() {
   const topTask = activeTasks[0];
   const healthHealthy = dashboard?.health?.total_anomaly_count === 0;
 
-  const totalQuotaHours = useMemo(() => {
-    if (!dashboard?.quota_status?.accounts) return 0;
-    return dashboard.quota_status.accounts.reduce((sum, a) => sum + (a.remaining_hours || 0), 0);
-  }, [dashboard]);
-
   const autoSyncCount = creators.filter((c) => c.sync_status === 'auto' || c.sync_status === 'active').length;
 
   /* 快捷操作 */
-  const handlePasteLink = useCallback(() => {
-    navigator.clipboard.readText().then((text) => {
-      if (text.trim()) toast.success('已粘贴链接，跳转下载...');
-      else toast.error('剪贴板为空');
-    }).catch(() => toast.error('无法读取剪贴板'));
+  const handlePasteLink = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const url = text.trim();
+      if (!url) {
+        toast.error('剪贴板为空');
+        return;
+      }
+      // Basic URL validation
+      if (!url.startsWith('http')) {
+        toast.error('剪贴板内容不是有效链接');
+        return;
+      }
+      toast.info('正在开始下载任务...');
+      const result = await triggerPipeline(url);
+      toast.success('下载任务已创建', {
+        description: `任务 ID: ${result.task_id.slice(0, 8)}...`,
+      });
+    } catch {
+      toast.error('创建下载任务失败，请检查链接有效性');
+    }
   }, []);
 
   if (loading) {
@@ -215,14 +253,18 @@ export default function Home() {
         <Widget
           size="small"
           icon={<Star className="size-4" style={{ color: C.purple }} />}
-          iconBg="bg-[rgba(10,132,255,0.12)]"
+          iconBg="bg-[rgba(175,82,222,0.12)]"
           title="Qwen 额度"
-          tint="blue"
-          footer={`${dashboard?.quota_status?.accounts?.length || 0} 个账号可用`}
+          tint="purple"
+          footer={qwenAccounts.length === 0 ? '未配置' : `${qwenAccounts.length} 个账号`}
         >
-          <div className="text-display text-foreground">
-            {Math.round(totalQuotaHours)}h
-          </div>
+          {(() => {
+            if (qwenAccounts.length === 0) {
+              return <div className="text-title-2 text-muted-foreground">--</div>;
+            }
+            const total = qwenAccounts.reduce((s, a) => s + (a.remaining_hours || 0), 0);
+            return <div className="text-display text-foreground">{Math.round(total)}h</div>;
+          })()}
         </Widget>
 
         <Widget
@@ -257,7 +299,23 @@ export default function Home() {
             <ProgressBar percent={topTask.progress || 0} gradient />
             <div className="text-[13px] mt-1.5" style={{ color: C.textSecondary }}>
               {topTask.status === 'RUNNING' ? '运行中' : topTask.status === 'PAUSED' ? '已暂停' : topTask.status}
-              {' · 预计剩余 '}4{' 分钟 · 已下载 '}12{'/'}15{' 个视频'}
+              {(() => {
+                try {
+                  const p = JSON.parse(topTask.payload || '{}');
+                  const pp = p.pipeline_progress;
+                  if (pp) {
+                    const downloadTotal = pp.download?.total ?? 0;
+                    const downloadDone = pp.download?.done ?? 0;
+                    const transcribeTotal = pp.transcribe?.total ?? 0;
+                    const transcribeDone = pp.transcribe?.done ?? 0;
+                    const parts: string[] = [];
+                    if (downloadTotal > 0) parts.push(`已下载 ${downloadDone}/${downloadTotal}`);
+                    if (transcribeTotal > 0) parts.push(`已转写 ${transcribeDone}/${transcribeTotal}`);
+                    return parts.length > 0 ? ` · ${parts.join(' · ')}` : '';
+                  }
+                } catch { /* ignore */ }
+                return '';
+              })()}
             </div>
             <StageIndicator stages={['下载', '转写', '导出']} activeIndex={(() => {
               const p = topTask.progress || 0;
@@ -267,7 +325,7 @@ export default function Home() {
             })()} />
           </Widget>
         ) : (
-          <Widget size="large" icon={<Cloud className="size-4 text-[#C7C7CC]" />} iconBg="bg-secondary" title="实时任务进度">
+          <Widget size="large" icon={<Cloud className="size-4 text-muted-foreground/50" />} iconBg="bg-secondary" title="实时任务进度">
             <div className="flex flex-col items-center justify-center py-4 gap-3">
               <Cloud className="size-16 opacity-40" style={{ color: C.textSecondary }} />
               <div className="text-sm" style={{ color: C.textSecondary }}>系统空闲中</div>

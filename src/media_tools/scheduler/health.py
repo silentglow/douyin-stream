@@ -29,9 +29,9 @@ def _check_completed_but_missing_file(
         name="completed_transcript_file_missing",
         description="media_assets.transcript_status='completed' 但 transcript 文件不存在（疑似被误删）",
     )
-    from media_tools.core.config import get_project_root
+    from media_tools.common.paths import get_transcripts_path
 
-    transcripts_root = get_project_root() / "transcripts"
+    transcripts_root = get_transcripts_path()
     rows = conn.execute(
         """
         SELECT asset_id, transcript_path, title

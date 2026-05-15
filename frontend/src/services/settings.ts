@@ -5,7 +5,7 @@ export const getSettings = async (signal?: AbortSignal): Promise<{
   douyin_accounts: Array<{id: string; status: string; last_used: string | null; remark: string; create_time: string}>;
   qwen_accounts: Array<{id: string; status: string; last_used: string | null; remark: string; create_time: string}>;
   bilibili_accounts: Array<{id: string; status: string; last_used: string | null; remark: string; create_time: string}>;
-  global_settings: {concurrency: number; auto_delete: boolean; auto_transcribe: boolean; export_format: string};
+  global_settings: {concurrency: number; auto_delete: boolean; auto_transcribe: boolean; export_format: string; transcript_output_dir: string};
   status_summary: {
     qwen_ready: boolean;
     douyin_ready: boolean;
@@ -77,10 +77,13 @@ export const updateBilibiliAccountRemark = async (accountId: string, remark: str
   return response.data;
 };
 
-export const updateGlobalSettings = async (autoDelete: boolean, autoTranscribe: boolean, exportFormat?: string, signal?: AbortSignal): Promise<unknown> => {
+export const updateGlobalSettings = async (autoDelete: boolean, autoTranscribe: boolean, exportFormat?: string, transcriptOutputDir?: string, signal?: AbortSignal): Promise<unknown> => {
   const payload: Record<string, unknown> = { auto_delete: autoDelete, auto_transcribe: autoTranscribe };
   if (exportFormat !== undefined) {
     payload.export_format = exportFormat;
+  }
+  if (transcriptOutputDir !== undefined) {
+    payload.transcript_output_dir = transcriptOutputDir;
   }
   const response = await apiClient.post('/settings/global', payload, { signal });
   return response.data;
@@ -93,5 +96,15 @@ export const getQwenStatus = async (signal?: AbortSignal): Promise<import('@/typ
 
 export const claimQwenQuota = async (signal?: AbortSignal) => {
   const response = await apiClient.post('/settings/qwen/claim', null, { signal });
+  return response.data;
+};
+
+export const updateQwenAccountCookie = async (accountId: string, cookieString: string, signal?: AbortSignal): Promise<unknown> => {
+  const response = await apiClient.put(`/settings/qwen/accounts/${accountId}/cookie`, { cookie_string: cookieString }, { signal });
+  return response.data;
+};
+
+export const rehydrateQwenAccounts = async (signal?: AbortSignal): Promise<unknown> => {
+  const response = await apiClient.post('/settings/qwen/accounts/rehydrate', null, { signal });
   return response.data;
 };

@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-from media_tools.common.paths import get_download_path, get_project_root
+from media_tools.common.paths import get_download_path, get_transcripts_path
 from media_tools.core.config import get_runtime_setting_bool
 from media_tools.store.db import get_db_connection
 from media_tools.transcribe.worker import run_local_transcribe
@@ -233,7 +233,7 @@ class CreatorTranscribeWorker(BaseWorker):
         )
 
         downloads_root = get_download_path().resolve()
-        transcripts_root = (get_project_root() / "transcripts").resolve()
+        transcripts_root = get_transcripts_path().resolve()
         creator_folder = _derive_creator_folder(file_paths, downloads_root, uid)
         cache_dir = transcripts_root / creator_folder / ".cache" / task_id
         cache_dir.mkdir(parents=True, exist_ok=True)

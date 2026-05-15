@@ -1,4 +1,5 @@
 import { memo, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, ChevronDown, FileText, Loader2, MinusCircle, RotateCw, Trash2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -307,6 +308,7 @@ interface TaskItemProps {
 }
 
 export const TaskItem = memo(function TaskItem({ task, onRetry, isExpanded, onToggleExpand }: TaskItemProps) {
+  const navigate = useNavigate();
   const state = getTaskDisplayState(task);
   const message = getTaskMessage(task);
   const error = getTaskError(task);
@@ -977,8 +979,7 @@ function TaskSubtasks({
                         disabled={retryingTask}
                         onClick={async () => {
                           if (errorInfo.action?.kind === 'open_settings') {
-                            window.history.pushState({}, '', '/settings');
-                            window.dispatchEvent(new PopStateEvent('popstate'));
+                            navigate('/settings');
                             return;
                           }
                           if (retryingTask) return;

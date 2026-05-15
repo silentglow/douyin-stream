@@ -15,3 +15,8 @@ export const deleteCreator = async (creatorUid: string, signal?: AbortSignal): P
   const response = await apiClient.delete(`/creators/${creatorUid}`, { signal });
   return response.data;
 };
+
+export const toggleCreatorAutoSync = async (creatorUid: string, autoSync: boolean, signal?: AbortSignal): Promise<{ status: string; auto_sync: boolean }> => {
+  const response = await apiClient.patch(`/creators/${creatorUid}/auto-sync`, { auto_sync: autoSync }, { signal });
+  return response.data;
+};

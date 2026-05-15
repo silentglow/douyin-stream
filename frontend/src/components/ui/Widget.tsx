@@ -32,10 +32,10 @@ const sizeClass = {
   large: 'col-span-2 sm:col-span-3 lg:col-span-4',
 };
 
-const aspectClass = {
-  small: 'aspect-square',
-  medium: 'aspect-[2/1]',
-  large: 'aspect-[2/1] lg:aspect-[4/2]',
+const minHeightClass = {
+  small: 'min-h-[140px]',
+  medium: 'min-h-[160px]',
+  large: 'min-h-[180px]',
 };
 
 export function Widget({
@@ -52,9 +52,9 @@ export function Widget({
   return (
     <motion.div
       onClick={onClick}
-      whileHover={{ scale: 0.98 }}
+      whileHover={{ scale: 0.985 }}
       whileTap={{ scale: 0.97 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       className={cn(
         'bg-card',
         'apple-shadow-widget',
@@ -62,7 +62,7 @@ export function Widget({
         'rounded-[22px] max-sm:rounded-[18px]',
         'cursor-pointer',
         sizeClass[size],
-        aspectClass[size],
+        minHeightClass[size],
         tintMap[tint],
         className,
       )}
@@ -73,7 +73,7 @@ export function Widget({
             {icon}
           </div>
         )}
-        <span className="text-[15px] font-semibold text-[#8E8E93]">
+        <span className="text-[13px] font-semibold tracking-wide text-muted-foreground uppercase">
           {title}
         </span>
       </div>
@@ -81,7 +81,7 @@ export function Widget({
         {children}
       </div>
       {footer && (
-        <div className="text-xs text-[#8E8E93]">{footer}</div>
+        <div className="text-xs text-muted-foreground mt-auto">{footer}</div>
       )}
     </motion.div>
   );

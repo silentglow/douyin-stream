@@ -16,11 +16,11 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
         type="button"
         onClick={() => onCheckedChange?.(!checked)}
         className={cn(
-          "peer relative inline-flex h-[30px] w-[50px] shrink-0 cursor-pointer rounded-full border-0 bg-[#C7C7CC] transition-colors duration-200",
+          "peer relative inline-flex h-[30px] w-[50px] shrink-0 cursor-pointer rounded-full border-0 bg-muted-foreground/30 transition-colors duration-200",
           "after:absolute after:left-[2px] after:top-[2px] after:h-[26px] after:w-[26px] after:rounded-full",
-          "after:bg-white after:shadow-sm",
+          "after:bg-background after:shadow-sm",
           "after:transition-all after:duration-200",
-          checked && "bg-[#34C759] after:left-[22px] after:shadow-md",
+          checked && "bg-success after:left-[22px] after:shadow-md",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
           "active:scale-[0.97]",
           className
