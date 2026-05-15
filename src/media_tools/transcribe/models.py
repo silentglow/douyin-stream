@@ -111,29 +111,6 @@ class RetryConfig:
 
 
 @dataclass
-class VideoState:
-    """单个视频的处理状态"""
-    video_path: str
-    status: str = "pending"
-    attempt: int = 0
-    max_attempts: int = 3
-    error_type: str = ""
-    error_message: str = ""
-    transcript_path: str = ""
-    started_at: float = 0.0
-    completed_at: float = 0.0
-    last_error_time: float = 0.0
-
-    @property
-    def can_retry(self) -> bool:
-        return self.status == "failed" and self.attempt < self.max_attempts
-
-    @property
-    def duration(self) -> float:
-        if self.completed_at > 0 and self.started_at > 0:
-            return self.completed_at - self.started_at
-        return 0.0
-
 
 @dataclass
 class PipelineResultV2:
