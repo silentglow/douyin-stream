@@ -29,9 +29,11 @@ apiClient.interceptors.response.use(
       } else if (status >= 400) {
         toast.error(message);
       } else if (!error.response) {
-        // Network error - no response from server
+        // 无 response 的情况：广告拦截器拦截（ERR_BLOCKED_BY_CLIENT）、
+        // 后端短暂不可达、网络断开等。这些通常是后台轮询请求，
+        // 弹 toast 会打扰用户；仅 console.error 记录。
+        // 用户主动操作触发的请求，业务层会自行 try/catch 提示更具体的错误。
         console.error('Network Error:', error.config?.url, error.message);
-        toast.error(`网络错误: ${message}`);
       }
     }
     return Promise.reject(error);
