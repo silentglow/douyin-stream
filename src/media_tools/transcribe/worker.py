@@ -110,6 +110,8 @@ async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, d
 
             if delete_after and video_path.exists():
                 if transcript_path and Path(transcript_path).exists():
+                    from media_tools.assets.service import MediaAssetService
+                    MediaAssetService.mark_archived(video_path)
                     try:
                         video_path.unlink()
                     except FileNotFoundError:
@@ -206,10 +208,12 @@ def _extract_successful_paths(report) -> set[str]:
 
 
 def _delete_transcribed_videos(video_paths: list[Path], successful_paths: set[str]) -> None:
-    """删除已成功转写的视频文件。"""
+    """删除已成功转写的视频文件，并将 media_assets.video_status 标记为 archived。"""
+    from media_tools.assets.service import MediaAssetService
     for path in video_paths:
         if str(path.resolve()) not in successful_paths:
             continue
+        MediaAssetService.mark_archived(path)
         if path.exists():
             try:
                 path.unlink()
@@ -279,11 +283,17 @@ async def run_pipeline_for_user(url: str, max_counts: int, update_progress_fn, d
         raise
 
     # 检查是否被取消（下载完成后）
-    if isinstance(dl_result, dict) and dl_result.get("cancelled"):
+    if (hasattr(dl_result, 'raw') and isinstance(dl_result.raw, dict) and dl_result.raw.get("cancelled")) or \
+       (isinstance(dl_result, dict) and dl_result.get("cancelled")):
         await call_progress(update_progress_fn, 1.0, "任务已取消", stage="failed")
         return {"success_count": 0, "failed_count": 0, "cancelled": True}
 
-    new_files = dl_result.get('new_files', []) if isinstance(dl_result, dict) else []
+    if hasattr(dl_result, 'new_files'):
+        new_files = list(dl_result.new_files) if dl_result.new_files else []
+    elif isinstance(dl_result, dict):
+        new_files = dl_result.get('new_files', [])
+    else:
+        new_files = []
 
     if not new_files:
         await call_progress(update_progress_fn, 1.0, "没有下载到新视频", stage="done")
@@ -353,7 +363,9 @@ async def run_batch_pipeline(video_urls: list[str], update_progress_fn, delete_a
         except asyncio.TimeoutError:
             logger.error(f"批量下载超时: {url}")
             continue
-        if isinstance(dl_result, dict) and dl_result.get('new_files'):
+        if hasattr(dl_result, 'new_files') and dl_result.new_files:
+            new_files.extend(dl_result.new_files)
+        elif isinstance(dl_result, dict) and dl_result.get('new_files'):
             new_files.extend(dl_result['new_files'])
 
     if not new_files:

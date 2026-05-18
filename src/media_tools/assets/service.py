@@ -89,11 +89,49 @@ class MediaAssetService:
                         update_time = ?
                     WHERE asset_id = ?
                       AND (COALESCE(video_path, '') != ? OR COALESCE(video_status, '') != ?)
+                      AND NOT (video_status = 'archived' AND ? = 'pending')
                     """,
-                    (video_path, video_status, source_platform, now, asset_id, video_path, video_status),
+                    (video_path, video_status, source_platform, now, asset_id, video_path, video_status, video_status),
                 )
         except sqlite3.Error as e:
             logger.warning(f"mark_downloaded({asset_id}) 失败: {e}")
+
+    @staticmethod
+    def mark_archived(video_path: Path) -> int:
+        """转写成功并删除源视频后调用：将 media_assets.video_status 标为 'archived'。
+
+        Returns: 受影响的行数。
+        """
+        from media_tools.core.config import get_download_path
+        try:
+            downloads_root = get_download_path()
+            try:
+                rel = str(video_path.resolve().relative_to(downloads_root.resolve()))
+            except ValueError:
+                rel = video_path.name
+            now = datetime.now().isoformat()
+            with get_db_connection() as conn:
+                cur = conn.execute(
+                    """
+                    UPDATE media_assets
+                    SET video_status = 'archived', update_time = ?
+                    WHERE video_path = ? AND video_status IN ('downloaded', 'pending')
+                    """,
+                    (now, rel),
+                )
+                if cur.rowcount == 0:
+                    cur = conn.execute(
+                        """
+                        UPDATE media_assets
+                        SET video_status = 'archived', update_time = ?
+                        WHERE video_path LIKE ? AND video_status IN ('downloaded', 'pending')
+                        """,
+                        (now, f"%/{video_path.name}"),
+                    )
+                return cur.rowcount or 0
+        except sqlite3.Error as e:
+            logger.warning(f"mark_archived({video_path}) 失败: {e}")
+            return 0
 
     @staticmethod
     def mark_transcribe_running(asset_id: str, task_id: Optional[str] = None) -> None:
@@ -255,7 +293,7 @@ class MediaAssetService:
         only_failed: bool = False,
         limit: int = 1000,
     ) -> list[dict[str, Any]]:
-        clauses: list[str] = ["video_status IN ('downloaded', 'pending')"]
+        clauses: list[str] = ["video_status IN ('downloaded', 'pending', 'archived')"]
         params: list[Any] = []
 
         if only_failed:

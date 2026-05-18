@@ -161,7 +161,7 @@ class CreatorSyncWorker(BaseWorker):
             0.05, f"开始同步 {display_name} 的视频（{mode_label}）...", stage="fetching"
         )
 
-        skip_existing = True
+        skip_existing = self._mode != "full"
         total_downloaded = 0
         all_new_files: list[str] = []
         last_result: dict[str, Any] = {}
@@ -337,8 +337,10 @@ class CreatorSyncWorker(BaseWorker):
             last_result.update(result)
 
         if not isinstance(result, dict) or not result.get("success"):
-            logger.warning(f"下载失败: {result}")
-            raise RuntimeError(f"下载失败: {result}")
+            err = result.get("error") if isinstance(result, dict) else ""
+            msg = f"下载失败: {err}" if err else f"下载失败: {result}"
+            logger.warning(msg)
+            raise RuntimeError(msg)
 
         return (result.get("new_files") or []) if isinstance(result, dict) else []
 
@@ -413,7 +415,7 @@ class CreatorSyncWorker(BaseWorker):
 
                     for aweme_id, title in videos:
                         video_status = status_map.get(aweme_id) or ""
-                        if video_status != "downloaded":
+                        if video_status not in ("downloaded", "archived"):
                             reason = "未找到已下载文件"
                             reconcile_missing += 1
                             missing_items.append(

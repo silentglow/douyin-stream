@@ -135,7 +135,7 @@ class CreatorRepository:
                     c.last_fetch_time,
                     {auto_sync_select},
                     COUNT(ma.asset_id) AS asset_count,
-                    COALESCE(SUM(CASE WHEN ma.video_status = 'downloaded' THEN 1 ELSE 0 END), 0) AS downloaded_videos_count,
+                    COALESCE(SUM(CASE WHEN ma.video_status IN ('downloaded', 'archived') THEN 1 ELSE 0 END), 0) AS downloaded_videos_count,
                     COALESCE(SUM(CASE WHEN ma.transcript_status = 'completed' THEN 1 ELSE 0 END), 0) AS transcript_completed_count,
                     COALESCE(SUM(CASE WHEN ma.transcript_status = 'completed' AND (ma.is_read = 0 OR ma.is_read IS NULL) THEN 1 ELSE 0 END), 0) AS unread_completed_count,
                     COALESCE(SUM(CASE WHEN ma.transcript_status IN ('pending', 'none') AND ma.video_status IN ('downloaded', 'pending') THEN 1 ELSE 0 END), 0) AS transcript_pending_count,

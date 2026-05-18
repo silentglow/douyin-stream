@@ -736,6 +736,7 @@ async def _download_with_stats(
     logger.info(info("[下载] 正在获取视频列表..."))
     logger.info("正在获取视频列表...")
 
+    fetch_error: Optional[str] = None
     try:
         async for aweme_data_list in handler.fetch_user_post_videos(
             sec_user_id, max_counts=max_counts or float("inf")
@@ -820,11 +821,12 @@ async def _download_with_stats(
 
                 logger.info(info(f"[下载] 累计新增 {total_downloaded} 个，跳过 {total_skipped} 个已有"))
     except (RuntimeError, OSError, ValueError) as e:
+        fetch_error = str(e)
         logger.error(f"下载过程中出错: {e}")
         logger.info(error(f"下载过程中出错: {e}"))
         if task_id:
             add_download_error(task_id, url, str(e))
-        # 继续处理已下载的视频
+        # 继续处理已下载的视频，但末尾返回 success=False
 
     # 更新总数量
     if task_id:
@@ -882,6 +884,18 @@ async def _download_with_stats(
     # 去重：同一个物理文件不应被转写多次
     new_files = list(dict.fromkeys(new_files))
 
+    # 静默失败检测：F2 可能在 create_download_tasks 阶段静默失败
+    # （cookie 过期、风控、网络等），声明下载了 N 个但实际 0 个落盘
+    silent_fail_error = ""
+    if new_aweme_ids and not new_files:
+        silent_fail_error = (
+            f"声明下载 {len(new_aweme_ids)} 个但实际 0 个落盘（cookie 可能过期或被风控）"
+        )
+        logger.error(silent_fail_error)
+        logger.info(error(f"[失败] {silent_fail_error}"))
+        if task_id:
+            add_download_error(task_id, url, silent_fail_error)
+
     # 更新状态为完成
     if task_id:
         update_stage(task_id, Stage.COMPLETED)
@@ -891,8 +905,10 @@ async def _download_with_stats(
     if folder_name:
         logger.info(info(f"[位置] {downloads_path / folder_name}"))
 
+    final_error = fetch_error or silent_fail_error
     return {
-        'success': True,
+        'success': not final_error,
+        'error': final_error,
         'uid': uid,
         'nickname': nickname,
         'new_files': new_files,
