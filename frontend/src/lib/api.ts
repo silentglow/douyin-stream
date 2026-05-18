@@ -15,6 +15,10 @@ export const apiClient = axios.create({
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    // 用户主动取消的请求（AbortSignal / 组件卸载 / 路由切换）不算错误
+    if (axios.isCancel(error) || error?.code === 'ERR_CANCELED' || error?.name === 'CanceledError') {
+      return Promise.reject(error);
+    }
     if (axios.isAxiosError(error)) {
       const data = error.response?.data;
       const status = error.response?.status ?? 0;
@@ -24,6 +28,10 @@ apiClient.interceptors.response.use(
         toast.error(`服务器错误: ${message}`);
       } else if (status >= 400) {
         toast.error(message);
+      } else if (!error.response) {
+        // Network error - no response from server
+        console.error('Network Error:', error.config?.url, error.message);
+        toast.error(`网络错误: ${message}`);
       }
     }
     return Promise.reject(error);
@@ -133,3 +141,9 @@ export {
   getDashboard,
 } from '@/services/dashboard';
 export type { DashboardData, HealthCheck } from '@/services/dashboard';
+
+// ── Transcripts ──
+export async function getTranscripts(status: 'all' | 'unread' | 'starred' = 'all') {
+  const res = await apiClient.get('/transcripts', { params: { status } });
+  return res.data;
+}
