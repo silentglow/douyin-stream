@@ -28,50 +28,58 @@ export function CreatorCard({
   return (
     <motion.div
       layout
-      className="bg-[var(--color-ink)] p-5 cursor-pointer group hover:bg-[var(--color-paper)] transition-colors relative"
+      className="ed-card p-5 cursor-pointer group relative flex flex-col justify-between min-h-[160px]"
       onClick={onClick}
     >
-      {/* Auto/manual badge */}
-      <div className="flex justify-end mb-3">
-        <span className={cn('text-[10px] tracking-[0.16em] uppercase', creator.auto_sync ? 'text-[var(--color-rust)]' : 'text-[var(--color-smoke)]')}>
-          {creator.auto_sync ? '自动' : '手动'}
-        </span>
-      </div>
+      <div>
+        {/* Auto/manual badge */}
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-[10px] font-bold tracking-widest text-[var(--color-smoke)] uppercase">
+            #{creator.uid.slice(0, 6)}
+          </span>
+          <span className={cn(
+            'text-[10.5px] font-semibold tracking-wider px-2 py-0.5 rounded-full',
+            creator.auto_sync ? 'text-[var(--color-rust)] bg-[rgba(99,102,241,0.08)]' : 'text-[var(--color-smoke)] bg-white/5'
+          )}>
+            {creator.auto_sync ? '自动' : '手动'}
+          </span>
+        </div>
 
-      {/* Name */}
-      <div className="font-display text-[24px] text-[var(--color-bone)] leading-tight group-hover:text-[var(--color-rust)] transition-colors line-clamp-2 min-h-[60px]">
-        {creator.nickname || '未命名'}
+        {/* Name */}
+        <div className="font-sans font-semibold text-[17px] text-[var(--color-bone)] leading-snug group-hover:text-[var(--color-rust)] transition-colors line-clamp-2 pr-6">
+          {creator.nickname || '未命名'}
+        </div>
       </div>
 
       {/* Stats */}
       <div className="mt-4 pt-3 border-t border-[var(--color-hairline-faint)] flex items-baseline justify-between">
-        <span className="text-[12px] text-[var(--color-ash)]">
-          <span className="font-display text-[18px] text-[var(--color-bone)] tabular mr-1">{creator.asset_count || 0}</span>
+        <span className="text-[12.5px] text-[var(--color-ash)]">
+          <span className="font-sans font-bold text-[16px] text-[var(--color-bone)] mr-1 tabular">{creator.asset_count || 0}</span>
           视频
         </span>
-        <span className="text-[12px] text-[var(--color-ash)]">
-          <span className="font-display text-[18px] text-[var(--color-rust)] tabular mr-1">{creator.transcript_completed_count || 0}</span>
+        <span className="text-[12.5px] text-[var(--color-ash)]">
+          <span className="font-sans font-bold text-[16px] text-[var(--color-rust)] mr-1 tabular">{creator.transcript_completed_count || 0}</span>
           文稿
         </span>
       </div>
 
       {/* Hover actions */}
-      <div className="absolute top-3 left-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute top-14 right-4 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           onClick={onSync}
           disabled={isSyncing || isDeleting}
-          className="w-7 h-7 flex items-center justify-center bg-[var(--color-vellum)] border border-[var(--color-hairline-strong)] hover:border-[var(--color-rust)] hover:text-[var(--color-rust)] transition-colors text-[var(--color-ash)]"
+          className="w-8 h-8 flex items-center justify-center bg-[var(--color-vellum)] border border-[var(--color-hairline-strong)] rounded-lg hover:border-[var(--color-rust)] hover:text-[var(--color-rust)] transition-colors text-[var(--color-ash)] shadow-sm"
           title="同步"
         >
-          {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+          {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
         </button>
         <button
           onClick={onMore}
           disabled={isDeleting}
-          className="w-7 h-7 flex items-center justify-center bg-[var(--color-vellum)] border border-[var(--color-hairline-strong)] hover:border-[var(--color-rust)] hover:text-[var(--color-rust)] transition-colors text-[var(--color-ash)]"
+          className="w-8 h-8 flex items-center justify-center bg-[var(--color-vellum)] border border-[var(--color-hairline-strong)] rounded-lg hover:border-[var(--color-rust)] hover:text-[var(--color-rust)] transition-colors text-[var(--color-ash)] shadow-sm"
           title="更多"
         >
-          {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MoreHorizontal className="w-3 h-3" />}
+          {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <MoreHorizontal className="w-4 h-4" />}
         </button>
       </div>
     </motion.div>

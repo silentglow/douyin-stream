@@ -130,26 +130,31 @@ export default function Tasks() {
 
       {/* ═══ STATS — 4 columns ══════════════════════════════════ */}
       <section className="px-10 py-10 border-b border-[var(--color-hairline)]">
-        <div className="grid grid-cols-4 divide-x divide-[var(--color-hairline-faint)] stagger">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 stagger">
           {[
             { label: '运行中', value: activeCount,           accent: activeCount > 0 },
             { label: '成功',   value: successCount,          tone: 'patina' as const },
             { label: '失败',   value: failedCount,           tone: failedCount > 0 ? 'iron' as const : undefined },
             { label: '总计',   value: sortedTasks.length     },
           ].map((s) => (
-            <div key={s.label} className="px-7 py-5 first:pl-0">
-              <div className="eyebrow mb-4">{s.label}</div>
-              <div className={cn(
-                'numeral text-[clamp(48px,6vw,88px)]',
-                s.tone === 'patina' && 'text-[var(--color-patina)]',
-                s.tone === 'iron' && 'text-[var(--color-iron)]',
-                s.accent && 'text-[var(--color-rust)]'
-              )}>
-                <NumberFlow
-                  value={s.value}
-                  transformTiming={{ duration: 700, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' }}
-                  spinTiming={{ duration: 700, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' }}
-                />
+            <div key={s.label} className="bg-[var(--color-paper)] border border-white/[0.03] hover:border-[var(--color-rust)]/25 hover:bg-[rgba(99,102,241,0.02)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] rounded-[var(--radius-card)] p-6 transition-all duration-300 flex flex-col justify-between min-h-[148px]">
+              <div>
+                <div className="text-[10px] font-bold tracking-widest text-[var(--color-smoke)] uppercase mb-2">{s.label}</div>
+                <div className={cn(
+                  'numeral text-[clamp(48px,6.5vw,88px)]',
+                  s.tone === 'patina' && 'text-[var(--color-patina)]',
+                  s.tone === 'iron' && 'text-[var(--color-iron)]',
+                  s.accent && 'text-[var(--color-rust)]'
+                )}>
+                  <NumberFlow
+                    value={s.value}
+                    transformTiming={{ duration: 700, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' }}
+                    spinTiming={{ duration: 700, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' }}
+                  />
+                </div>
+              </div>
+              <div className="mt-3 text-[11.5px] text-[var(--color-ash)] font-medium leading-none">
+                {s.label === '运行中' ? '排队或运行中任务' : s.label === '成功' ? '正常完成的任务' : s.label === '失败' ? '遇到异常的任务' : '全部历史任务数'}
               </div>
             </div>
           ))}

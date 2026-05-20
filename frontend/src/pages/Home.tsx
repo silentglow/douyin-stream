@@ -157,7 +157,7 @@ export default function Home() {
 
       {/* ═══ HERO STATS ═════════════════════════════════════════ */}
       <section className="px-10 py-10 border-b border-[var(--color-hairline)]">
-        <div className="grid grid-cols-4 divide-x divide-[var(--color-hairline-faint)] stagger">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 stagger">
           <HeroCol label="创作者" value={creators.length} sub={`${autoSyncCount} 个自动同步`} />
           <HeroCol label="视频" value={totalVideos} sub={`${totalTranscripts} 段已转写`} />
           <HeroCol label="文稿" value={totalTranscripts} sub={totalUnread > 0 ? `${totalUnread} 篇待阅` : '全部已读'} accent={totalUnread > 0} />
@@ -237,28 +237,35 @@ export default function Home() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-3 lg:grid-cols-4 gap-px bg-[var(--color-hairline-faint)] stagger">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 stagger">
             {creators.slice(0, 8).map((creator) => (
               <button
                 key={creator.uid}
                 onClick={() => navigate(`/library/${encodeURIComponent(creator.uid)}`)}
-                className="bg-[var(--color-ink)] p-5 text-left group hover:bg-[var(--color-paper)] transition-colors"
+                className="ed-card p-5 text-left group flex flex-col justify-between min-h-[160px] cursor-pointer"
               >
-                <div className="flex items-center justify-end mb-3">
-                  <span className={`text-[10px] tracking-[0.16em] uppercase ${creator.auto_sync ? 'text-[var(--color-rust)]' : 'text-[var(--color-smoke)]'}`}>
-                    {creator.auto_sync ? '自动' : '手动'}
-                  </span>
-                </div>
-                <div className="font-display text-[24px] text-[var(--color-bone)] leading-tight group-hover:text-[var(--color-rust)] transition-colors line-clamp-2 min-h-[60px]">
-                  {creator.nickname || '未命名'}
+                <div className="w-full">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[10px] font-bold tracking-widest text-[var(--color-smoke)] uppercase">
+                      #{creator.uid.slice(0, 6)}
+                    </span>
+                    <span className={`text-[10.5px] font-semibold tracking-wider px-2 py-0.5 rounded-full ${
+                      creator.auto_sync ? 'text-[var(--color-rust)] bg-[rgba(99,102,241,0.08)]' : 'text-[var(--color-smoke)] bg-white/5'
+                    }`}>
+                      {creator.auto_sync ? '自动' : '手动'}
+                    </span>
+                  </div>
+                  <div className="font-sans font-semibold text-[17px] text-[var(--color-bone)] leading-snug group-hover:text-[var(--color-rust)] transition-colors line-clamp-2">
+                    {creator.nickname || '未命名'}
+                  </div>
                 </div>
                 <div className="mt-4 pt-3 border-t border-[var(--color-hairline-faint)] flex items-baseline justify-between">
-                  <span className="text-[12px] text-[var(--color-ash)]">
-                    <span className="font-display text-[18px] text-[var(--color-bone)] tabular mr-1">{creator.asset_count || 0}</span>
+                  <span className="text-[12.5px] text-[var(--color-ash)]">
+                    <span className="font-sans font-bold text-[16px] text-[var(--color-bone)] mr-1 tabular">{creator.asset_count || 0}</span>
                     视频
                   </span>
-                  <span className="text-[12px] text-[var(--color-ash)]">
-                    <span className="font-display text-[18px] text-[var(--color-rust)] tabular mr-1">{creator.transcript_completed_count || 0}</span>
+                  <span className="text-[12.5px] text-[var(--color-ash)]">
+                    <span className="font-sans font-bold text-[16px] text-[var(--color-rust)] mr-1 tabular">{creator.transcript_completed_count || 0}</span>
                     文稿
                   </span>
                 </div>

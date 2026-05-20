@@ -31,12 +31,14 @@ export function HeroCol({
   accent?: boolean;
 }) {
   return (
-    <div className="px-7 py-5 first:pl-0">
-      <div className="eyebrow mb-4">{label}</div>
-      <div className={accent ? 'text-[var(--color-rust)]' : ''}>
-        <HeroNumeral value={value} unit={unit} />
+    <div className="bg-[var(--color-paper)] border border-white/[0.03] hover:border-[var(--color-rust)]/25 hover:bg-[rgba(99,102,241,0.02)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] rounded-[var(--radius-card)] p-6 transition-all duration-300 flex flex-col justify-between min-h-[148px]">
+      <div>
+        <div className="text-[10px] font-bold tracking-widest text-[var(--color-smoke)] uppercase mb-2">{label}</div>
+        <div className={accent ? 'text-[var(--color-rust)]' : 'text-[var(--color-bone)]'}>
+          <HeroNumeral value={value} unit={unit} />
+        </div>
       </div>
-      <div className="mt-3 text-[12px] text-[var(--color-ash)]">{sub}</div>
+      <div className="mt-3 text-[11.5px] text-[var(--color-ash)] font-medium leading-none">{sub}</div>
     </div>
   );
 }
@@ -59,12 +61,12 @@ export function LedgerEntry({
   };
   const s = statusMap[status];
   return (
-    <div className="grid grid-cols-[60px_1fr_auto] gap-4 py-3.5 border-b border-[var(--color-hairline-faint)] last:border-b-0 items-baseline hover:bg-[rgba(243,238,219,0.02)] transition-colors -mx-3 px-3 cursor-pointer">
+    <div className="grid grid-cols-[60px_1fr_auto] gap-4 py-3.5 border-b border-[var(--color-hairline-faint)] last:border-b-0 items-baseline hover:bg-[rgba(255,255,255,0.015)] rounded-lg transition-colors -mx-3 px-3 cursor-pointer">
       <span className="font-mono text-[11px] text-[var(--color-smoke)] tabular">{when}</span>
       <div className="min-w-0">
         <div className="flex items-baseline gap-2.5">
-          <span className="text-[14px] text-[var(--color-bone)]">{kind}</span>
-          <span className="text-[12px] text-[var(--color-ash)] truncate">{title}</span>
+          <span className="text-[14px] text-[var(--color-bone)] font-medium">{kind}</span>
+          <span className="text-[12.5px] text-[var(--color-ash)] truncate">{title}</span>
         </div>
       </div>
       <span className="flex items-center gap-2 text-[11px] text-[var(--color-ash)] flex-shrink-0">
@@ -87,9 +89,9 @@ export function ActionRow({
   return (
     <button
       onClick={onClick}
-      className="w-full text-left py-4 border-b border-[var(--color-hairline-faint)] last:border-b-0 group transition-colors hover:bg-[rgba(243,238,219,0.02)] -mx-3 px-3 flex items-baseline justify-between"
+      className="w-full text-left py-4 border-b border-[var(--color-hairline-faint)] last:border-b-0 group transition-colors hover:bg-[rgba(255,255,255,0.015)] rounded-lg -mx-3 px-3 flex items-baseline justify-between"
     >
-      <span className="text-[15px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">
+      <span className="text-[14.5px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors font-medium">
         {label}
       </span>
       {kbd && <span className="mono-cap">{kbd}</span>}

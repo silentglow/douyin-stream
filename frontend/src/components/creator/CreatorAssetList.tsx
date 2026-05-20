@@ -51,8 +51,8 @@ export const AssetListItem = memo(function AssetListItem({
       className={cn(
         'grid grid-cols-[auto_1fr_auto] items-center gap-4 px-6 py-4 border-b border-[var(--color-hairline-faint)] transition-colors group relative',
         canView || bulkMode ? 'cursor-pointer' : 'cursor-default',
-        isSelected ? 'bg-[rgba(198,107,62,0.06)]' : 'hover:bg-[rgba(243,238,219,0.02)]',
-        asset.transcript_status === 'failed' && 'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-[var(--color-iron)]'
+        isSelected ? 'bg-[rgba(99,102,241,0.06)]' : 'hover:bg-[rgba(255,255,255,0.015)]',
+        asset.transcript_status === 'failed' && 'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2.5px] before:bg-[var(--color-iron)]'
       )}
       onClick={() => {
         if (bulkMode) onToggleSelect(asset.asset_id);
@@ -62,17 +62,21 @@ export const AssetListItem = memo(function AssetListItem({
       {/* Checkbox in bulk mode */}
       {bulkMode ? (
         <div className={cn(
-          'w-4 h-4 border flex items-center justify-center shrink-0 transition-all',
+          'w-4 h-4 border rounded flex items-center justify-center shrink-0 transition-all',
           isSelected
-            ? 'bg-[var(--color-rust)] border-[var(--color-rust)]'
+            ? 'bg-[var(--color-rust)] border-[var(--color-rust)] shadow-sm shadow-[var(--color-rust)]/20'
             : 'border-[var(--color-hairline-strong)]'
         )}>
-          {isSelected && <div className="w-2 h-2 bg-[var(--color-ink)]" />}
+          {isSelected && (
+            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
         </div>
       ) : (
         <div className="w-4 flex-shrink-0">
           {!asset.is_read && asset.transcript_status === 'completed' && (
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-rust)] block" />
+            <span className="w-2 h-2 rounded-full bg-[var(--color-rust)] block shadow-[0_0_8px_rgba(99,102,241,0.6)] animate-pulse" />
           )}
         </div>
       )}
@@ -81,10 +85,10 @@ export const AssetListItem = memo(function AssetListItem({
       <div className="min-w-0">
         <div className="flex items-baseline gap-2">
           {asset.is_starred && (
-            <Star className="w-3 h-3 text-[var(--color-ember)] fill-[var(--color-ember)] flex-shrink-0 self-center" />
+            <Star className="w-3.5 h-3.5 text-[var(--color-ember)] fill-[var(--color-ember)] flex-shrink-0 self-center" />
           )}
           <div className={cn(
-            'font-display text-[18px] leading-snug line-clamp-1 transition-colors',
+            'font-sans font-medium text-[15.5px] leading-snug line-clamp-1 transition-colors',
             canView
               ? 'text-[var(--color-bone)] group-hover:text-[var(--color-rust)]'
               : 'text-[var(--color-ash)]'
@@ -109,20 +113,20 @@ export const AssetListItem = memo(function AssetListItem({
       <div className="flex items-center gap-4 flex-shrink-0">
         <StatusLabel status={asset.transcript_status} error={asset.transcript_last_error} />
         {!bulkMode && (
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={(e) => onToggleStar(asset, e)}
-              className="w-7 h-7 flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-ember)] transition-colors"
+              className="w-8 h-8 rounded-lg bg-white/[0.02] border border-transparent hover:border-[var(--color-hairline)] flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-ember)] transition-all shadow-sm"
               title={asset.is_starred ? '取消收藏' : '收藏'}
             >
-              <Star className={cn('w-3.5 h-3.5', asset.is_starred && 'fill-[var(--color-ember)] text-[var(--color-ember)]')} strokeWidth={1.5} />
+              <Star className={cn('w-4 h-4', asset.is_starred && 'fill-[var(--color-ember)] text-[var(--color-ember)]')} strokeWidth={1.5} />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onOpenMenu(asset); }}
-              className="w-7 h-7 flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-rust)] transition-colors"
+              className="w-8 h-8 rounded-lg bg-white/[0.02] border border-transparent hover:border-[var(--color-hairline)] flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-rust)] transition-all shadow-sm"
               title="更多"
             >
-              <MoreHorizontal className="w-3.5 h-3.5" strokeWidth={1.5} />
+              <MoreHorizontal className="w-4 h-4" strokeWidth={1.5} />
             </button>
           </div>
         )}

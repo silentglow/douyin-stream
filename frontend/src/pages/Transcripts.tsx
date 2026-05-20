@@ -160,13 +160,13 @@ export default function Transcripts() {
                 className={cn(
                   'w-full text-left px-6 py-4 border-b border-[var(--color-hairline-faint)] transition-colors group relative',
                   selectedId === item.asset_id
-                    ? 'bg-[rgba(198,107,62,0.06)]'
-                    : 'hover:bg-[rgba(243,238,219,0.025)]'
+                    ? 'bg-[rgba(99,102,241,0.06)]'
+                    : 'hover:bg-[rgba(255,255,255,0.015)]'
                 )}
               >
                 {/* Active rail */}
                 {selectedId === item.asset_id && (
-                  <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-[var(--color-rust)]" />
+                  <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--color-rust)] rounded-r-full" />
                 )}
 
                 <div className="flex items-start gap-3">
@@ -176,7 +176,7 @@ export default function Transcripts() {
                         <Star className="w-3.5 h-3.5 text-[var(--color-ember)] fill-[var(--color-ember)] flex-shrink-0 mt-1" />
                       )}
                       <div className={cn(
-                        'font-display text-[18px] leading-snug line-clamp-2 transition-colors',
+                        'font-sans font-semibold text-[15px] leading-snug line-clamp-2 transition-colors',
                         selectedId === item.asset_id
                           ? 'text-[var(--color-rust)]'
                           : 'text-[var(--color-bone)] group-hover:text-[var(--color-rust)]'
@@ -198,7 +198,7 @@ export default function Transcripts() {
                     </div>
                   </div>
                   {!item.is_read && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-rust)] flex-shrink-0 mt-2" />
+                    <span className="w-2 h-2 rounded-full bg-[var(--color-rust)] flex-shrink-0 mt-2 shadow-[0_0_8px_rgba(99,102,241,0.6)] animate-pulse" />
                   )}
                 </div>
               </button>

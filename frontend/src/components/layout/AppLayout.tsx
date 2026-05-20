@@ -3,28 +3,29 @@ import { useStore } from '@/store/useStore';
 import { useEffect, useState } from 'react';
 import { getTaskDisplayState } from '@/lib/task-utils';
 import type { Task } from '@/lib/api';
-import { Search } from 'lucide-react';
+import { Search, Home, FolderOpen, FileText, Compass, ClipboardList, Settings } from 'lucide-react';
+import { TaskIsland } from '@/components/layout/TaskIsland';
+
 
 /* ═══════════════════════════════════════════════════════════════
  *  Navigation — typographic rail.
- *  Each item: index numeral · Chinese character · English caption.
+ *  Each item uses a dedicated Lucide icon and clear label.
  * ═══════════════════════════════════════════════════════════════ */
 const navItems = [
-  { to: '/home',        idx: '01', mark: '工', label: 'Studio',     en: 'studio',     kbd: '⌘1' },
-  { to: '/library',     idx: '02', mark: '库', label: '内容库',     en: 'library',    kbd: '⌘2' },
-  { to: '/transcripts', idx: '03', mark: '稿', label: '文稿库',     en: 'transcripts',kbd: '⌘3' },
-  { to: '/discover',    idx: '04', mark: '寻', label: '发现',       en: 'discover',   kbd: '⌘4' },
-  { to: '/tasks',       idx: '05', mark: '务', label: '任务',       en: 'tasks',      kbd: '⌘5' },
-  { to: '/settings',    idx: '06', mark: '设', label: '设置',       en: 'settings',   kbd: '⌘6' },
+  { to: '/home',        idx: '01', icon: Home,          label: 'Studio',     en: 'studio',     kbd: '⌘1' },
+  { to: '/library',     idx: '02', icon: FolderOpen,    label: '内容库',     en: 'library',    kbd: '⌘2' },
+  { to: '/transcripts', idx: '03', icon: FileText,      label: '文稿库',     en: 'transcripts',kbd: '⌘3' },
+  { to: '/discover',    idx: '04', icon: Compass,       label: '发现',       en: 'discover',   kbd: '⌘4' },
+  { to: '/tasks',       idx: '05', icon: ClipboardList, label: '任务',       en: 'tasks',      kbd: '⌘5' },
+  { to: '/settings',    idx: '06', icon: Settings,      label: '设置',       en: 'settings',   kbd: '⌘6' },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
  *  Live task ticker — runs along the top of the app when active.
  *  Inspired by a Reuters/Bloomberg terminal strip, restrained.
  * ═══════════════════════════════════════════════════════════════ */
-function GlobalTicker() {
+function GlobalTicker({ onOpenDrawer }: { onOpenDrawer: () => void }) {
   const tasks = useStore((s) => s.tasks);
-  const navigate = useNavigate();
 
   const activeTasks = tasks.filter((t) => {
     const s = getTaskDisplayState(t);
@@ -57,8 +58,8 @@ function GlobalTicker() {
 
         {/* CTA */}
         <button
-          onClick={() => navigate('/tasks')}
-          className="flex items-center gap-1.5 px-6 h-full border-l border-[var(--color-hairline-faint)] eyebrow hover:text-[var(--color-rust)] transition-colors flex-shrink-0"
+          onClick={onOpenDrawer}
+          className="flex items-center gap-1.5 px-6 h-full border-l border-[var(--color-hairline-faint)] eyebrow hover:text-[var(--color-rust)] transition-colors flex-shrink-0 cursor-pointer"
         >
           全部 →
         </button>
@@ -89,13 +90,13 @@ function TickerItem({ task }: { task: Task }) {
       <span className="text-[12px] text-[var(--color-ash)] truncate flex-1">
         {label}
       </span>
-      <span className="font-display text-[15px] text-[var(--color-rust)] tabular flex-shrink-0">
-        {pct}<span className="text-[10px] font-sans">%</span>
+      <span className="font-sans font-semibold text-[13px] text-[var(--color-rust)] tabular flex-shrink-0">
+        {pct}<span className="text-[10px]">%</span>
       </span>
-      <div className="hidden md:block w-16 h-px bg-[var(--color-hairline-strong)] relative flex-shrink-0">
+      <div className="hidden md:block w-16 h-1 bg-[var(--color-hairline-strong)] rounded-full relative overflow-hidden flex-shrink-0">
         <div
-          className="absolute inset-y-0 left-0 bg-[var(--color-rust)] transition-all duration-500"
-          style={{ width: `${pct}%`, top: -0.5, bottom: -0.5 }}
+          className="absolute inset-y-0 left-0 bg-[var(--color-rust)] rounded-full transition-all duration-500"
+          style={{ width: `${pct}%` }}
         />
       </div>
     </div>
@@ -105,8 +106,13 @@ function TickerItem({ task }: { task: Task }) {
 /* ═══════════════════════════════════════════════════════════════
  *  Command palette — editorial flavor, sharp edges
  * ═══════════════════════════════════════════════════════════════ */
-function CommandPalette() {
-  const [open, setOpen] = useState(false);
+interface CommandPaletteProps {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  setTaskDrawerOpen: (open: boolean) => void;
+}
+
+function CommandPalette({ open, setOpen, setTaskDrawerOpen }: CommandPaletteProps) {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -114,19 +120,25 @@ function CommandPalette() {
       if (e.key === 'Escape') setOpen(false);
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setOpen((v) => !v);
+        setOpen(!open);
       }
       if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '6') {
         const idx = parseInt(e.key) - 1;
-        if (idx < navItems.length) {
+        if (idx === 4) {
+          e.preventDefault();
+          setOpen(false);
+          setTaskDrawerOpen(true);
+        } else if (idx < navItems.length) {
           e.preventDefault();
           navigate(navItems[idx].to);
+          setOpen(false);
+          setTaskDrawerOpen(false);
         }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [navigate]);
+  }, [navigate, setOpen, setTaskDrawerOpen]);
 
   if (!open) return null;
 
@@ -154,15 +166,23 @@ function CommandPalette() {
         {/* Items */}
         <div className="max-h-[360px] overflow-y-auto py-2">
           <div className="px-6 pt-3 pb-1.5 eyebrow">Navigate</div>
-          {navItems.map((item) => (
+          {navItems.map((item, idx) => (
             <button
               key={item.to}
-              className="w-full px-6 py-3 flex items-center gap-5 hover:bg-[rgba(243,238,219,0.03)] transition-colors group"
-              onClick={() => { navigate(item.to); setOpen(false); }}
+              className="w-full px-6 py-3 flex items-center gap-5 hover:bg-[rgba(255,255,255,0.03)] transition-colors group cursor-pointer"
+              onClick={() => {
+                if (idx === 4) {
+                  setTaskDrawerOpen(true);
+                } else {
+                  navigate(item.to);
+                  setTaskDrawerOpen(false);
+                }
+                setOpen(false);
+              }}
             >
               <span className="mono-cap w-8 flex-shrink-0">{item.idx}</span>
-              <span className="font-display text-[20px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">
-                {item.mark}
+              <span className="text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors flex-shrink-0">
+                <item.icon className="w-4 h-4" />
               </span>
               <span className="text-[13px] text-[var(--color-ash)] flex-1 text-left">{item.label}</span>
               <kbd className="mono-cap">{item.kbd}</kbd>
@@ -179,12 +199,23 @@ function CommandPalette() {
  * ═══════════════════════════════════════════════════════════════ */
 export default function AppLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
+  const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(t);
   }, []);
+
+  // Intercept any navigation to "/tasks" page and trigger slide drawer instead
+  useEffect(() => {
+    if (location.pathname === '/tasks') {
+      navigate('/home', { replace: true });
+      setTaskDrawerOpen(true);
+    }
+  }, [location.pathname, navigate]);
 
   const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
 
@@ -195,35 +226,56 @@ export default function AppLayout() {
         {/* Logomark */}
         <NavLink
           to="/home"
-          className="h-[72px] flex items-center justify-center border-b border-[var(--color-hairline-faint)] group"
+          onClick={() => setTaskDrawerOpen(false)}
+          className="h-[76px] flex items-center justify-center border-b border-[var(--color-hairline-faint)] group"
           title="工作台"
         >
-          <span className="font-display text-[34px] leading-none text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">
-            媒
-          </span>
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.25)] group-hover:shadow-[0_0_22px_rgba(99,102,241,0.5)] transition-all duration-300">
+            <span className="font-sans font-extrabold text-[19px] text-white tracking-wider">
+              MS
+            </span>
+          </div>
         </NavLink>
 
         {/* Nav */}
-        <div className="flex-1 flex flex-col py-4 stagger">
+        <div className="flex-1 flex flex-col py-4 px-2 space-y-1 stagger">
           {navItems.map((item) => {
+            if (item.to === '/tasks') {
+              const isActive = taskDrawerOpen;
+              return (
+                <button
+                  key={item.to}
+                  onClick={() => setTaskDrawerOpen(!taskDrawerOpen)}
+                  title={`${item.label} (${item.kbd})`}
+                  className={`rail-item w-full relative flex flex-col items-center justify-center py-3.5 px-2 transition-all duration-300 cursor-pointer ${
+                    isActive ? 'active text-[var(--color-rust)] bg-[rgba(99,102,241,0.08)]' : 'text-[var(--color-ash)] hover:text-[var(--color-bone)]'
+                  }`}
+                >
+                  <item.icon className="w-[21px] h-[21px] transition-colors stroke-[1.8]" />
+                  <span className={`mt-1.5 text-[8.5px] font-medium tracking-[0.06em] uppercase scale-90 leading-none ${
+                    isActive ? 'text-[var(--color-rust)] font-semibold' : 'text-[var(--color-smoke)]'
+                  }`}>
+                    {item.en}
+                  </span>
+                </button>
+              );
+            }
+
             const isActive = location.pathname.startsWith(item.to)
               || (item.to === '/home' && location.pathname === '/');
             return (
               <NavLink
                 key={item.to}
                 to={item.to}
+                onClick={() => setTaskDrawerOpen(false)}
                 title={`${item.label} (${item.kbd})`}
-                className={`rail-item relative flex flex-col items-center justify-center py-3 px-2 ${
-                  isActive ? 'active' : 'text-[var(--color-smoke)]'
+                className={`rail-item relative flex flex-col items-center justify-center py-3.5 px-2 transition-all duration-300 ${
+                  isActive ? 'active text-[var(--color-rust)] bg-[rgba(99,102,241,0.08)]' : 'text-[var(--color-ash)] hover:text-[var(--color-bone)]'
                 }`}
               >
-                <span className={`font-display text-[24px] leading-none transition-colors ${
-                  isActive ? 'text-[var(--color-rust)]' : 'text-[var(--color-ash)] group-hover:text-[var(--color-bone)]'
-                }`}>
-                  {item.mark}
-                </span>
-                <span className={`mt-1 text-[9px] tracking-[0.16em] uppercase leading-none ${
-                  isActive ? 'text-[var(--color-rust)]' : 'text-[var(--color-smoke)]'
+                <item.icon className="w-[21px] h-[21px] transition-colors stroke-[1.8]" />
+                <span className={`mt-1.5 text-[8.5px] font-medium tracking-[0.06em] uppercase scale-90 leading-none ${
+                  isActive ? 'text-[var(--color-rust)] font-semibold' : 'text-[var(--color-smoke)]'
                 }`}>
                   {item.en}
                 </span>
@@ -240,7 +292,7 @@ export default function AppLayout() {
 
       {/* ═══ MAIN ════════════════════════════════════════════════ */}
       <main className="flex-1 overflow-hidden flex flex-col relative">
-        <GlobalTicker />
+        <GlobalTicker onOpenDrawer={() => setTaskDrawerOpen(true)} />
 
         {/* Page */}
         <div className="flex-1 overflow-hidden relative">
@@ -248,7 +300,12 @@ export default function AppLayout() {
         </div>
       </main>
 
-      <CommandPalette />
+      <CommandPalette open={cmdOpen} setOpen={setCmdOpen} setTaskDrawerOpen={setTaskDrawerOpen} />
+      <TaskIsland
+        isOpen={taskDrawerOpen}
+        onToggle={() => setTaskDrawerOpen(!taskDrawerOpen)}
+        onClose={() => setTaskDrawerOpen(false)}
+      />
     </div>
   );
 }

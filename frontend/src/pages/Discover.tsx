@@ -5,6 +5,7 @@ import { fetchMetadata, triggerPipeline, triggerDownloadBatch } from '@/lib/api'
 import type { DouyinVideoMeta } from '@/types';
 import { LinkInfo, detectLinkType } from '@/components/discover/discoverUtils';
 import { DirectLinkCard } from '@/components/discover/DirectLinkCard';
+import { cn } from '@/lib/utils';
 
 export default function Discover() {
   const [url, setUrl] = useState('');
@@ -207,42 +208,46 @@ export default function Discover() {
             </div>
 
             {/* Grid */}
-            <div className="grid grid-cols-3 lg:grid-cols-4 gap-px bg-[var(--color-hairline-faint)] stagger">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 stagger">
               {videos.map((video) => {
                 const isSelected = selectedIds.has(video.aweme_id);
                 return (
                   <button
                     key={video.aweme_id}
                     onClick={() => toggleSelect(video.aweme_id)}
-                    className={`relative aspect-[4/5] p-5 text-left transition-all group ${
+                    className={cn(
+                      'relative aspect-[4/5] p-6 text-left transition-all duration-300 group rounded-[var(--radius-card)] border cursor-pointer flex flex-col justify-between',
                       isSelected
-                        ? 'bg-[var(--color-paper)] ring-1 ring-inset ring-[var(--color-rust)]'
-                        : 'bg-[var(--color-ink)] hover:bg-[var(--color-paper)]'
-                    }`}
+                        ? 'bg-[rgba(99,102,241,0.04)] border-[var(--color-rust)] shadow-[0_8px_30px_rgba(99,102,241,0.08)]'
+                        : 'bg-[var(--color-paper)] border-white/[0.03] hover:border-white/[0.08] hover:shadow-[0_8px_30px_rgba(0,0,0,0.15)] hover:-translate-y-0.5'
+                    )}
                   >
-                    {/* Header — checkbox only */}
-                    <div className="flex justify-end mb-3">
-                      <div className={`w-4 h-4 border flex items-center justify-center transition-all ${
-                        isSelected
-                          ? 'bg-[var(--color-rust)] border-[var(--color-rust)]'
-                          : 'border-[var(--color-hairline-strong)] group-hover:border-[var(--color-ash)]'
-                      }`}>
-                        {isSelected && <Check className="w-3 h-3 text-[var(--color-ink)]" strokeWidth={3} />}
+                    <div>
+                      {/* Header — checkbox only */}
+                      <div className="flex justify-end mb-3">
+                        <div className={cn(
+                          'w-5 h-5 rounded-full border flex items-center justify-center transition-all duration-200',
+                          isSelected
+                            ? 'bg-[var(--color-rust)] border-[var(--color-rust)]'
+                            : 'border-[var(--color-hairline-strong)] group-hover:border-[var(--color-ash)]'
+                        )}>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-[var(--color-ink)]" strokeWidth={3.5} />}
+                        </div>
+                      </div>
+
+                      {/* Title */}
+                      <div className="font-sans text-[14.5px] font-semibold leading-snug text-[var(--color-bone)] line-clamp-4 mb-4">
+                        {video.desc || '未命名'}
                       </div>
                     </div>
 
-                    {/* Title */}
-                    <div className="font-display text-[18px] leading-snug text-[var(--color-bone)] line-clamp-4 mb-4">
-                      {video.desc || '未命名'}
-                    </div>
-
                     {/* Footer */}
-                    <div className="absolute bottom-5 left-5 right-5 pt-3 border-t border-[var(--color-hairline-faint)] flex items-baseline justify-between">
+                    <div className="pt-3 border-t border-[var(--color-hairline-faint)] flex items-baseline justify-between w-full">
                       <span className="mono-cap">
                         {new Date(video.create_time * 1000).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}
                       </span>
                       {isSelected && (
-                        <span className="text-[11px] tracking-[0.16em] uppercase text-[var(--color-rust)]">已选</span>
+                        <span className="text-[11px] tracking-[0.16em] uppercase text-[var(--color-rust)] font-bold">已选</span>
                       )}
                     </div>
                   </button>

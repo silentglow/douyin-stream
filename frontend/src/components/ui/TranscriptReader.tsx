@@ -181,10 +181,10 @@ export function TranscriptReader({
       disabled={disabled}
       title={title}
       className={cn(
-        'w-9 h-9 flex items-center justify-center transition-colors',
+        'w-9 h-9 flex items-center justify-center rounded-lg border border-transparent transition-all duration-200',
         active
-          ? 'text-[var(--color-rust)]'
-          : 'text-[var(--color-ash)] hover:text-[var(--color-bone)]',
+          ? 'text-[var(--color-rust)] bg-[rgba(99,102,241,0.08)] border-[var(--color-rust)]/25'
+          : 'text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-white/5 hover:border-white/5',
         disabled && 'opacity-30 cursor-not-allowed'
       )}
     >

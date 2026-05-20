@@ -26,10 +26,10 @@ export function FailureSummarySection({ failureSummary }: FailureSummarySectionP
         <tbody>
           {failureSummary.buckets.slice(0, 5).map((b) => (
             <tr key={b.error_type}>
-              <td className="text-[14px] text-[var(--color-bone)]">{b.error_type}</td>
+              <td className="text-[14px] text-[var(--color-bone)] font-medium">{b.error_type}</td>
               <td className="font-mono text-[12px] text-[var(--color-ash)]">{b.error_stage}</td>
               <td className="text-right">
-                <span className="font-display text-[22px] text-[var(--color-iron)] tabular">
+                <span className="font-sans font-bold text-[18px] text-[var(--color-iron)] tabular">
                   {b.count}
                 </span>
               </td>
@@ -63,22 +63,22 @@ export function RecentTranscriptsSection({
           全部文稿 →
         </button>
       </div>
-      <div>
+      <div className="space-y-1">
         {recentTranscripts.map((t) => (
           <button
             key={t.asset_id}
             onClick={onNavigateToTranscripts}
-            className="w-full grid grid-cols-[1fr_auto] gap-5 py-4 border-b border-[var(--color-hairline-faint)] last:border-b-0 items-baseline text-left hover:bg-[rgba(243,238,219,0.02)] transition-colors -mx-3 px-3"
+            className="w-full grid grid-cols-[1fr_auto] gap-5 py-4 border-b border-[var(--color-hairline-faint)] last:border-b-0 items-baseline text-left hover:bg-[rgba(255,255,255,0.015)] rounded-lg transition-colors -mx-3 px-3 cursor-pointer"
           >
             <div className="min-w-0">
-              <div className="text-[15px] text-[var(--color-bone)] leading-snug truncate">
+              <div className="text-[14.5px] text-[var(--color-bone)] font-medium leading-snug truncate">
                 {t.title || '未命名'}
               </div>
               <div className="mono-cap mt-1">
                 {t.creator_name || '本地'} · {new Date(t.create_time).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
               </div>
             </div>
-            <span className="text-[10px] tracking-[0.16em] uppercase text-[var(--color-patina)]">
+            <span className="text-[10px] tracking-[0.16em] uppercase text-[var(--color-patina)] font-bold">
               已就绪
             </span>
           </button>

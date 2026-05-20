@@ -181,9 +181,9 @@ export default function Library() {
 
         {/* Roster grid */}
         {loading ? (
-          <div className="grid grid-cols-3 lg:grid-cols-4 gap-px bg-[var(--color-hairline-faint)]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="bg-[var(--color-ink)] p-5 h-[160px] skeleton" />
+              <div key={i} className="ed-card h-[160px] skeleton" />
             ))}
           </div>
         ) : filteredCreators.length === 0 ? (
@@ -198,7 +198,7 @@ export default function Library() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-3 lg:grid-cols-4 gap-px bg-[var(--color-hairline-faint)] stagger">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 stagger">
             {filteredCreators.map((creator) => (
               <CreatorCard
                 key={creator.uid}
