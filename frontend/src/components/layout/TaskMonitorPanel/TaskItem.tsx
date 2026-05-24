@@ -733,7 +733,14 @@ function TaskSubtasks({
                           if (retryingTask) return;
                           try {
                             setRetryingTask(true);
-                            await rerunTask(task.task_id);
+                            // rerunTask 要求 task 处于 FAILED/CANCELLED/PAUSED，
+                            // COMPLETED / PARTIAL_FAILED 会被后端 409 拒绝；
+                            // 此时只重试失败子任务，避免误重跑已成功的视频。
+                            if (task.status === 'FAILED' || task.status === 'CANCELLED' || task.status === 'PAUSED') {
+                              await rerunTask(task.task_id);
+                            } else {
+                              await retryFailedSubtasks(task.task_id);
+                            }
                             const { fetchInitialTasks } = useStore.getState();
                             await fetchInitialTasks();
                             toast.success('已重新提交任务');

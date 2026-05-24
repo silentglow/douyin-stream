@@ -279,6 +279,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                   const isRunning = state === 'running';
                   const isPaused = state === 'paused';
                   const isFailed = state === 'failed' || state === 'stale';
+                  const isPartial = state === 'partial';
                   const isSuccess = state === 'success';
                   
                   const pct = Math.round((task.progress || 0) * 100);
@@ -326,10 +327,10 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                             <span className="font-mono text-[11px] font-bold text-[var(--color-rust)]">
                               {pct}%
                             </span>
-                          ) : isFailed ? (
+                          ) : isFailed || isPartial ? (
                             <button
                               onClick={() => handleRetry(task)}
-                              title="重试任务"
+                              title={isPartial ? '只重试失败子任务' : '重试任务'}
                               className="p-1 rounded-md hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] cursor-pointer"
                             >
                               <RotateCw className="size-3.5" />

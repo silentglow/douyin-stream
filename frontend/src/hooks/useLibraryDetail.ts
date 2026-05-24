@@ -37,6 +37,7 @@ export function useLibraryDetail() {
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [transcribing, setTranscribing] = useState(false);
   const [scannedDirectory, setScannedDirectory] = useState('');
+  const [deleteAfter, setDeleteAfter] = useState(true);
 
   const [deleteConfirm, setDeleteConfirm] = useState<{
     uid: string;
@@ -101,7 +102,8 @@ export function useLibraryDetail() {
     finally {
       setSyncingIds((prev) => { const next = new Set(prev); next.delete(uid); return next; });
     }
-  }, [syncingIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDeleteCreator = useCallback((uid: string) => {
     const creator = allCreators.find((c) => c.uid === uid);
@@ -165,15 +167,16 @@ export function useLibraryDetail() {
     setTranscribing(true);
     try {
       const paths = Array.from(selectedFiles);
-      await triggerLocalTranscribe(paths, false, scannedDirectory);
+      await triggerLocalTranscribe(paths, deleteAfter, scannedDirectory);
       toast.success(`已提交 ${paths.length} 个文件的转写任务`);
       setLocalTranscribeOpen(false);
       setScannedFiles([]);
       setSelectedFiles(new Set());
       setScannedDirectory('');
+      setDeleteAfter(true);
     } catch { /* api interceptor handles toast */ }
     finally { setTranscribing(false); }
-  }, [selectedFiles, scannedDirectory]);
+  }, [selectedFiles, scannedDirectory, deleteAfter]);
 
   const totalAssets = creators.reduce((s, c) => s + (c.asset_count || 0), 0);
   const totalTranscribed = creators.reduce((s, c) => s + (c.transcript_completed_count || 0), 0);
@@ -217,6 +220,8 @@ export function useLibraryDetail() {
     handleSelectFolder,
     toggleFileSelection,
     handleStartLocalTranscribe,
+    deleteAfter,
+    toggleDeleteAfter: () => setDeleteAfter((prev) => !prev),
     totalAssets,
     totalTranscribed,
     autoCount,

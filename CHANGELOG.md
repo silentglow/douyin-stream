@@ -7,6 +7,29 @@
 
 ---
 
+## [2.5.4] - 2026-05-24
+
+### ✨ 新增
+
+- **本地转写默认勾选"删除源文件"**：`useLibraryDetail.ts` 把 `deleteAfter` 初始值改为 `true`，提交后也重置为 `true`。这是高频用户偏好——大多数转写完成后用户希望本地源文件被清理，少数想保留的可以手动取消勾选。
+
+### 🐛 修复
+
+- **PARTIAL_FAILED 任务无法重试**：pipeline / batch_pipeline 的 `_build_subtasks`（`src/media_tools/transcribe/worker.py:228`）此前**不给 failed 子任务记录 `video_path`**，导致：
+  - 前端 `failedRetryableCount` 计算成 0，"只重试失败" 按钮根本不显示
+  - 后端 `/tasks/{id}/retry-failed` 收集到 0 个路径，直接返回 409 "没有可重试的失败视频路径"
+  现在 failed 项必带 `video_path`。
+- **子任务行内"重试任务"按钮在 PARTIAL_FAILED / COMPLETED 上 409**：`TaskItem.tsx:736` 此前一律调 `rerunTask`，但 `rerunTask` 后端要求状态为 `FAILED/CANCELLED/PAUSED`，部分失败/已完成状态点了就 409。现在按状态分流：失败/取消/暂停走 `rerunTask`，其它走 `retryFailedSubtasks`。
+- **`handleRetry` 在 PARTIAL_FAILED 上误重跑已成功视频**：`useTaskActions.ts` 此前对部分失败任务也走全量重提交，会把已成功的视频再跑一遍。现在 `PARTIAL_FAILED` 优先调 `retryFailedSubtasks`，失败再回退到全量重试。
+- **TaskIsland 浮窗任务卡片 PARTIAL_FAILED 状态没重试入口**：`TaskIsland.tsx` 之前只有 `isFailed` 才显示重试图标，部分失败任务在浮窗里**完全没有可点的操作**。现在 `isPartial` 也显示，按钮 title 提示"只重试失败子任务"。
+
+### ✅ 测试
+
+- 更新 `TaskItem.test.tsx`：原"COMPLETED 任务点'重试任务'期望调用 `rerunTask`"的测试是错的（产线会 409），改为期望调用 `retryFailedSubtasks`，并新增 FAILED 任务仍走 `rerunTask` 的覆盖。
+- 后端全套：302 passed / 3 skipped / 0 failed。
+
+---
+
 ## [2.5.3] - 2026-05-21
 
 ### 🐛 修复

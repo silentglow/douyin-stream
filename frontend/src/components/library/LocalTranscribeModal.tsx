@@ -6,10 +6,12 @@ interface LocalTranscribeModalProps {
   scannedFiles: Array<{ path: string; name: string }>;
   selectedFiles: Set<string>;
   transcribing: boolean;
+  deleteAfter: boolean;
   onClose: () => void;
   onSelectAll: () => void;
   onClear: () => void;
   onToggleFile: (path: string) => void;
+  onToggleDeleteAfter: () => void;
   onStart: () => void;
 }
 
@@ -18,10 +20,12 @@ export function LocalTranscribeModal({
   scannedFiles,
   selectedFiles,
   transcribing,
+  deleteAfter,
   onClose,
   onSelectAll,
   onClear,
   onToggleFile,
+  onToggleDeleteAfter,
   onStart,
 }: LocalTranscribeModalProps) {
   return (
@@ -62,10 +66,21 @@ export function LocalTranscribeModal({
             ))}
           </div>
           <div className="flex items-center justify-between mt-5 pt-4 border-t border-[var(--color-hairline)]">
-            <span className="text-[12px] text-[var(--color-ash)]">
-              <span className="font-display text-[20px] text-[var(--color-rust)] tabular mr-1">{selectedFiles.size}</span>
-              / {scannedFiles.length} 已选
-            </span>
+            <div className="flex items-center gap-4">
+              <span className="text-[12px] text-[var(--color-ash)]">
+                <span className="font-display text-[20px] text-[var(--color-rust)] tabular mr-1">{selectedFiles.size}</span>
+                / {scannedFiles.length} 已选
+              </span>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={deleteAfter}
+                  onChange={onToggleDeleteAfter}
+                  className="w-3.5 h-3.5 accent-[var(--color-rust)]"
+                />
+                <span className="text-[12px] text-[var(--color-ash)]">转写完成后删除本地原文件</span>
+              </label>
+            </div>
             <div className="flex gap-2">
               <button onClick={onClose} className="btn-sharp">取消</button>
               <button

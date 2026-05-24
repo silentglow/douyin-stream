@@ -240,12 +240,18 @@ def _build_subtasks(video_paths: list[Path], report) -> list[dict[str, Any]]:
         error = result_item.get("error") if result_item else None
         transcript_path = result_item.get("transcript_path") if result_item and result_item.get("success") else None
         transcript_path = transcript_path if isinstance(transcript_path, str) and transcript_path.strip() else None
-        subtasks.append({
+        sub: dict[str, Any] = {
             "title": video_path.stem,
             "status": status,
             "error": error,
-            **({"transcript_path": transcript_path} if transcript_path else {}),
-        })
+        }
+        if transcript_path:
+            sub["transcript_path"] = transcript_path
+        # 失败的子任务必须带 video_path，否则 /tasks/{id}/retry-failed 无法找到路径，
+        # 前端 failedRetryableCount 也会算成 0，"只重试失败" 按钮不显示。
+        if status == "failed":
+            sub["video_path"] = str(video_path)
+        subtasks.append(sub)
     return subtasks
 
 

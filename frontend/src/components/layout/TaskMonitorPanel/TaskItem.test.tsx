@@ -281,9 +281,9 @@ describe('TaskItem', () => {
     expect(vi.mocked(toast.success)).toHaveBeenCalled()
   })
 
-  it('triggers rerun when clicking retry action from failed subtask', async () => {
-    const rerun = vi.mocked(rerunTask)
-    rerun.mockResolvedValueOnce({ task_id: 'new-task-1', status: 'started' } as never)
+  it('triggers retry-failed when clicking retry action on COMPLETED task with failed subtask', async () => {
+    const retryFailed = vi.mocked(retryFailedSubtasks)
+    retryFailed.mockResolvedValueOnce({ task_id: 'new-task-2', status: 'started', file_count: 1 })
 
     render(
       <TaskItem
@@ -294,7 +294,7 @@ describe('TaskItem', () => {
           progress: 1,
           payload: JSON.stringify({
             msg: 'ok',
-            subtasks: [{ title: 'a', status: 'failed', error: 'timeout: request timed out', error_type: 'timeout' }],
+            subtasks: [{ title: 'a', status: 'failed', error: 'timeout: request timed out', error_type: 'timeout', video_path: '/tmp/a.mp4' }],
           }),
           error_msg: '',
           update_time: new Date().toISOString(),
@@ -306,7 +306,39 @@ describe('TaskItem', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: '重试任务' }))
-    await waitFor(() => expect(rerun).toHaveBeenCalledWith('completed-subtasks-2'))
+    await waitFor(() => expect(retryFailed).toHaveBeenCalledWith('completed-subtasks-2'))
+    expect(vi.mocked(toast.success)).toHaveBeenCalled()
+  })
+
+  it('triggers rerun when clicking retry action on FAILED task with failed subtask', async () => {
+    const rerun = vi.mocked(rerunTask)
+    rerun.mockResolvedValueOnce({ task_id: 'new-task-1', status: 'started' } as never)
+
+    render(
+      <TaskItem
+        task={{
+          task_id: 'failed-task-rerun',
+          task_type: 'local_transcribe',
+          status: 'FAILED',
+          progress: 1,
+          payload: JSON.stringify({
+            msg: 'failed',
+            subtasks: [{ title: 'a', status: 'failed', error: 'timeout: request timed out', error_type: 'timeout', video_path: '/tmp/a.mp4' }],
+          }),
+          error_msg: '',
+          update_time: new Date().toISOString(),
+        }}
+        onRetry={vi.fn()}
+        isExpanded={true}
+        onToggleExpand={vi.fn()}
+      />
+    )
+
+    const buttons = screen.getAllByRole('button', { name: '重试任务' })
+    // 第一个是顶层的"重试任务"按钮（来自 TaskActions 区域），子任务里的"重试任务"
+    // 应当是最后一个；不同视图下出现顺序可能不同，这里挑最末尾的那个触发
+    fireEvent.click(buttons[buttons.length - 1])
+    await waitFor(() => expect(rerun).toHaveBeenCalledWith('failed-task-rerun'))
     expect(vi.mocked(toast.success)).toHaveBeenCalled()
   })
 

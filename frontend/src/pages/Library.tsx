@@ -34,6 +34,8 @@ export default function Library() {
     selectedFiles,
     setSelectedFiles,
     transcribing,
+    deleteAfter,
+    toggleDeleteAfter,
     deleteConfirm,
     setDeleteConfirm,
     filteredCreators,
@@ -151,10 +153,12 @@ export default function Library() {
           scannedFiles={scannedFiles}
           selectedFiles={selectedFiles}
           transcribing={transcribing}
+          deleteAfter={deleteAfter}
           onClose={() => { setLocalTranscribeOpen(false); }}
           onSelectAll={() => setSelectedFiles(new Set(scannedFiles.map((f) => f.path)))}
           onClear={() => setSelectedFiles(new Set())}
           onToggleFile={toggleFileSelection}
+          onToggleDeleteAfter={toggleDeleteAfter}
           onStart={handleStartLocalTranscribe}
         />
 

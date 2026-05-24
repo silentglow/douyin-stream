@@ -3,6 +3,7 @@ import {
   getTaskStatus,
   clearTaskHistory,
   getTaskHistory,
+  retryFailedSubtasks,
   triggerBatchPipeline,
   triggerCreatorDownload,
   triggerDownloadBatch,
@@ -44,6 +45,18 @@ export function useTaskActions() {
         }
       } catch {
         void 0;
+      }
+
+      // 部分失败任务：只重试失败子任务，避免重跑已成功的部分（也避开
+      // rerunTask 对 PARTIAL_FAILED 的 409 限制）。
+      if (task.status === 'PARTIAL_FAILED') {
+        try {
+          const data = await retryFailedSubtasks(task.task_id);
+          toast.success(`已派发新任务，仅重试 ${data.file_count} 个失败视频`);
+          return;
+        } catch {
+          // 退回到全量重试（下面的分支会处理）
+        }
       }
 
       if (task.task_type === 'pipeline' && payload) {
