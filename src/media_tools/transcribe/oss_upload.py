@@ -481,11 +481,20 @@ async def upload_file_to_oss(
         parts_result.sort(key=lambda x: x["partNumber"])
         await asyncio.to_thread(complete_multipart_upload, token["sts"], upload_id, parts_result)
         callback({"type": "multipart-complete"})
-    except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
+    except BaseException:
+        # 任何失败（含 asyncio.CancelledError、KeyboardInterrupt 等）都要尝试 abort multipart，
+        # 否则 OSS 上的分片会持续占用直到 lifecycle 规则清掉，按量计费场景会累积成本。
+        # 用 shield 防止 abort 在外层取消信号下被打断。
         if upload_id:
             try:
-                await asyncio.to_thread(abort_multipart_upload, token["sts"], upload_id)
+                await asyncio.shield(
+                    asyncio.to_thread(abort_multipart_upload, token["sts"], upload_id)
+                )
                 callback({"type": "multipart-aborted", "uploadId": upload_id})
-            except (RuntimeError, OSError, ConnectionError, TimeoutError) as abort_error:
-                callback({"type": "multipart-abort-failed", "uploadId": upload_id, "error": abort_error})
-        raise e
+            except BaseException as abort_error:  # noqa: BLE001 - 必须吞掉避免掩盖原始异常
+                callback({
+                    "type": "multipart-abort-failed",
+                    "uploadId": upload_id,
+                    "error": str(abort_error),
+                })
+        raise

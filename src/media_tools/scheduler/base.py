@@ -56,7 +56,11 @@ class BaseWorker:
         except asyncio.CancelledError:
             await self._handle_cancelled()
             raise
-        except (RuntimeError, OSError, ValueError, TypeError) as exc:
+        except Exception as exc:
+            # 故意宽口径：sqlite3.Error、requests.RequestException、json.JSONDecodeError、
+            # KeyError、AttributeError 等都必须走 _handle_exception，否则会逃逸到
+            # state._on_done，那里硬编码 task_type='unknown' 会改坏 DB 列、令前端"重试"按钮失效。
+            # CancelledError 不在 Exception 链下，已由上一分支处理。
             await self._handle_exception(exc)
         finally:
             await self._cleanup_heartbeat()
