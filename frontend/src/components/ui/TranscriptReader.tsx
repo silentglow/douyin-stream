@@ -64,6 +64,9 @@ export function TranscriptReader({
 
   const fontSize = FONT_SIZES[fontSizeIndex];
 
+  // PDF 走原生浏览器 viewer：保留分页/字体/搜索/选择，比"提取文本+自定义渲染"高保真很多
+  const isPdf = (asset.transcript_path || '').toLowerCase().endsWith('.pdf');
+
   const headings = useMemo(() => {
     const h: Heading[] = [];
     let idx = 0;
@@ -348,6 +351,13 @@ export function TranscriptReader({
                 <span className="mono-cap">加载中</span>
               </div>
             </div>
+          ) : isPdf ? (
+            // PDF：直接嵌入浏览器原生 PDF viewer，享用 Cmd+F 搜索 / 翻页 / 缩放
+            <iframe
+              src={getAssetFileUrl(asset.asset_id)}
+              title={asset.title || 'Transcript'}
+              className="w-full h-full border-0 bg-[var(--color-paper)]"
+            />
           ) : (
             <article
               className="max-w-[680px] mx-auto px-8 sm:px-12 py-14 sm:py-20"
