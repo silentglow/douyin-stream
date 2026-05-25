@@ -93,7 +93,7 @@ async def test_complete_task_partial_failed_does_not_trigger_auto_retry(monkeypa
     monkeypatch.setattr("media_tools.common.paths.get_db_path", lambda: db_path)
 
     # 重置 db core 的连接缓存，让它用我们 monkey 后的路径
-    from media_tools.db import core as db_core
+    from media_tools.store import db as db_core
     db_core.reset_db_cache()
     db_core._db_path = None
     db_core.init_db(db_path)
@@ -151,7 +151,7 @@ async def test_complete_task_failed_still_triggers_auto_retry(monkeypatch, tmp_p
     db_path = tmp_path / "test.db"
     monkeypatch.setattr("media_tools.common.paths.get_db_path", lambda: db_path)
 
-    from media_tools.db import core as db_core
+    from media_tools.store import db as db_core
     db_core.reset_db_cache()
     db_core._db_path = None
     db_core.init_db(db_path)

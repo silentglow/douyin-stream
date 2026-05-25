@@ -19,7 +19,7 @@ def test_bulk_delete_commits_db_before_file_delete():
     """新设计：先在事务里删除 DB 行（避免 partial failure 留下 DB-File 不一致），
     commit 后再尽力删除文件；文件删除失败仅记录日志，不影响 DB 提交。
     """
-    from media_tools.db.core import init_db
+    from media_tools.store.db import init_db
     from media_tools.api.routers import assets as assets_router
 
     with tempfile.TemporaryDirectory() as td:
@@ -102,7 +102,7 @@ def test_bulk_delete_commits_db_before_file_delete():
 
 
 def test_get_asset_transcript_missing_file_does_not_write_db() -> None:
-    from media_tools.db.core import init_db
+    from media_tools.store.db import init_db
     from media_tools.api.routers import assets as assets_router
 
     with tempfile.TemporaryDirectory() as td:

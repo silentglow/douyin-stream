@@ -8,7 +8,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from media_tools.db.core import init_db
+from media_tools.store.db import init_db
 
 
 _NEW_COLUMNS = {

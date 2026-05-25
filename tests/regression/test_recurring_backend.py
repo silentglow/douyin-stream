@@ -53,7 +53,7 @@ def test_no_bare_except_exception():
 
 def test_no_bare_sqlite3_connect():
     """
-    验证除 db/core.py 外，不存在裸 sqlite3.connect 调用。
+    验证不存在裸 sqlite3.connect 调用，仅 store/db.py 允许。
     """
     import subprocess
     result = subprocess.run(
@@ -61,7 +61,7 @@ def test_no_bare_sqlite3_connect():
         capture_output=True, text=True, cwd=str(REPO_ROOT)
     )
     lines = [l for l in result.stdout.strip().split("\n") if l]
-    allowed_paths = ("db/core.py", "store/db.py")
+    allowed_paths = ("store/db.py",)
     allowed = [l for l in lines if any(p in l for p in allowed_paths)]
     violations = [l for l in lines if not any(p in l for p in allowed_paths)]
     assert len(violations) == 0, (
@@ -103,7 +103,7 @@ def test_db_connection_commit_semantics():
     验证 DBConnection 的 commit 语义清晰：
     要么完全自动，要么完全手动，不混合。
     """
-    from media_tools.db.core import DBConnection
+    from media_tools.store.db import DBConnection
     # DBConnection 目前绑定 get_db_path()，无法传入 :memory:
     # 这里只验证 API 语义存在
     conn = DBConnection()
@@ -143,7 +143,7 @@ def test_db_connection_leak_protection():
     """
     验证 DBConnection 上下文管理器正确关闭连接。
     """
-    from media_tools.db.core import DBConnection
+    from media_tools.store.db import DBConnection
     open_before = sqlite3.connect(":memory:").execute(
         "SELECT COUNT(*) FROM pragma_database_list()"
     ).fetchone()[0]
@@ -193,7 +193,7 @@ def test_async_db_wrapper_exists():
     """
     验证 DBConnection 或相关模块有 async 封装方法。
     """
-    from media_tools.db import core
+    from media_tools.store import db as core
     has_async = any(
         name.startswith("a") for name in dir(core)
         if callable(getattr(core, name, None))
@@ -278,7 +278,7 @@ def test_pragma_table_info_only_in_db_core():
         cwd=str(REPO_ROOT),
     )
     lines = [l for l in result.stdout.strip().split("\n") if l.strip()]
-    allowed_paths = ("src/media_tools/db/core.py", "src/media_tools/store/db.py")
+    allowed_paths = ("src/media_tools/store/db.py",)
     violations = [l for l in lines if not any(p in l for p in allowed_paths)]
     assert not violations, (
         "PRAGMA table_info 应只出现在 db/core.py 或 store/db.py (BACKEND-009):\n" + "\n".join(violations)

@@ -7,6 +7,19 @@
 
 ---
 
+## [Unreleased] - REFACTOR 2026-05
+
+### 🧹 任务 1：清空目录 + 死代码壳 + 孤儿文件
+
+- 删除空目录 `src/media_tools/pipeline/`、`src/media_tools/repositories/`（DDD 重构后未清理的鬼影）
+- 删除 `src/media_tools/db/core.py` shim（曾用作 db → store.db 迁移过渡，已无生产代码引用；15 处测试 import 一并迁移到 `media_tools.store.db`）
+- 删除 `src/data/`、`src/logs/`（4 月前 f2 日志残骸）、`src/media_tools/downloads/` 三处历史目录
+- 删除三处孤儿 SQLite 文件（`douyin_users.db` / `src/data/media_tools.db` / `src/media_tools/douyin_users.db`），仅保留 `data/media_tools.db` 作为唯一正本
+- `.gitignore` 显式忽略已删目录防止 IDE/脚本误重建
+- `tests/regression/test_recurring_backend.py` 的 BACKEND-004/009 白名单收敛到仅 `store/db.py`
+
+---
+
 ## [2.5.5] - 2026-05-25
 
 ### ✨ 新增

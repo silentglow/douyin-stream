@@ -4,7 +4,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from media_tools.api.app import app
-from media_tools.db.core import get_db_connection
+from media_tools.store.db import get_db_connection
 
 client = TestClient(app)
 

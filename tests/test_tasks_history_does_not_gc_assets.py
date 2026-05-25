@@ -4,7 +4,7 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
-from media_tools.db.core import init_db
+from media_tools.store.db import init_db
 from media_tools.scheduler.repository import TaskRepository
 from media_tools.scheduler.ops import cleanup_stale_tasks
 

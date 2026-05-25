@@ -124,6 +124,12 @@ test_report.txt
 *.log
 logs/
 
+# 历史搬家残骸路径——已清空，加入忽略防止 IDE/脚本误重建
+src/data/
+src/logs/
+src/media_tools/downloads/
+src/media_tools/douyin_users.db
+
 # 导出
 config_export/
 

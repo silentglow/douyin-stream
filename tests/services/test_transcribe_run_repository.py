@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from media_tools.db.core import init_db
+from media_tools.store.db import init_db
 from media_tools.transcribe.repository import (
     RESUMABLE_STAGES,
     TERMINAL_STAGES,
