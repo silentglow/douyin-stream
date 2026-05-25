@@ -22,7 +22,7 @@ export default function Home() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [failureSummary, setFailureSummary] = useState<FailureSummary | null>(null);
   const [recentTranscripts, setRecentTranscripts] = useState<Asset[]>([]);
-  const [qwenAccounts, setQwenAccounts] = useState<Array<{ account_id?: string; accountId?: string; remaining_hours: number }>>([]);
+  const [qwenAccounts, setQwenAccounts] = useState<Array<{ account_id?: string; remaining_hours: number }>>([]);
   const [loading, setLoading] = useState(true);
 
   const refreshDashboard = useCallback(async () => {

@@ -25,6 +25,19 @@
 - 8 处生产代码 import 路径迁移；旧 `error_types.py` / `error_classifier.py` 彻底删除（ImportError 验证）
 - 新增 `tests/test_error_module_consolidation.py` 3 条契约测试：所有公开 API 可 import + 旧模块路径必须 ImportError
 
+### 🧹 任务 3：API 字段 snake_case 单边发车
+
+- `src/media_tools/accounts/status.py` 删除 3 处 `accountId` / `accountLabel` dual-emit，API 响应统一 snake_case
+- 前端 `types/index.ts` 删除 `QwenStatusAccount.accountId?` / `accountLabel?` 等 `@deprecated` camelCase 字段
+- 前端 `services/dashboard.ts` 同步删除 `DashboardData.quota_status.accounts[].accountId?` 等字段
+- 前端 `pages/Home.tsx` inline 类型清理 `accountId?` 字段
+- 前端 `hooks/useSettings.ts` 删除 `a.account_id || a.accountId` 兼容 fallback（2 处）
+- 新增 **`tests/api/test_no_camelcase_in_responses.py`** 2 条契约测试：
+  1. 遍历所有无参 GET 路由，用 TestClient 发请求，递归扫 JSON keys 断言无 camelCase
+  2. 扫描前端 types/dashboard/Home/useSettings 4 个文件无 `accountId?:` `accountLabel?:` 残留
+- 注：`src/media_tools/transcribe/account_status.py` 整个文件仍含 camelCase 输出（`accountId/authStatePath/quotaError` 等），但**该文件全仓零 import**（属潜在死代码），不在任务 3 scope 内，留待后续清理任务
+- 注：`frontend/src/services/settings.ts` 等的 `accountId` 是 JS 函数参数名（局部变量），非 API 契约字段，按 JS 惯例保留
+
 ---
 
 ## [2.5.5] - 2026-05-25

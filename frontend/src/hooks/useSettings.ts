@@ -98,8 +98,7 @@ export function useSettings() {
       const res = await getQwenStatus();
       const map: Record<string, number> = {};
       for (const a of res.accounts || []) {
-        // 优先读 snake_case（规范）；兼容老后端仍只发 accountId 的情况
-        const id = a.account_id || a.accountId;
+        const id = a.account_id;
         if (id) map[id] = a.remaining_hours ?? 0;
       }
       setQwenRemainingHoursById(map);
@@ -303,7 +302,7 @@ export function useSettings() {
       const res = await getQwenStatus();
       const map: Record<string, number> = {};
       for (const a of res.accounts || []) {
-        const id = a.account_id || a.accountId;
+        const id = a.account_id;
         if (id) map[id] = a.remaining_hours;
       }
       setQwenRemainingHoursById(map);
