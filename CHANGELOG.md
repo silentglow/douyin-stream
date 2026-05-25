@@ -38,6 +38,17 @@
 - 注：`src/media_tools/transcribe/account_status.py` 整个文件仍含 camelCase 输出（`accountId/authStatePath/quotaError` 等），但**该文件全仓零 import**（属潜在死代码），不在任务 3 scope 内，留待后续清理任务
 - 注：`frontend/src/services/settings.ts` 等的 `accountId` 是 JS 函数参数名（局部变量），非 API 契约字段，按 JS 惯例保留
 
+### 🧹 任务 4：配置层级 5→2 + cache TTL 300→5
+
+- `src/media_tools/core/config.py` 把 `_settings_cache_ttl` 从 **300 秒（5 分钟）→ 5 秒**：DB 直接改 setting 后最坏 5 秒被新读取看到（历史值 300 导致 `export_format=pdf` 等设置长时间不生效）
+- 新增 **`docs/architecture/config.md`**：明确"两层模型"——Layer 1 = `SystemSettings` 表（运行期 mutable），Layer 2 = `config/config.yaml` + `.env` + env vars（启动一次性）；外加调用规范（生产代码走 `AppConfig.get`，仅 bootstrap 文件允许直接 `os.environ.get`）
+- 新增 **`tests/test_config_layers.py`** 4 条契约测试：
+  1. `test_settings_cache_ttl_is_bounded`：TTL 必须 ≤ 30 秒（卡 300 秒回滚）
+  2. `test_settings_change_via_api_invalidates_cache_immediately`：API 路径写入立刻清缓存
+  3. `test_settings_change_in_db_visible_within_ttl_plus_buffer`：DB 直写后 TTL+1 秒内能读到新值
+  4. `test_no_scattered_os_environ_get`：`os.environ.get` 在 src 内仅允许出现在白名单 6 个 bootstrap 文件
+- 新增 **`tests/test_export_format_changes_take_effect.py`** 2 条 e2e 测试：锁住 v2026-05 之前坑用户的 `export_format=pdf` 事故防回归
+
 ---
 
 ## [2.5.5] - 2026-05-25
