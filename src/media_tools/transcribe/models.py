@@ -8,7 +8,7 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from media_tools.transcribe.error_types import ErrorType
+from media_tools.transcribe.errors import ErrorType
 from media_tools.transcribe.runtime import ensure_dir
 
 logger = logging.getLogger(__name__)

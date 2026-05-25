@@ -18,6 +18,13 @@
 - `.gitignore` 显式忽略已删目录防止 IDE/脚本误重建
 - `tests/regression/test_recurring_backend.py` 的 BACKEND-004/009 白名单收敛到仅 `store/db.py`
 
+### 🧹 任务 2：transcribe/ 三个 error 模块合一
+
+- 合并 `errors.py` (21行 异常类) + `error_types.py` (60行 ErrorType enum + classify_error) + `error_classifier.py` (111行 ErrorInfo + TranscribeError + Classifier) 三个文件 → 单一 `errors.py` (~200 行，分 3 个章节保留来源标记)
+- 公开 API 100% 兼容：`QwenTranscribeError` 系列异常类、`ErrorType` enum、`classify_error` 函数、`ErrorInfo` dataclass、`TranscribeError` 异常、`TranscribeErrorClassifier` 全部可从新 `errors` 模块直接 import
+- 8 处生产代码 import 路径迁移；旧 `error_types.py` / `error_classifier.py` 彻底删除（ImportError 验证）
+- 新增 `tests/test_error_module_consolidation.py` 3 条契约测试：所有公开 API 可 import + 旧模块路径必须 ImportError
+
 ---
 
 ## [2.5.5] - 2026-05-25

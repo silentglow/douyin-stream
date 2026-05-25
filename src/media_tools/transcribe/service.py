@@ -22,7 +22,7 @@ from media_tools.transcribe.config import load_config as load_transcribe_config
 from media_tools.core.config import load_pipeline_config
 from media_tools.core.config import AppConfig
 from media_tools.transcribe.helpers import _lookup_video_title, _lookup_creator_folder
-from media_tools.transcribe.error_types import ErrorType, classify_error
+from media_tools.transcribe.errors import ErrorType, classify_error
 from media_tools.transcribe.models import RetryConfig, PipelineResultV2, BatchReport
 
 # 配置日志记录器
@@ -312,7 +312,7 @@ class OrchestratorV2:
             return False
         if error_type not in (ErrorType.AUTH, ErrorType.QUOTA):
             return False
-        from media_tools.transcribe.error_classifier import TranscribeError
+        from media_tools.transcribe.errors import TranscribeError
         if isinstance(exc, TranscribeError):
             return exc.error_info.retryable
         return error_type == ErrorType.AUTH

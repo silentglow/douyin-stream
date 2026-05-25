@@ -240,6 +240,7 @@ tests/*
 !tests/test_auto_retry_triggers_on_failed_status.py
 !tests/test_creator_download_missing_items_payload.py
 !tests/test_error_types.py
+!tests/test_error_module_consolidation.py
 !tests/test_qwen_status.py
 !tests/test_db_media_assets_migration.py
 !tests/test_flow_run_id_checkpoints.py

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from media_tools.logger import get_logger
-from .error_classifier import TranscribeErrorClassifier, TranscribeError
+from .errors import TranscribeErrorClassifier, TranscribeError
 logger = get_logger(__name__)
 
 from .auth_state import resolve_qwen_cookie_string

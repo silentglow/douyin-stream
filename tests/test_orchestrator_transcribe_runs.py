@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 import pytest
 
 from media_tools.store.db import init_db
-from media_tools.transcribe.error_types import ErrorType
+from media_tools.transcribe.errors import ErrorType
 from media_tools.transcribe.models import AccountPool
 from media_tools.transcribe.service import OrchestratorV2
 from media_tools.transcribe.repository import TranscribeRunRepository
