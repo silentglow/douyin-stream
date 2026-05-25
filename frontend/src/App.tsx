@@ -12,7 +12,6 @@ const Discover = lazy(() => import('./pages/Discover'));
 const Library = lazy(() => import('./pages/Library'));
 const CreatorDetail = lazy(() => import('./pages/CreatorDetail'));
 const Transcripts = lazy(() => import('./pages/Transcripts'));
-const Tasks = lazy(() => import('./pages/Tasks'));
 const Settings = lazy(() => import('./pages/Settings'));
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
@@ -97,11 +96,6 @@ function App() {
               <Route path="/transcripts" element={
                 <Suspense fallback={<SkeletonScreen />}>
                   <Transcripts />
-                </Suspense>
-              } />
-              <Route path="/tasks" element={
-                <Suspense fallback={<SkeletonScreen />}>
-                  <Tasks />
                 </Suspense>
               } />
               <Route path="/settings" element={

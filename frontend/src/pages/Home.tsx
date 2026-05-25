@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { getDashboard, type DashboardData } from '@/services/dashboard';
 import { getFailureSummary, type FailureSummary } from '@/services/tasks';
@@ -9,8 +9,11 @@ import { toast } from 'sonner';
 import { HeroCol, LedgerEntry, ActionRow } from '@/components/home/HomeWidgets';
 import { FailureSummarySection, RecentTranscriptsSection } from '@/components/home/HomeSections';
 
+type LayoutContext = { setTaskDrawerOpen: (open: boolean) => void };
+
 export default function Home() {
   const navigate = useNavigate();
+  const { setTaskDrawerOpen } = useOutletContext<LayoutContext>();
   const tasks = useStore((s) => s.tasks);
   const creators = useStore((s) => s.creators);
   const fetchCreators = useStore((s) => s.fetchCreators);
@@ -173,7 +176,7 @@ export default function Home() {
           <div className="flex items-baseline justify-between mb-5 pb-3 border-b border-[var(--color-hairline-strong)]">
             <h2 className="font-display text-[28px] text-[var(--color-bone)] leading-none">最近动态</h2>
             <button
-              onClick={() => navigate('/tasks')}
+              onClick={() => setTaskDrawerOpen(true)}
               className="draw-line text-[12px] text-[var(--color-ash)] hover:text-[var(--color-rust)] transition-colors"
             >
               查看全部 →

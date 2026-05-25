@@ -3,7 +3,7 @@ import { useStore } from '@/store/useStore';
 import { useTaskActions } from '@/hooks/useTaskActions';
 import { getTaskDisplayState, sortTasks, filterTasksByCategory, getTaskMessage, type TaskFilterCategory } from '@/lib/task-utils';
 import type { Task } from '@/lib/api';
-import { Loader2, CheckCircle2, AlertTriangle, RotateCw, Trash2, ArrowUpDown, X, ListTodo } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, RotateCw, Trash2, ArrowUpDown, X, ListTodo, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +15,28 @@ function parsePayload(payload?: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+// 失败子任务的错误分类标签（搬自原 TaskItemHelpers.resolveSubtaskErrorInfo，精简版）
+const ERROR_LABELS: Record<string, string> = {
+  timeout: '网络超时',
+  network: '网络异常',
+  quota: '额度不足',
+  auth: '鉴权失败',
+  file_not_found: '文件不存在',
+  permission: '权限不足',
+  validation: '参数错误',
+  cancelled: '已取消',
+  unknown: '未知错误',
+};
+
+function classifySubtaskError(sub: { error_type?: string; error?: string }): string | null {
+  const rawType = typeof sub?.error_type === 'string' ? sub.error_type.trim().toLowerCase() : '';
+  const error = typeof sub?.error === 'string' ? sub.error : '';
+  const inferred = !rawType && error.includes(':') ? (error.split(':')[0] || '').trim().toLowerCase() : '';
+  const type = rawType || inferred;
+  if (!type) return null;
+  return ERROR_LABELS[type] || type.toUpperCase();
 }
 
 // Helper to resolve a friendly task title
@@ -63,7 +85,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
 
   const rawTasks = useStore((state) => state.tasks);
   const fetchInitialTasks = useStore((state) => state.fetchInitialTasks);
-  const { handleClearHistory, handleRetry } = useTaskActions();
+  const { handleClearHistory, handleRetry, handleCancel, handleDelete } = useTaskActions();
 
   // Load initial tasks on mount
   useEffect(() => {
@@ -289,7 +311,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                   // 是用户最关心的"哪个文件成了/挂了"信息
                   const parsed = parsePayload(task.payload);
                   const subtasks = Array.isArray(parsed?.subtasks)
-                    ? (parsed.subtasks as Array<{ title?: string; status?: string; error?: string; video_path?: string }>)
+                    ? (parsed.subtasks as Array<{ title?: string; status?: string; error?: string; error_type?: string; video_path?: string }>)
                     : [];
 
                   return (
@@ -329,23 +351,47 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                         </div>
 
                         {/* Percent or Action */}
-                        <div className="shrink-0 flex items-center justify-end text-right min-w-[32px]">
+                        <div className="shrink-0 flex items-center justify-end text-right min-w-[32px] gap-0.5">
                           {isRunning ? (
-                            <span className="font-mono text-[11px] font-bold text-[var(--color-rust)]">
-                              {pct}%
-                            </span>
-                          ) : isFailed || isPartial ? (
-                            <button
-                              onClick={() => handleRetry(task)}
-                              title={isPartial ? '只重试失败子任务' : '重试任务'}
-                              className="p-1 rounded-md hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] cursor-pointer"
-                            >
-                              <RotateCw className="size-3.5" />
-                            </button>
-                          ) : isSuccess ? (
-                            <span className="text-[10px] text-[var(--color-patina)] font-medium">完成</span>
+                            <>
+                              <span className="font-mono text-[11px] font-bold text-[var(--color-rust)]">
+                                {pct}%
+                              </span>
+                              <button
+                                onClick={() => handleCancel(task)}
+                                title="停止任务"
+                                className="p-1 rounded-md hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-iron)] cursor-pointer"
+                              >
+                                <Square className="size-3" strokeWidth={2.5} />
+                              </button>
+                            </>
                           ) : (
-                            <span className="text-[10px] text-[var(--color-smoke)]">等待</span>
+                            <>
+                              {(isFailed || isPartial) && (
+                                <button
+                                  onClick={() => handleRetry(task)}
+                                  title={isPartial ? '只重试失败子任务' : '重试任务'}
+                                  className="p-1 rounded-md hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] cursor-pointer"
+                                >
+                                  <RotateCw className="size-3.5" />
+                                </button>
+                              )}
+                              {isSuccess && !isFailed && !isPartial && (
+                                <span className="text-[10px] text-[var(--color-patina)] font-medium mr-1">完成</span>
+                              )}
+                              {!isRunning && !isPaused && !isSuccess && !isFailed && !isPartial && (
+                                <span className="text-[10px] text-[var(--color-smoke)] mr-1">等待</span>
+                              )}
+                              <button
+                                onClick={() => {
+                                  if (confirm(`确定删除此任务？\n${getTaskTitle(task)}`)) handleDelete(task);
+                                }}
+                                title="删除任务"
+                                className="p-1 rounded-md hover:bg-[var(--color-iron)]/10 text-[var(--color-smoke)] hover:text-[var(--color-iron)] cursor-pointer"
+                              >
+                                <Trash2 className="size-3" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -382,14 +428,18 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                                 <span className="truncate text-[var(--color-smoke)] flex-1" title={fileName}>
                                   {fileName}
                                 </span>
-                                {bad && sub?.error && (
-                                  <span
-                                    className="shrink-0 text-[9px] text-[var(--color-iron)] truncate max-w-[120px]"
-                                    title={sub.error}
-                                  >
-                                    {sub.error}
-                                  </span>
-                                )}
+                                {bad && sub?.error && (() => {
+                                  const label = classifySubtaskError(sub);
+                                  const display = label ? `[${label}]` : sub.error.slice(0, 40);
+                                  return (
+                                    <span
+                                      className="shrink-0 text-[9px] text-[var(--color-iron)] truncate max-w-[120px]"
+                                      title={`${label ? label + ' — ' : ''}${sub.error}`}
+                                    >
+                                      {display}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             );
                           })}

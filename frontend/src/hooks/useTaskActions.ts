@@ -9,6 +9,8 @@ import {
   triggerDownloadBatch,
   triggerFullSyncFollowing,
   triggerLocalTranscribe,
+  cancelTask,
+  deleteTask,
 } from '@/lib/api';
 import { useStore } from '@/store/useStore';
 import type { Task } from '@/types';
@@ -126,5 +128,25 @@ export function useTaskActions() {
     }
   };
 
-  return { handleClearHistory, handleRetry };
+  const handleCancel = async (task: Task) => {
+    try {
+      await cancelTask(task.task_id);
+      toast.success('已请求停止任务');
+    } catch {
+      // interceptor already toasts
+    }
+  };
+
+  const handleDelete = async (task: Task) => {
+    try {
+      await deleteTask(task.task_id);
+      const { tasks, setTasks } = useStore.getState();
+      setTasks(tasks.filter((t) => t.task_id !== task.task_id));
+      toast.success('已删除任务');
+    } catch {
+      // interceptor already toasts
+    }
+  };
+
+  return { handleClearHistory, handleRetry, handleCancel, handleDelete };
 }

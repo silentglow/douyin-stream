@@ -209,7 +209,7 @@ export default function AppLayout() {
     return () => clearInterval(t);
   }, []);
 
-  // Intercept any navigation to "/tasks" page and trigger slide drawer instead
+  // /tasks 路由已删除，任务面板现在只通过 island drawer 呈现；以下兼容老书签/老地址
   useEffect(() => {
     if (location.pathname === '/tasks') {
       navigate('/home', { replace: true });
@@ -296,7 +296,7 @@ export default function AppLayout() {
 
         {/* Page */}
         <div className="flex-1 overflow-hidden relative">
-          <Outlet />
+          <Outlet context={{ setTaskDrawerOpen }} />
         </div>
       </main>
 
