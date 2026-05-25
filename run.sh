@@ -45,7 +45,9 @@ backend_is_healthy() {
 
 start_backend_background() {
     info "启动后端 (端口 ${BACKEND_PORT})..."
-    PYTHONPATH=src "${PY}" -m uvicorn media_tools.api.app:app --reload --host "${BACKEND_HOST}" --port "${BACKEND_PORT}" &
+    # --reload-dir src 收紧监控范围：默认 watch 整个仓库（含 frontend、node_modules、
+    # 几千个 fsstat 调用）→ reloader 进程持续 ~28% CPU。仅监控 src/ 后回落到 <2%。
+    PYTHONPATH=src "${PY}" -m uvicorn media_tools.api.app:app --reload --reload-dir src --host "${BACKEND_HOST}" --port "${BACKEND_PORT}" &
     BACKEND_PID=$!
 
     for _ in $(seq 1 20); do
@@ -62,7 +64,7 @@ start_backend_background() {
 
 run_backend() {
     info "启动 FastAPI 后端服务 (端口 ${BACKEND_PORT})..."
-    PYTHONPATH=src "${PY}" -m uvicorn media_tools.api.app:app --reload --host "${BACKEND_HOST}" --port "${BACKEND_PORT}"
+    PYTHONPATH=src "${PY}" -m uvicorn media_tools.api.app:app --reload --reload-dir src --host "${BACKEND_HOST}" --port "${BACKEND_PORT}"
 }
 
 run_frontend() {
