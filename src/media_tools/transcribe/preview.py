@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 """Transcript preview + full-text extraction shared by orchestrator and local-transcribe worker."""
+import logging
 from pathlib import Path
 import zipfile
 from xml.etree import ElementTree as ET
 from xml.parsers.expat import ExpatError
 
+logger = logging.getLogger(__name__)
+
 PREVIEW_CHARS = 200
+
+# 用 flag 避免每次提取都重复警告"pypdf 没装"
+_pypdf_warned = False
 
 
 def _read_docx_text(file_path: Path | str) -> str:
@@ -28,12 +34,28 @@ def _read_docx_text(file_path: Path | str) -> str:
 
 
 def _read_pdf_text(file_path: Path | str) -> str:
-    """Extract text from PDF using pypdf."""
+    """Extract text from PDF using pypdf。
+
+    历史 bug：原来 try/except Exception 把 ImportError 也吞了，pypdf 未安装时
+    静默返回空字符串 → 用户在 UI 看到"读取不了"。现在显式区分。
+    """
+    global _pypdf_warned
     try:
         from pypdf import PdfReader
+    except ImportError:
+        if not _pypdf_warned:
+            logger.warning(
+                "pypdf 未安装，PDF 转录稿无法提取文本。请运行 "
+                "`.venv/bin/pip install 'pypdf>=4.0'` 或重新 pip install -e ."
+            )
+            _pypdf_warned = True
+        return ""
+
+    try:
         reader = PdfReader(file_path)
         return "\n".join(page.extract_text() or "" for page in reader.pages)
-    except Exception:  # noqa: BLE001
+    except (OSError, ValueError, RuntimeError) as e:
+        logger.warning(f"PDF 提取文本失败 file={file_path}: {type(e).__name__}: {e}")
         return ""
 
 
