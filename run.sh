@@ -26,6 +26,15 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; }
 # 确保在项目根目录运行
 cd "$(dirname "$0")"
 
+# 强制使用项目 .venv 的 Python，避免与系统/miniconda 解释器混用
+# （历史教训：miniconda Python 会拾起 ~/.local/lib/.../f2，绕开 .venv 的依赖）
+PY="${PY:-$(pwd)/.venv/bin/python}"
+if [ ! -x "${PY}" ]; then
+    error "未找到项目 venv: ${PY}"
+    error "请先创建: python3.11 -m venv .venv && .venv/bin/pip install -e ."
+    exit 1
+fi
+
 port_in_use() {
     lsof -iTCP:"$1" -sTCP:LISTEN -n -P >/dev/null 2>&1
 }
@@ -36,7 +45,7 @@ backend_is_healthy() {
 
 start_backend_background() {
     info "启动后端 (端口 ${BACKEND_PORT})..."
-    PYTHONPATH=src python -m uvicorn media_tools.api.app:app --reload --host "${BACKEND_HOST}" --port "${BACKEND_PORT}" &
+    PYTHONPATH=src "${PY}" -m uvicorn media_tools.api.app:app --reload --host "${BACKEND_HOST}" --port "${BACKEND_PORT}" &
     BACKEND_PID=$!
 
     for _ in $(seq 1 20); do
@@ -53,7 +62,7 @@ start_backend_background() {
 
 run_backend() {
     info "启动 FastAPI 后端服务 (端口 ${BACKEND_PORT})..."
-    PYTHONPATH=src python -m uvicorn media_tools.api.app:app --reload --host "${BACKEND_HOST}" --port "${BACKEND_PORT}"
+    PYTHONPATH=src "${PY}" -m uvicorn media_tools.api.app:app --reload --host "${BACKEND_HOST}" --port "${BACKEND_PORT}"
 }
 
 run_frontend() {
@@ -70,9 +79,9 @@ run_both() {
     info "准备同时启动前后端..."
     
     # 后端检查依赖
-    if ! python -c "import uvicorn" 2>/dev/null; then
+    if ! "${PY}" -c "import uvicorn" 2>/dev/null; then
         info "安装后端依赖..."
-        pip install -r requirements.txt
+        "${PY}" -m pip install -r requirements.txt
     fi
 
     # 前端检查依赖

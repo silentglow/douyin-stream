@@ -122,6 +122,7 @@ test_report.txt
 *.tmp
 *.bak
 *.log
+logs/
 
 # 导出
 config_export/

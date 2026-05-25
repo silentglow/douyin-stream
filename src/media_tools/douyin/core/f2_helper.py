@@ -311,10 +311,10 @@ def _patch_f2_live_for_non_interactive() -> None:
 
 
 def _clean_f2_trace_logs(max_age_days: int = 7) -> None:
-    """清理超过指定天数的 f2-trace-*.log 文件。
+    """清理超过指定天数的 f2-*.log 文件（兜底，正常路径下应由 NullHandler 短路阻止生成）。
 
-    F2 默认会创建 f2-trace-*.log 文件，即使内容为空。
-    定期清理避免文件堆积。
+    F2 在 import 时即可能创建空的 f2-trace-*.log / f2-*.log 文件，
+    若 NullHandler 抢先 mount 失效（例如外部代码先 import f2），则用本函数兜底清理。
 
     Args:
         max_age_days: 保留最近几天的日志，默认 7 天
@@ -327,30 +327,41 @@ def _clean_f2_trace_logs(max_age_days: int = 7) -> None:
         cutoff = time.time() - max_age_days * 86400
         cleaned = 0
 
-        # 常见路径：当前目录、用户主目录、临时目录
+        # 常见路径：当前目录、当前目录下的 logs/、用户主目录、临时目录
+        cwd = Path.cwd()
         search_paths = [
-            Path.cwd(),
+            cwd,
+            cwd / "logs",
             Path.home(),
             Path(os.environ.get("TMPDIR", "/tmp")),
             Path(os.environ.get("TEMP", "/tmp")),
         ]
 
+        # 去重（cwd 和 cwd/logs 可能在不同环境下重叠，TMPDIR/TEMP 也常常相同）
+        seen: set[str] = set()
         for base_path in search_paths:
-            if not base_path.exists():
+            try:
+                key = str(base_path.resolve())
+            except (OSError, RuntimeError):
                 continue
-            for log_file in base_path.glob("f2-trace-*.log"):
-                try:
-                    if log_file.stat().st_mtime < cutoff:
-                        log_file.unlink()
-                        cleaned += 1
-                except (OSError, PermissionError):
-                    continue
+            if key in seen or not base_path.exists():
+                continue
+            seen.add(key)
+            # 同时匹配 f2-*.log（含 f2-trace-*.log）以及 logrotate 滚动产物 f2-*.log.*
+            for pattern in ("f2-*.log", "f2-*.log.*"):
+                for log_file in base_path.glob(pattern):
+                    try:
+                        if log_file.stat().st_mtime < cutoff:
+                            log_file.unlink()
+                            cleaned += 1
+                    except (OSError, PermissionError):
+                        continue
 
         if cleaned:
-            logger.debug(f"清理了 {cleaned} 个过期 f2-trace 日志文件")
+            logger.debug(f"清理了 {cleaned} 个过期 f2-*.log 日志文件")
 
     except (OSError, ValueError) as e:
-        logger.debug(f"清理 f2-trace 日志失败: {e}")
+        logger.debug(f"清理 f2-*.log 日志失败: {e}")
 
 
 _patch_f2_console_for_non_interactive()
