@@ -46,8 +46,12 @@ export interface DashboardData {
   quota_status: {
     status: string;
     accounts: Array<{
-      accountId: string;
-      accountLabel: string;
+      account_id: string;
+      /** @deprecated 后端 dual emit，下版本会移除；新代码读 account_id */
+      accountId?: string;
+      account_label?: string;
+      /** @deprecated 同 accountId */
+      accountLabel?: string;
       remaining_hours: number;
       status: string;
     }>;

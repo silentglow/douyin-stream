@@ -173,8 +173,15 @@ export interface DouyinMetadataResponse {
 }
 
 export interface QwenStatusAccount {
-  accountId: string;
+  /** 规范字段，新代码请使用此项 */
+  account_id: string;
+  /** @deprecated 老接口的 camelCase 兼容字段，下版本会移除；目前后端仍会 dual emit */
+  accountId?: string;
+  account_label?: string;
+  /** @deprecated 同 accountId */
+  accountLabel?: string;
   remaining_hours: number;
+  status?: string;
 }
 
 export interface QwenStatusResponse {

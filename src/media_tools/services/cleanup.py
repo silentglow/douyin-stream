@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Literal
 
+from media_tools.transcribe.media_extensions import MEDIA_EXTENSIONS
+
 CleanupFailureReason = Literal[
     "path_outside_root",
     "permission_denied",
@@ -12,9 +14,9 @@ CleanupFailureReason = Literal[
     "unknown",
 ]
 
-ALLOW_SUFFIXES: set[str] = {
-    ".mp4",
-    ".mp3",
+# 派生自 MEDIA_EXTENSIONS 以避免漂移：每加一种媒体格式（如 .mkv/.mov/.webm）都自动可清理。
+# 额外补 .wav/.m4a/.aac 是历史上转写产物用过的音频中间格式；.tmp/.part 是下载未完成残片。
+ALLOW_SUFFIXES: set[str] = MEDIA_EXTENSIONS | {
     ".wav",
     ".m4a",
     ".aac",

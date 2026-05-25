@@ -70,6 +70,10 @@ async def get_qwen_account_status() -> dict:
                 status_updates.append((status, account_id))
 
             rows.append({
+                # 规范字段（snake_case，对齐 DB），新代码应优先读这两个
+                "account_id": account_id,
+                "account_label": remark or account_id,
+                # 兼容老前端的 camelCase 字段，待前端切换完成后可删
                 "accountId": account_id,
                 "accountLabel": remark or account_id,
                 "remaining_hours": remaining_hours,
@@ -111,7 +115,12 @@ async def claim_qwen_quota() -> dict:
         auth_state_path = str(account["auth_state_path"] or "")
 
         if status != "active":
-            results.append({"accountId": account_id, "status": "skipped", "reason": f"account-{status}"})
+            results.append({
+                "account_id": account_id,
+                "accountId": account_id,  # 兼容字段，待前端切换后移除
+                "status": "skipped",
+                "reason": f"account-{status}",
+            })
             logger.info(f"[额度领取] {remark}: 跳过（账号状态 {status}）")
             continue
 
@@ -132,7 +141,8 @@ async def claim_qwen_quota() -> dict:
         else:
             logger.info(f"[额度领取] {remark}: 跳过（{result.reason}）")
         results.append({
-            "accountId": account_id,
+            "account_id": account_id,
+            "accountId": account_id,  # 兼容字段，待前端切换后移除
             "status": "claimed" if result.claimed else "skipped",
             "reason": result.reason,
         })

@@ -412,10 +412,10 @@ def cleanup_missing_assets():
     download_dir = get_download_path()
     transcripts_dir = get_transcripts_path()
 
-    deleted = 0
     with get_db_connection() as conn:
         rows = AssetRepository.list_all_for_cleanup()
 
+        ids_to_delete: list[str] = []
         for row in rows:
             asset_id = row["asset_id"]
             creator_uid = row["creator_uid"]
@@ -443,11 +443,12 @@ def cleanup_missing_assets():
                 if full_transcript_path and full_transcript_path.exists():
                     transcript_exists = True
 
-            # 如果视频和转写都不存在，删除记录
+            # 如果视频和转写都不存在，纳入待删
             if not video_exists and not transcript_exists:
-                conn.execute("DELETE FROM media_assets WHERE asset_id = ?", (asset_id,))
-                deleted += 1
+                ids_to_delete.append(asset_id)
 
+        # 走 bulk_delete_with_fts 同步删 assets_fts，否则搜索栏会出现已删素材的幽灵命中（点入 404）
+        deleted = AssetRepository.bulk_delete_with_fts(ids_to_delete, conn=conn)
         conn.commit()
     return {"status": "success", "deleted": deleted}
 

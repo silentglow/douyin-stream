@@ -98,7 +98,9 @@ export function useSettings() {
       const res = await getQwenStatus();
       const map: Record<string, number> = {};
       for (const a of res.accounts || []) {
-        map[a.accountId] = a.remaining_hours ?? 0;
+        // 优先读 snake_case（规范）；兼容老后端仍只发 accountId 的情况
+        const id = a.account_id || a.accountId;
+        if (id) map[id] = a.remaining_hours ?? 0;
       }
       setQwenRemainingHoursById(map);
       if (res.status !== 'success') {
@@ -301,7 +303,8 @@ export function useSettings() {
       const res = await getQwenStatus();
       const map: Record<string, number> = {};
       for (const a of res.accounts || []) {
-        map[a.accountId] = a.remaining_hours;
+        const id = a.account_id || a.accountId;
+        if (id) map[id] = a.remaining_hours;
       }
       setQwenRemainingHoursById(map);
     } catch {
