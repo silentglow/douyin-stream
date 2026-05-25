@@ -569,16 +569,17 @@ def _make_upload_progress_logger(log):
         elif event_type == "multipart-started":
             log(f"uploadId: {event.get('uploadId')}")
         elif event_type == "part-uploaded":
-            part_number = int(event.get("partNumber") or 0)
+            # 优先用 completed（已完成数）保证并发上传时进度单调；fall back partNumber 兼容旧路径
+            completed = int(event.get("completed") or event.get("partNumber") or 0)
             total_parts = int(event.get("totalParts") or 0)
             if total_parts <= 0:
                 return
-            percent = max(1, round(part_number * 100 / total_parts))
+            percent = max(1, round(completed * 100 / total_parts))
             bucket = min(10, percent // 10)
-            should_log = part_number == 1 or part_number == total_parts or bucket > last_bucket
+            should_log = completed == 1 or completed == total_parts or bucket > last_bucket
             if should_log:
                 last_bucket = bucket
-                log(f"upload progress: {part_number}/{total_parts} ({percent}%)")
+                log(f"upload progress: {completed}/{total_parts} ({percent}%)")
         elif event_type == "multipart-complete":
             log("multipart upload completed")
 

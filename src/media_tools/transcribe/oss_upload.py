@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import socket
+import threading
 import time
 from email.utils import formatdate
 import os
@@ -11,10 +11,53 @@ from typing import Any, Callable, Iterable, Optional, Union
 from urllib import request as urllib_request
 from xml.sax.saxutils import escape as xml_escape
 
+import requests
+from requests.adapters import HTTPAdapter
+
 from .oss_sign import md5_base64, sign_oss_request, build_oss_url
 
 
 ProgressCallback = Callable[[dict[str, Any]], None]
+
+
+_SESSION: Optional[requests.Session] = None
+_SESSION_LOCK = threading.Lock()
+
+
+def _get_session() -> requests.Session:
+    """模块级 requests.Session，跨所有 asyncio.to_thread worker 共享。
+    urllib3 PoolManager 内部 thread-safe，多个 worker 并发调用共用同一连接池。
+    """
+    global _SESSION
+    if _SESSION is None:
+        with _SESSION_LOCK:
+            if _SESSION is None:
+                s = requests.Session()
+                # max_retries=0：重试由 _open_request 上层统一控制（保持原语义）
+                adapter = HTTPAdapter(pool_connections=10, pool_maxsize=50, max_retries=0)
+                s.mount("https://", adapter)
+                s.mount("http://", adapter)
+                _SESSION = s
+    return _SESSION
+
+
+class _RequestsResponseAdapter:
+    """适配 requests.Response 到原 urllib urlopen 的 context-manager + .headers + .read() 契约，
+    让 `with _open_request(req) as response:` 调用点零改动。
+    """
+
+    def __init__(self, resp: requests.Response) -> None:
+        self._resp = resp
+        self.headers = resp.headers  # CaseInsensitiveDict 支持 .get("ETag")
+
+    def __enter__(self) -> "_RequestsResponseAdapter":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self._resp.close()
+
+    def read(self) -> bytes:
+        return self._resp.content
 
 
 def normalize_oss_token(token: dict[str, Any]) -> dict[str, Any]:
@@ -35,38 +78,36 @@ def parse_upload_id(xml_text: str) -> str:
     return match.group(1)
 
 
-def _read_error_body(error: Exception) -> str:
-    body = getattr(error, "read", None)
-    if callable(body):
-        try:
-            data = body()
-        except (OSError, IOError):
-            return ""
-        if isinstance(data, bytes):
-            return data.decode("utf-8", errors="replace")
-        return str(data)
-    return ""
+def _open_request(req: urllib_request.Request, timeout: int = 30) -> _RequestsResponseAdapter:
+    """通过共享 requests.Session 发请求；保留原 urllib_request.Request 入参接口，
+    输出符合 context-manager + .headers + .read() 契约的 adapter。
+    内置 3 次重试（指数退避 1s/2s/4s），与原 urllib 版本语义一致。
+    """
+    session = _get_session()
+    method = req.get_method()
+    url = req.full_url
+    headers = dict(req.headers)
+    body = req.data
 
-
-def _open_request(req: urllib_request.Request, timeout: int = 30) -> Any:
-    """打开请求，支持超时和重试"""
-    last_error = None
+    last_error: Optional[BaseException] = None
     for attempt in range(3):
         try:
-            return urllib_request.urlopen(req, timeout=timeout)
-        except (socket.timeout, urllib_request.URLError) as e:
+            resp = session.request(
+                method, url,
+                data=body, headers=headers,
+                timeout=timeout, allow_redirects=False,
+            )
+            if 200 <= resp.status_code < 300:
+                return _RequestsResponseAdapter(resp)
+            # 4xx/5xx：保留 body 片段，方便排查 OSS 错误码（NoSuchUpload / InvalidDigest 等）
+            detail = (resp.text or "")[:500]
+            resp.close()
+            raise RuntimeError(f"HTTP {resp.status_code}: {detail}")
+        except (requests.RequestException, OSError) as e:
             last_error = e
             if attempt < 2:
-                wait = 2 ** attempt
-                time.sleep(wait)
-            else:
-                break
-    # 所有重试失败
-    detail = _read_error_body(last_error)
-    message = str(last_error)
-    if detail:
-        message = f"{message} {detail}"
-    raise RuntimeError(f"请求失败 (重试3次): {message}") from last_error
+                time.sleep(2 ** attempt)
+    raise RuntimeError(f"请求失败 (重试3次): {last_error}") from last_error
 
 
 CHUNK_SIZE = 8 * 1024 * 1024  # 8MB chunks
@@ -295,13 +336,26 @@ def complete_multipart_upload(sts: dict[str, Any], upload_id: str, parts: list[d
         return
 
 
+def _resolve_part_size(file_size: int, override_mb: int) -> int:
+    """决定 multipart 分片大小（字节）。override_mb > 0 时优先用它；否则按文件大小自动选：
+    < 1 GB → 5 MB；< 5 GB → 16 MB；≥ 5 GB → 32 MB。
+    """
+    if override_mb > 0:
+        return override_mb * 1024 * 1024
+    if file_size < 1 * 1024 * 1024 * 1024:
+        return 5 * 1024 * 1024
+    if file_size < 5 * 1024 * 1024 * 1024:
+        return 16 * 1024 * 1024
+    return 32 * 1024 * 1024
+
+
 async def upload_file_to_oss(
     *,
     token: dict[str, Any],
     file_buffer: bytes | None = None,
     file_path: str | Optional[Path] = None,
     mime_type: str,
-    part_size: int = 5 * 1024 * 1024,
+    part_size: int = 0,
     on_progress: ProgressCallback | None = None,
     upload_mode: Optional[str] = None,
 ) -> None:
@@ -312,7 +366,7 @@ async def upload_file_to_oss(
         file_buffer: 文件字节缓冲区（小文件使用）
         file_path: 文件路径（大文件使用，避免OOM）
         mime_type: MIME类型
-        part_size: 分片大小（默认 5MB，OSS multipart 最小推荐值）
+        part_size: 分片大小（字节）。0 = 按文件大小自动选 + 受 QWEN_OSS_PART_SIZE_MB 配置控制
         on_progress: 进度回调
         upload_mode: 上传模式
     """
@@ -323,10 +377,11 @@ async def upload_file_to_oss(
     for key in required_keys:
         if key not in token:
             raise ValueError(f"Token missing required key: {key}")
-    
+
     callback = on_progress or (lambda _event: None)
     from media_tools.core.config import get_app_config
-    mode = (upload_mode or get_app_config().qwen_oss_upload_mode).strip().lower()
+    app_config = get_app_config()
+    mode = (upload_mode or app_config.qwen_oss_upload_mode).strip().lower()
     if mode not in {"multipart", "auto", "direct"}:
         raise ValueError(f"Unsupported OSS upload mode: {mode}")
 
@@ -343,6 +398,11 @@ async def upload_file_to_oss(
         file_size = len(file_buffer)
     else:
         raise ValueError("Either file_buffer or file_path must be provided")
+
+    # 调用方传非 0 优先；否则按 (env/SystemSetting 覆写 → 自动) 选
+    if part_size <= 0:
+        part_size = _resolve_part_size(file_size, app_config.qwen_oss_part_size_mb)
+    concurrency = app_config.qwen_oss_upload_concurrency
 
     if mode in {"auto", "direct"}:
         try:
@@ -362,29 +422,64 @@ async def upload_file_to_oss(
     upload_id = await asyncio.to_thread(initiate_multipart_upload, token["sts"], mime_type)
     callback({"type": "multipart-started", "uploadId": upload_id})
 
-    parts: list[dict[str, Any]] = []
     total_parts = (file_size + part_size - 1) // part_size
 
-    try:
+    # 并发上传：producer 顺序读文件 chunk 投到 queue（maxsize=concurrency 起背压作用，
+    # 内存峰值 ≈ 2*concurrency*part_size）；N 个 consumer 并发跑 upload_part。
+    # 任一 consumer 抛错 → asyncio.gather 取消所有兄弟 task → 外层 abort_multipart_upload 兜底清理。
+    queue: asyncio.Queue = asyncio.Queue(maxsize=concurrency)
+    parts_result: list[dict[str, Any]] = []
+    done_counter = 0
+
+    async def producer() -> None:
         if use_file_path:
-            # 文件路径分片上传，避免 OOM
-            with open(file_path_obj, "rb") as f:
+            # 用 to_thread 包 read 避免阻塞事件循环
+            f = open(file_path_obj, "rb")
+            try:
                 for part_number in range(1, total_parts + 1):
-                    chunk = f.read(part_size)
+                    chunk = await asyncio.to_thread(f.read, part_size)
                     if not chunk:
                         break
-                    etag = await asyncio.to_thread(upload_part, token["sts"], upload_id, part_number, chunk, mime_type)
-                    parts.append({"partNumber": part_number, "etag": etag})
-                    callback({"type": "part-uploaded", "partNumber": part_number, "totalParts": total_parts})
+                    await queue.put((part_number, chunk))
+            finally:
+                f.close()
         else:
             assert file_buffer is not None
-            for offset, part_number in zip(range(0, len(file_buffer), part_size), range(1, total_parts + 1), strict=True):
-                chunk = file_buffer[offset : offset + part_size]
-                etag = await asyncio.to_thread(upload_part, token["sts"], upload_id, part_number, chunk, mime_type)
-                parts.append({"partNumber": part_number, "etag": etag})
-                callback({"type": "part-uploaded", "partNumber": part_number, "totalParts": total_parts})
+            for offset, part_number in zip(
+                range(0, len(file_buffer), part_size),
+                range(1, total_parts + 1),
+                strict=True,
+            ):
+                await queue.put((part_number, file_buffer[offset : offset + part_size]))
+        # 投终止哨兵（每个 consumer 一个）
+        for _ in range(concurrency):
+            await queue.put(None)
 
-        await asyncio.to_thread(complete_multipart_upload, token["sts"], upload_id, parts)
+    async def consumer() -> None:
+        nonlocal done_counter
+        while True:
+            item = await queue.get()
+            if item is None:
+                return
+            part_number, chunk = item
+            etag = await asyncio.to_thread(
+                upload_part, token["sts"], upload_id, part_number, chunk, mime_type,
+            )
+            parts_result.append({"partNumber": part_number, "etag": etag})
+            done_counter += 1
+            callback({
+                "type": "part-uploaded",
+                "partNumber": part_number,
+                "completed": done_counter,
+                "totalParts": total_parts,
+            })
+
+    try:
+        await asyncio.gather(producer(), *(consumer() for _ in range(concurrency)))
+
+        # OSS complete API 要求 parts 按 partNumber 升序
+        parts_result.sort(key=lambda x: x["partNumber"])
+        await asyncio.to_thread(complete_multipart_upload, token["sts"], upload_id, parts_result)
         callback({"type": "multipart-complete"})
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         if upload_id:

@@ -7,6 +7,33 @@
 
 ---
 
+## [2.5.5] - 2026-05-25
+
+### ✨ 新增
+
+- **大文件预切分（> 6 GB 自动按时长均分）**：千问平台严格拒绝单文件 > 6 GB 的转写请求，超大文件之前会在云端环节失败浪费已耗的上传时间。新增 `src/media_tools/transcribe/splitter.py`，在 `worker.py:run_local_transcribe` 入口检测，对 `> 6 GB` 文件用 ffmpeg `-c copy` 流复制按时长均分成 N 段（每段 ≤ 5.5 GB 留 buffer），每段作为独立转写任务（不合并结果）。
+  - 切分缓存路径：`data/downloads/.split_cache/<original_asset_id_hex>/<stem>__partNofM.mp4`
+  - 切分用 fast-seek（`-ss` 放 `-i` 前）+ `-c copy`，8 GB 文件 ~30-60 秒搞定，无重编码
+  - 每段成功转写后**单独**清理 part 文件，失败的 part 保留供排查
+  - 利用现有架构 `asset_id = sha1(absolute_path)`（`store/path_utils.py:35`），两个 part 自然获得独立 `asset_id` / 独立 `transcribe_runs` 行 / 独立 resume 链路。数据库 schema 零改动
+  - 切分失败（ffmpeg 报错 / 文件损坏）会在日志记 ERROR 并跳过该文件，不阻塞批量其他文件
+
+- **OSS 上传配置项**：`core/config.py` 新增 `qwen_oss_upload_concurrency`（默认 6，clamp 1-32）和 `qwen_oss_part_size_mb`（默认 0 = 按文件大小自动选 5/16/32 MB）。两者均支持 `SystemSettings` 表覆写或环境变量 `QWEN_OSS_UPLOAD_CONCURRENCY` / `QWEN_OSS_PART_SIZE_MB`。
+
+### 🔧 改进
+
+- **OSS 上传性能优化（预期单流 1.3 MB/s → 4-6 MB/s）**：诊断显示真实瓶颈在 `oss_upload.py` 的单流串行 + 无 keep-alive + 小分片，不是带宽。`upload_file_to_oss` 重构为：
+  - **`requests.Session` 替代 `urllib.request.urlopen`**：模块级共享 Session + `HTTPAdapter(pool_connections=10, pool_maxsize=50)`，urllib3 PoolManager 底层 thread-safe，所有 `asyncio.to_thread` worker 复用同一连接池。消除每分片新建 TCP/TLS 握手的开销
+  - **`_RequestsResponseAdapter`**：保留原 `with _open_request(req) as response:` 调用契约，所有 OSS 调用（initiate/upload_part/complete/abort/direct）零改动
+  - **分片大小动态化**：`< 1 GB → 5 MB`、`< 5 GB → 16 MB`、`≥ 5 GB → 32 MB`。8 GB 文件分片数从 1667 降到 256，OSS API 调用频次降 6×
+  - **单文件内并发分片上传**：producer/consumer 模式，1 个 producer 边读边投到 `asyncio.Queue(maxsize=concurrency)`（背压控制内存），N 个 consumer 并发跑 `upload_part`。任一抛错则 `asyncio.gather` 取消所有兄弟，外层 `abort_multipart_upload` 兜底清理。完成后按 `partNumber` 升序排序再 complete（OSS API 要求）
+  - 内存峰值 ≈ `2 × concurrency × part_size`，默认 ≈ 192 MB / 文件
+  - 小文件（< 100 MB）仍走 `direct` 分支不受影响
+
+- **进度日志单调性**：`flow.py:571` `part-uploaded` 事件优先读 `completed`（已完成数）算 percent，fall back 到 `partNumber`（兼容旧路径）。并发上传时 partNumber 不再单调到达，但 `completed` 计数能保证日志的 `upload progress: X/Y (P%)` 仍然单调递增。
+
+---
+
 ## [2.5.4] - 2026-05-24
 
 ### ✨ 新增

@@ -336,6 +336,23 @@ class AppConfig:
         return _get_env_str("QWEN_OSS_UPLOAD_MODE", "multipart").lower()
 
     @property
+    def qwen_oss_upload_concurrency(self) -> int:
+        """单文件 OSS 分片并发上传度。优先 SystemSettings → 环境变量，默认 6，clamp 到 [1, 32]。"""
+        db_value = get_runtime_setting_int("qwen_oss_upload_concurrency", 0)
+        if 1 <= db_value <= 32:
+            return db_value
+        env_val = _get_env_int("QWEN_OSS_UPLOAD_CONCURRENCY", 6)
+        return max(1, min(32, env_val))
+
+    @property
+    def qwen_oss_part_size_mb(self) -> int:
+        """OSS 分片大小（MB）。0 = 按文件大小自动选（5/16/32 MB）。优先 SystemSettings → 环境变量。"""
+        db_value = get_runtime_setting_int("qwen_oss_part_size_mb", 0)
+        if db_value > 0:
+            return db_value
+        return _get_env_int("QWEN_OSS_PART_SIZE_MB", 0)
+
+    @property
     def task_stale_minutes(self) -> int:
         """任务超时判定时间（分钟）。支持 MEDIA_TOOLS_TASK_STALE_MINUTES 环境变量覆盖。"""
         env_val = _get_env_int("MEDIA_TOOLS_TASK_STALE_MINUTES", 0)
@@ -430,6 +447,8 @@ class AppConfig:
                 "pipeline_account_id_set": bool(self.pipeline_account_id),
                 "bilibili_proxy_set": bool(self.bilibili_proxy),
                 "qwen_oss_upload_mode": self.qwen_oss_upload_mode,
+                "qwen_oss_upload_concurrency": self.qwen_oss_upload_concurrency,
+                "qwen_oss_part_size_mb": self.qwen_oss_part_size_mb,
                 "task_stale_minutes": self.task_stale_minutes,
             },
         }

@@ -22,6 +22,11 @@ async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, d
     if not valid_paths:
         return {"success_count": 0, "failed_count": 0, "total": 0, "success_paths": [], "failed_paths": []}
 
+    valid_paths, split_registry = await _prepare_split_paths(valid_paths, update_progress_fn)
+
+    if not valid_paths:
+        return {"success_count": 0, "failed_count": 0, "total": 0, "success_paths": [], "failed_paths": []}
+
     config = load_pipeline_config()
     orchestrator = create_orchestrator(config)
     if hasattr(orchestrator, '_account_pool_service'):
@@ -68,6 +73,9 @@ async def run_local_transcribe(file_paths: list[str], update_progress_fn=None, d
     orchestrator.on_progress = _progress_callback
 
     report = await orchestrator.transcribe_batch(valid_paths, resume=False)
+
+    if split_registry:
+        _cleanup_split_parts(split_registry, report)
 
     # 批量处理额外 DB 更新（preview / text / FTS）和删除
     for item in report.results:
@@ -207,6 +215,59 @@ def _extract_successful_paths(report) -> set[str]:
         for item in getattr(report, "results", [])
         if item.get("success") and item.get("video_path")
     }
+
+
+async def _prepare_split_paths(
+    paths: list[Path],
+    update_progress_fn,
+) -> tuple[list[Path], dict[Path, list[Path]]]:
+    """检测 paths 中 > 6GB 的源文件，用 ffmpeg `-c copy` 切分成多个 ≤ 6GB 的 part。
+    返回 (展开后的 paths 列表, 原文件 -> part 列表 映射)。
+
+    切分失败的源文件会被剔除并记 ERROR 日志，避免把它丢给云端再失败一次浪费时间。
+    """
+    from media_tools.transcribe import splitter
+
+    to_split = [p for p in paths if splitter.needs_split(p)]
+    if not to_split:
+        return paths, {}
+
+    await call_progress(
+        update_progress_fn,
+        0.01,
+        f"检测到 {len(to_split)} 个 > 6GB 文件，正在切分...",
+        stage="transcribe",
+    )
+
+    new_paths: list[Path] = []
+    registry: dict[Path, list[Path]] = {}
+
+    for p in paths:
+        if not splitter.needs_split(p):
+            new_paths.append(p)
+            continue
+        try:
+            parts = await asyncio.to_thread(splitter.split_video, p)
+            logger.info(f"文件已切分: {p.name} -> {len(parts)} part(s)")
+            new_paths.extend(parts)
+            registry[p] = parts
+        except splitter.SplitError as e:
+            logger.error(f"文件切分失败，跳过该文件: {p} - {e}")
+
+    return new_paths, registry
+
+
+def _cleanup_split_parts(registry: dict[Path, list[Path]], report) -> None:
+    """根据 transcribe_batch 报告清理已成功转写的 part 文件；失败的 part 保留供排查。"""
+    from media_tools.transcribe import splitter
+
+    successful = _extract_successful_paths(report)
+
+    for source, parts in registry.items():
+        for part in parts:
+            if str(Path(part).resolve()) in successful:
+                splitter.cleanup_part(part)
+        splitter.cleanup_cache_dir_if_empty(source)
 
 
 def _delete_transcribed_videos(video_paths: list[Path], successful_paths: set[str]) -> None:
