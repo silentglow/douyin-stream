@@ -3,7 +3,7 @@ import { useStore } from '@/store/useStore';
 import { useEffect, useState } from 'react';
 import { getTaskDisplayState } from '@/lib/task-utils';
 import type { Task } from '@/lib/api';
-import { Search, Home, FolderOpen, FileText, Compass, ClipboardList, Settings } from 'lucide-react';
+import { Search, Home, FolderOpen, FileText, Compass, ClipboardList, Settings, AlertTriangle } from 'lucide-react';
 import { TaskIsland } from '@/components/layout/TaskIsland';
 
 
@@ -16,8 +16,7 @@ const navItems = [
   { to: '/library',     idx: '02', icon: FolderOpen,    label: '内容库',     en: 'library',    kbd: '⌘2' },
   { to: '/transcripts', idx: '03', icon: FileText,      label: '文稿库',     en: 'transcripts',kbd: '⌘3' },
   { to: '/discover',    idx: '04', icon: Compass,       label: '发现',       en: 'discover',   kbd: '⌘4' },
-  { to: '/tasks',       idx: '05', icon: ClipboardList, label: '任务',       en: 'tasks',      kbd: '⌘5' },
-  { to: '/settings',    idx: '06', icon: Settings,      label: '设置',       en: 'settings',   kbd: '⌘6' },
+  { to: '/settings',    idx: '05', icon: Settings,      label: '设置',       en: 'settings',   kbd: '⌘5' },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -122,13 +121,16 @@ function CommandPalette({ open, setOpen, setTaskDrawerOpen }: CommandPaletteProp
         e.preventDefault();
         setOpen(!open);
       }
-      if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '6') {
+      // 任务面板单独绑 ⌘` (反引号)，与导航 ⌘1-⌘5 解耦——避免视觉位次错位
+      if ((e.metaKey || e.ctrlKey) && e.key === '`') {
+        e.preventDefault();
+        setOpen(false);
+        setTaskDrawerOpen(true);
+      }
+      // ⌘1 .. ⌘5 = 导航到对应 navItems
+      if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '5') {
         const idx = parseInt(e.key) - 1;
-        if (idx === 4) {
-          e.preventDefault();
-          setOpen(false);
-          setTaskDrawerOpen(true);
-        } else if (idx < navItems.length) {
+        if (idx < navItems.length) {
           e.preventDefault();
           navigate(navItems[idx].to);
           setOpen(false);
@@ -166,17 +168,13 @@ function CommandPalette({ open, setOpen, setTaskDrawerOpen }: CommandPaletteProp
         {/* Items */}
         <div className="max-h-[360px] overflow-y-auto py-2">
           <div className="px-6 pt-3 pb-1.5 eyebrow">Navigate</div>
-          {navItems.map((item, idx) => (
+          {navItems.map((item) => (
             <button
               key={item.to}
               className="w-full px-6 py-3 flex items-center gap-5 hover:bg-[rgba(255,255,255,0.03)] transition-colors group cursor-pointer"
               onClick={() => {
-                if (idx === 4) {
-                  setTaskDrawerOpen(true);
-                } else {
-                  navigate(item.to);
-                  setTaskDrawerOpen(false);
-                }
+                navigate(item.to);
+                setTaskDrawerOpen(false);
                 setOpen(false);
               }}
             >
@@ -240,27 +238,6 @@ export default function AppLayout() {
         {/* Nav */}
         <div className="flex-1 flex flex-col py-4 px-2 space-y-1 stagger">
           {navItems.map((item) => {
-            if (item.to === '/tasks') {
-              const isActive = taskDrawerOpen;
-              return (
-                <button
-                  key={item.to}
-                  onClick={() => setTaskDrawerOpen(!taskDrawerOpen)}
-                  title={`${item.label} (${item.kbd})`}
-                  className={`rail-item w-full relative flex flex-col items-center justify-center py-3.5 px-2 transition-all duration-300 cursor-pointer ${
-                    isActive ? 'active text-[var(--color-rust)] bg-[rgba(99,102,241,0.08)]' : 'text-[var(--color-ash)] hover:text-[var(--color-bone)]'
-                  }`}
-                >
-                  <item.icon className="w-[21px] h-[21px] transition-colors stroke-[1.8]" />
-                  <span className={`mt-1.5 text-[8.5px] font-medium tracking-[0.06em] uppercase scale-90 leading-none ${
-                    isActive ? 'text-[var(--color-rust)] font-semibold' : 'text-[var(--color-smoke)]'
-                  }`}>
-                    {item.en}
-                  </span>
-                </button>
-              );
-            }
-
             const isActive = location.pathname.startsWith(item.to)
               || (item.to === '/home' && location.pathname === '/');
             return (
@@ -301,11 +278,74 @@ export default function AppLayout() {
       </main>
 
       <CommandPalette open={cmdOpen} setOpen={setCmdOpen} setTaskDrawerOpen={setTaskDrawerOpen} />
+      <FloatingTaskButton
+        isOpen={taskDrawerOpen}
+        onToggle={() => setTaskDrawerOpen(!taskDrawerOpen)}
+      />
       <TaskIsland
         isOpen={taskDrawerOpen}
         onToggle={() => setTaskDrawerOpen(!taskDrawerOpen)}
         onClose={() => setTaskDrawerOpen(false)}
       />
     </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ *  Floating task button — always-visible global drawer trigger.
+ *  Right-bottom corner, shows running task count + failed badge.
+ *  Replaces the old left-nav "任务" button.
+ * ═══════════════════════════════════════════════════════════════ */
+function FloatingTaskButton({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => void }) {
+  const tasks = useStore((s) => s.tasks);
+
+  const { runningCount, failedCount } = tasks.reduce(
+    (acc: { runningCount: number; failedCount: number }, t: Task) => {
+      const state = getTaskDisplayState(t);
+      if (state === 'running' || state === 'paused') acc.runningCount += 1;
+      else if (state === 'failed' || state === 'stale' || state === 'partial') acc.failedCount += 1;
+      return acc;
+    },
+    { runningCount: 0, failedCount: 0 },
+  );
+
+  // drawer 打开时不显示浮动球（避免重叠）
+  if (isOpen) return null;
+
+  const hasRunning = runningCount > 0;
+  const hasFailed = failedCount > 0;
+
+  return (
+    <button
+      onClick={onToggle}
+      title={`任务面板 (⌘\`) · 运行中 ${runningCount}${hasFailed ? ` · 失败 ${failedCount}` : ''}`}
+      className={`group fixed bottom-6 right-6 z-40 flex items-center justify-center
+        w-12 h-12 rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.35)]
+        backdrop-blur-md border transition-all duration-300 cursor-pointer
+        ${hasRunning
+          ? 'bg-[var(--color-rust)]/95 border-[var(--color-rust)]/40 text-white hover:scale-110 animate-[pulse_2.5s_ease-in-out_infinite]'
+          : 'bg-[var(--color-paper)]/90 border-white/[0.08] text-[var(--color-smoke)] hover:text-[var(--color-bone)] hover:border-white/15 hover:scale-105'}
+      `}
+    >
+      <ClipboardList className="size-[20px]" strokeWidth={hasRunning ? 2.2 : 1.8} />
+
+      {/* 运行中数字 badge（覆盖图标上） */}
+      {hasRunning && (
+        <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full
+          bg-[var(--color-bone)] text-[var(--color-rust)] text-[11px] font-bold
+          flex items-center justify-center font-mono">
+          {runningCount}
+        </span>
+      )}
+
+      {/* 失败 badge */}
+      {hasFailed && !hasRunning && (
+        <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full
+          bg-[var(--color-iron)]/90 text-white text-[10px] font-bold
+          flex items-center justify-center">
+          <AlertTriangle className="size-2.5" strokeWidth={3} />
+        </span>
+      )}
+    </button>
   );
 }

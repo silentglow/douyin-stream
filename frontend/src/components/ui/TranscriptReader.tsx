@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 import {
   Download, ChevronLeft, ChevronRight, Type, List,
   Star, ArrowLeft, ExternalLink, Search, X,
@@ -10,6 +13,12 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { markAsset, exportTranscripts, getAssetFileUrl } from '@/lib/api';
 import type { Asset } from '@/types';
+
+// 用 pdfjs-dist 自带 worker（react-pdf v10 推荐方式）
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString();
 
 interface Heading {
   level: number;
@@ -352,12 +361,8 @@ export function TranscriptReader({
               </div>
             </div>
           ) : isPdf ? (
-            // PDF：直接嵌入浏览器原生 PDF viewer，享用 Cmd+F 搜索 / 翻页 / 缩放
-            <iframe
-              src={getAssetFileUrl(asset.asset_id)}
-              title={asset.title || 'Transcript'}
-              className="w-full h-full border-0 bg-[var(--color-paper)]"
-            />
+            // PDF：用 react-pdf (PDF.js) 在网页内 canvas 渲染，沿用站点设计语言
+            <PdfPagedReader url={getAssetFileUrl(asset.asset_id)} title={asset.title || 'Transcript'} />
           ) : (
             <article
               className="max-w-[680px] mx-auto px-8 sm:px-12 py-14 sm:py-20"
@@ -424,5 +429,88 @@ export function TranscriptReader({
         </div>
       </div>
     </motion.div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ *  PdfPagedReader — 在网页内用 PDF.js 渲染所有页面，保留站点设计语言。
+ *  全部页面纵向滚动展示，支持文本选中/复制（pdfjs textLayer 提供）。
+ * ═══════════════════════════════════════════════════════════════ */
+function PdfPagedReader({ url, title }: { url: string; title: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [numPages, setNumPages] = useState<number>(0);
+  const [pageWidth, setPageWidth] = useState<number>(720);
+  const [error, setError] = useState<string | null>(null);
+
+  // 响应容器宽度，让每页 canvas 自适应
+  useEffect(() => {
+    const update = () => {
+      if (containerRef.current) {
+        const w = Math.min(containerRef.current.clientWidth - 64, 920);
+        setPageWidth(Math.max(420, w));
+      }
+    };
+    update();
+    const obs = new ResizeObserver(update);
+    if (containerRef.current) obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const pdfFile = useMemo(() => ({ url }), [url]);
+
+  return (
+    <div ref={containerRef} className="w-full h-full flex flex-col items-center px-4 py-8 overflow-y-auto bg-[var(--color-ink)]">
+      <Document
+        file={pdfFile}
+        onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+        onLoadError={(e) => setError(e?.message || 'PDF 加载失败')}
+        loading={
+          <div className="flex items-center gap-3 py-24 text-[var(--color-smoke)]">
+            <div className="w-5 h-5 rounded-full border border-[var(--color-hairline-strong)] border-t-[var(--color-rust)] animate-spin" />
+            <span className="mono-cap">PDF 加载中</span>
+          </div>
+        }
+        error={
+          <div className="py-24 text-center text-[var(--color-iron)]">
+            <div className="mono-cap mb-2">无法加载 PDF</div>
+            <div className="text-[12px] text-[var(--color-smoke)]">{error || '请检查文件是否存在'}</div>
+          </div>
+        }
+        className="flex flex-col items-center gap-5"
+      >
+        {/* 顶部 PDF 标题（与页面其他部分一致风格） */}
+        {numPages > 0 && (
+          <div className="w-full max-w-[920px] mb-2 pb-3 border-b border-[var(--color-hairline)] text-center">
+            <div className="eyebrow">{numPages} 页 · PDF</div>
+          </div>
+        )}
+
+        {Array.from(new Array(numPages), (_, idx) => (
+          <div
+            key={`page_${idx + 1}`}
+            className="shadow-[0_8px_30px_rgba(0,0,0,0.4)] border border-[var(--color-hairline-faint)] bg-white rounded-sm overflow-hidden"
+          >
+            <Page
+              pageNumber={idx + 1}
+              width={pageWidth}
+              renderTextLayer
+              renderAnnotationLayer={false}
+              loading={
+                <div
+                  style={{ width: pageWidth, height: pageWidth * 1.414 }}
+                  className="bg-[var(--color-paper)] animate-pulse"
+                />
+              }
+            />
+          </div>
+        ))}
+
+        {numPages > 0 && (
+          <div className="mono-cap text-[var(--color-smoke)] py-8">
+            ⸺ {title} · 共 {numPages} 页 ⸺
+          </div>
+        )}
+      </Document>
+    </div>
   );
 }
