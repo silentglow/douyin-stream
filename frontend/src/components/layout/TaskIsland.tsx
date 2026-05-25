@@ -281,9 +281,16 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                   const isFailed = state === 'failed' || state === 'stale';
                   const isPartial = state === 'partial';
                   const isSuccess = state === 'success';
-                  
+
                   const pct = Math.round((task.progress || 0) * 100);
                   const title = getTaskTitle(task);
+
+                  // 提取 subtasks：本地转写/批量下载等多文件任务每个文件一条
+                  // 是用户最关心的"哪个文件成了/挂了"信息
+                  const parsed = parsePayload(task.payload);
+                  const subtasks = Array.isArray(parsed?.subtasks)
+                    ? (parsed.subtasks as Array<{ title?: string; status?: string; error?: string; video_path?: string }>)
+                    : [];
 
                   return (
                     <div
@@ -350,6 +357,42 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                             className="h-full bg-[var(--color-rust)] transition-all duration-300"
                             style={{ width: `${pct}%` }}
                           />
+                        </div>
+                      )}
+
+                      {/* 子任务文件级明细：用户在 island 视图最频繁的疑问就是"具体哪个文件" */}
+                      {!isRunning && subtasks.length > 0 && (
+                        <div className="mt-2 pl-7 pr-1 space-y-1 max-h-32 overflow-y-auto border-l border-white/[0.03]">
+                          {subtasks.map((sub, idx) => {
+                            const ok = sub?.status === 'completed';
+                            const bad = sub?.status === 'failed';
+                            const skipped = sub?.status === 'skipped';
+                            const fileName = sub?.title || (sub?.video_path ? sub.video_path.split('/').pop() : null) || '?';
+                            return (
+                              <div key={idx} className="flex items-start gap-1.5 text-[10px] leading-snug">
+                                {ok ? (
+                                  <CheckCircle2 className="size-2.5 shrink-0 mt-[2px] text-[var(--color-patina)]" />
+                                ) : bad ? (
+                                  <AlertTriangle className="size-2.5 shrink-0 mt-[2px] text-[var(--color-iron)]" />
+                                ) : skipped ? (
+                                  <div className="size-2 shrink-0 mt-[3px] rounded-full bg-white/15" />
+                                ) : (
+                                  <div className="size-2 shrink-0 mt-[3px] rounded-full bg-white/25" />
+                                )}
+                                <span className="truncate text-[var(--color-smoke)] flex-1" title={fileName}>
+                                  {fileName}
+                                </span>
+                                {bad && sub?.error && (
+                                  <span
+                                    className="shrink-0 text-[9px] text-[var(--color-iron)] truncate max-w-[120px]"
+                                    title={sub.error}
+                                  >
+                                    {sub.error}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
