@@ -90,7 +90,7 @@ class CloudCleanupService:
         try:
             from media_tools.accounts.auth_state import resolve_qwen_cookie_string
             from media_tools.transcribe.flow import delete_record
-            from media_tools.transcribe.http import RequestsApiContext
+            from media_tools.common.http import RequestsApiContext
 
             from media_tools.transcribe.config import load_config
             auth_state_path = load_config().paths.auth_state_path
