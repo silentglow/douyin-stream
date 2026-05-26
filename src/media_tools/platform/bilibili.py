@@ -2,19 +2,17 @@ from __future__ import annotations
 
 import inspect
 import re
-import shutil
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional
 
 from media_tools.common.paths import get_download_path
 from media_tools.logger import get_logger
 
-from media_tools.bilibili.utils.cookies import get_bilibili_cookie_string
-from media_tools.bilibili.utils.naming import sanitize_filename
-from media_tools.bilibili.core.temp_files import managed_temp_file
-from media_tools.bilibili.core.task_control import (
+from media_tools.bilibili.cookies import get_bilibili_cookie_string
+from media_tools.bilibili.naming import sanitize_filename
+from media_tools.bilibili.temp_files import managed_temp_file
+from media_tools.bilibili.task_control import (
     PauseController,
     register_cancel_flag,
     cancel_download,
@@ -69,10 +67,9 @@ def _format_eta(seconds: int | float) -> str:
         return f"{int(seconds)}s"
 
 
-def _build_output_template(base_dir: Path, creator_folder: str, series_folder: str) -> str:
+def _build_output_template(base_dir: Path, creator_folder: str) -> str:
     safe_creator = sanitize_filename(creator_folder) or "bilibili"
-    safe_series = sanitize_filename(series_folder) or "全部投稿"
-    target_dir = base_dir / safe_creator / safe_series
+    target_dir = base_dir / safe_creator
     target_dir.mkdir(parents=True, exist_ok=True)
     return str(target_dir / "%(title)s__%(id)s__%(format_id)s.%(ext)s")
 
@@ -104,7 +101,7 @@ def _persist_bilibili_assets_to_db(
         return
 
     from media_tools.assets.service import MediaAssetService
-    from media_tools.bilibili.utils.naming import build_bilibili_creator_uid, build_bilibili_asset_id
+    from media_tools.bilibili.naming import build_bilibili_creator_uid, build_bilibili_asset_id
 
     new_files_resolved = {str(Path(p).resolve()): p for p in new_files}
 
@@ -288,7 +285,7 @@ def download_up_by_url(
         "overwrites": force,
         "continuedl": not force,
         "consoletitle": False,
-        "outtmpl": _build_output_template(downloads_path, "bilibili", "全部投稿"),
+        "outtmpl": _build_output_template(downloads_path, "bilibili"),
         # 优先选择 H.264(AVC) 编码，避免 AV1/HEVC 导致 Qwen 转写返回 recordStatus=40
         "format": "best[vcodec~='^avc']/bestvideo[vcodec~='^avc']+bestaudio/best/bestvideo+bestaudio",
         "merge_output_format": "mp4",
@@ -347,7 +344,7 @@ def download_up_by_url(
                         mid = m.group(1)
                 if nick and mid:
                     uploader_info = UploaderInfo(nickname=nick, mid=str(mid), homepage_url=f"https://space.bilibili.com/{mid}")
-                    ydl_opts_inner["outtmpl"] = _build_output_template(downloads_path, nick, "全部投稿")
+                    ydl_opts_inner["outtmpl"] = _build_output_template(downloads_path, nick)
         except Exception:
             pass  # 预提取失败不影响后续下载
 

@@ -323,7 +323,7 @@ def _find_existing_videos_for_pipeline(url: str, platform: str) -> list[str]:
     existing: list[str] = []
 
     if platform == "bilibili":
-        from media_tools.bilibili.core.url_parser import normalize_bilibili_url, BilibiliUrlKind
+        from media_tools.bilibili.url_parser import normalize_bilibili_url, BilibiliUrlKind
         normalized = normalize_bilibili_url(url)
 
         if normalized.kind == BilibiliUrlKind.SPACE and normalized.mid:
@@ -345,13 +345,11 @@ def _find_existing_videos_for_pipeline(url: str, platform: str) -> list[str]:
                 logger.info(f"B 站 pipeline 重试：从数据库找到单个已下载视频 (bvid={normalized.bvid})")
             else:
                 # 兜底：数据库没有记录时，扫描下载目录按 bvid 匹配文件名
-                # 兼容旧路径 bilibili/全部投稿 和新路径 <nickname>/全部投稿
-                scan_dirs = [downloads_path / "bilibili" / "全部投稿"]
+                # 扫描所有下载目录（扁平结构：downloads/<nickname>/）
+                scan_dirs = [downloads_path / "bilibili"]
                 for d in downloads_path.iterdir():
-                    if d.is_dir() and d.name != "bilibili":
-                        sub = d / "全部投稿"
-                        if sub.exists():
-                            scan_dirs.append(sub)
+                    if d.is_dir() and d.name not in ("bilibili", ".bilibili-download-archive.txt"):
+                        scan_dirs.append(d)
                 mp4_files = []
                 for scan_dir in scan_dirs:
                     if scan_dir.exists():

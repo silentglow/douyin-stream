@@ -5,7 +5,7 @@ from media_tools.common.paths import get_download_path, get_transcripts_path
 from media_tools.store.db import get_db_connection, resolve_safe_path, resolve_query_value
 from media_tools.creators.repository import CreatorRepository
 from media_tools.assets.repository import AssetRepository
-from media_tools.services.bilibili_nickname import fetch_bilibili_nickname
+from media_tools.bilibili.nickname import fetch_bilibili_nickname
 import os
 import re
 import sqlite3
@@ -152,8 +152,8 @@ def list_creators(
 async def create_creator(req: CreatorCreateRequest):
     try:
         if "bilibili.com" in req.url or "b23.tv" in req.url:
-            from media_tools.bilibili.core.url_parser import BilibiliUrlKind, normalize_bilibili_url
-            from media_tools.bilibili.utils.naming import build_bilibili_creator_uid
+            from media_tools.bilibili.url_parser import BilibiliUrlKind, normalize_bilibili_url
+            from media_tools.bilibili.naming import build_bilibili_creator_uid
 
             parsed = normalize_bilibili_url(req.url)
             if parsed.kind is not BilibiliUrlKind.SPACE or not parsed.mid:

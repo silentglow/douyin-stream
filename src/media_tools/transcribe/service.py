@@ -130,7 +130,7 @@ class OrchestratorV2:
             creator_folder = self._creator_folder_override or _lookup_creator_folder(video_path) or "未分类"
             output_dir_path = Path(self.config.output_dir).resolve()
             target_dir = (output_dir_path / creator_folder).resolve()
-            if not str(target_dir).startswith(str(output_dir_path) + os.sep) and str(target_dir) != str(output_dir_path):
+            if not target_dir.is_relative_to(output_dir_path):
                 logger.warning(f"Creator folder traversal blocked: {creator_folder} -> {target_dir}")
                 target_dir = output_dir_path / "未分类"
             output_dir = str(target_dir)
