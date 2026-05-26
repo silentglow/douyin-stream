@@ -3,7 +3,7 @@ import { useStore } from '@/store/useStore';
 import { useEffect, useState } from 'react';
 import { getTaskDisplayState } from '@/lib/task-utils';
 import type { Task } from '@/lib/api';
-import { Search, Home, FolderOpen, FileText, Compass, ClipboardList, Settings, AlertTriangle } from 'lucide-react';
+import { Search, Home, FolderOpen, FileText, Compass, Settings } from 'lucide-react';
 import { TaskIsland } from '@/components/layout/TaskIsland';
 
 
@@ -278,74 +278,11 @@ export default function AppLayout() {
       </main>
 
       <CommandPalette open={cmdOpen} setOpen={setCmdOpen} setTaskDrawerOpen={setTaskDrawerOpen} />
-      <FloatingTaskButton
-        isOpen={taskDrawerOpen}
-        onToggle={() => setTaskDrawerOpen(!taskDrawerOpen)}
-      />
       <TaskIsland
         isOpen={taskDrawerOpen}
         onToggle={() => setTaskDrawerOpen(!taskDrawerOpen)}
         onClose={() => setTaskDrawerOpen(false)}
       />
     </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
- *  Floating task button — always-visible global drawer trigger.
- *  Right-bottom corner, shows running task count + failed badge.
- *  Replaces the old left-nav "任务" button.
- * ═══════════════════════════════════════════════════════════════ */
-function FloatingTaskButton({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => void }) {
-  const tasks = useStore((s) => s.tasks);
-
-  const { runningCount, failedCount } = tasks.reduce(
-    (acc: { runningCount: number; failedCount: number }, t: Task) => {
-      const state = getTaskDisplayState(t);
-      if (state === 'running' || state === 'paused') acc.runningCount += 1;
-      else if (state === 'failed' || state === 'stale' || state === 'partial') acc.failedCount += 1;
-      return acc;
-    },
-    { runningCount: 0, failedCount: 0 },
-  );
-
-  // drawer 打开时不显示浮动球（避免重叠）
-  if (isOpen) return null;
-
-  const hasRunning = runningCount > 0;
-  const hasFailed = failedCount > 0;
-
-  return (
-    <button
-      onClick={onToggle}
-      title={`任务面板 (⌘\`) · 运行中 ${runningCount}${hasFailed ? ` · 失败 ${failedCount}` : ''}`}
-      className={`group fixed bottom-6 right-6 z-40 flex items-center justify-center
-        w-12 h-12 rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.35)]
-        backdrop-blur-md border transition-all duration-300 cursor-pointer
-        ${hasRunning
-          ? 'bg-[var(--color-rust)]/95 border-[var(--color-rust)]/40 text-white hover:scale-110 animate-[pulse_2.5s_ease-in-out_infinite]'
-          : 'bg-[var(--color-paper)]/90 border-white/[0.08] text-[var(--color-smoke)] hover:text-[var(--color-bone)] hover:border-white/15 hover:scale-105'}
-      `}
-    >
-      <ClipboardList className="size-[20px]" strokeWidth={hasRunning ? 2.2 : 1.8} />
-
-      {/* 运行中数字 badge（覆盖图标上） */}
-      {hasRunning && (
-        <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full
-          bg-[var(--color-bone)] text-[var(--color-rust)] text-[11px] font-bold
-          flex items-center justify-center font-mono">
-          {runningCount}
-        </span>
-      )}
-
-      {/* 失败 badge */}
-      {hasFailed && !hasRunning && (
-        <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full
-          bg-[var(--color-iron)]/90 text-white text-[10px] font-bold
-          flex items-center justify-center">
-          <AlertTriangle className="size-2.5" strokeWidth={3} />
-        </span>
-      )}
-    </button>
   );
 }
