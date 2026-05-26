@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-import sqlite3
 from pathlib import Path
 from typing import Any, Optional
 from media_tools.logger import get_logger

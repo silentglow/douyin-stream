@@ -42,7 +42,7 @@ export function FailureSummarySection({ failureSummary }: FailureSummarySectionP
 }
 
 interface RecentTranscriptsSectionProps {
-  recentTranscripts: any[];
+  recentTranscripts: Array<Record<string, unknown>>;
   onNavigateToTranscripts: () => void;
 }
 

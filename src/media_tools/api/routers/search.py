@@ -26,7 +26,7 @@ def search(
         搜索结果列表，包含素材、创作者、任务类型
     """
     results: list[dict] = []
-    per_type_limit = limit // 3
+    per_type_limit = max(1, limit // 3)
 
     # 搜索素材（FTS5）
     cleaned = "".join(c for c in query if c.isprintable() or c.isspace()).strip()

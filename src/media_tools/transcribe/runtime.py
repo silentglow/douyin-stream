@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 import os
-import sys
 
 
 @dataclass(frozen=True)

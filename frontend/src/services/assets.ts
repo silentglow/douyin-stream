@@ -16,7 +16,7 @@ export const getAssets = async (limit = 500, signal?: AbortSignal): Promise<Asse
 };
 
 export const getAssetsByCreator = async (creatorUid: string, signal?: AbortSignal): Promise<Asset[]> => {
-  const response = await apiClient.get(`/assets?creator_uid=${creatorUid}&limit=500`, { signal });
+  const response = await apiClient.get(`/assets?creator_uid=${encodeURIComponent(creatorUid)}&limit=500`, { signal });
   return (response.data as Asset[]).map(normalizeAsset);
 };
 

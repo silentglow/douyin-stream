@@ -119,7 +119,7 @@ function CommandPalette({ open, setOpen, setTaskDrawerOpen }: CommandPaletteProp
       if (e.key === 'Escape') setOpen(false);
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setOpen(!open);
+        setOpen((prev) => !prev);
       }
       // 任务面板单独绑 ⌘` (反引号)，与导航 ⌘1-⌘5 解耦——避免视觉位次错位
       if ((e.metaKey || e.ctrlKey) && e.key === '`') {

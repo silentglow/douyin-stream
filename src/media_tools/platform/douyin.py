@@ -916,7 +916,7 @@ def download_by_url_sync(url, max_counts=None, skip_existing: bool = True, inter
             return asyncio.run(_download_with_stats(url, max_counts, skip_existing=skip_existing, interval=interval, existing_source=existing_source, task_id=task_id))
     except (RuntimeError, OSError, ValueError) as e:
         logger.info(error(f"下载出错: {e}"))
-        return False
+        return {"success": False, "new_files": [], "error": str(e)}
 
 
 def download_by_url(

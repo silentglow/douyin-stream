@@ -193,8 +193,6 @@ export const createTaskSlice: StateCreator<StoreState, [], [], TaskSlice> = (set
       } finally {
         fetchTasksPromise = null;
       }
-      // get() referenced via merging closure if needed downstream
-      void get;
     })();
 
     return fetchTasksPromise;

@@ -111,7 +111,7 @@ class Downloader(ABC):
         url: str,
         skip_existing: bool = True,
         task_id: Optional[str] = None,
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """根据 URL 下载视频"""
         pass
     
@@ -123,7 +123,7 @@ class Downloader(ABC):
         skip_existing: bool = True,
         task_id: Optional[str] = None,
         interval: Optional[str] = None,
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """根据用户 ID 下载视频"""
         pass
     

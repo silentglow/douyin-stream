@@ -2,7 +2,7 @@ from __future__ import annotations
 """创作者数据访问层 - 所有 creators 表的操作集中在这里"""
 
 import sqlite3
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from media_tools.store.db import get_db_connection, get_table_columns
 

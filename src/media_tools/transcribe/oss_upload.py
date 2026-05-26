@@ -13,7 +13,7 @@ ProgressCallback = Callable[[dict[str, Any]], None]
 
 # oss2.resumable_upload 写已传 part 状态的目录。网络中断 / 进程崩溃后下次同 fileKey
 # 上传时,oss2 读这里跳过已传 part 从断点继续。
-_OSS2_CHECKPOINT_DIR = Path("data/.upload_cp")
+_OSS2_CHECKPOINT_DIR = Path(__file__).resolve().parents[3] / "data" / ".upload_cp"
 
 
 def normalize_oss_token(token: dict[str, Any]) -> dict[str, Any]:

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query, Path, HTTPException
 from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel, field_validator
-from media_tools.common.paths import get_download_path, get_transcripts_path, get_project_root
+from media_tools.common.paths import get_download_path, get_transcripts_path
 from media_tools.store.db import get_db_connection, resolve_safe_path, resolve_query_value
 from media_tools.assets.file_ops import (
     delete_asset_files,
@@ -148,6 +148,8 @@ def export_transcripts(asset_ids: list[str]):
     """批量导出转写文稿为 zip"""
     if not asset_ids:
         raise HTTPException(status_code=400, detail="No asset IDs provided")
+    if len(asset_ids) > 200:
+        raise HTTPException(status_code=400, detail="最多导出 200 个文稿")
 
     transcripts_dir = get_transcripts_path()
 

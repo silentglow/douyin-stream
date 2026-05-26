@@ -1,5 +1,5 @@
 import type { Task } from '@/lib/api';
-import { taskTimestamp } from './formatters';
+import { taskTimestamp, formatDurationMs } from './formatters';
 
 const ACTIVE_STATUSES = new Set(['RUNNING', 'PENDING', 'PAUSED']);
 const SUCCESS_STATUSES = new Set(['COMPLETED', 'SUCCESS']);
@@ -124,13 +124,4 @@ export function getTaskDuration(task: Task): string {
   return formatDurationMs(elapsed) + '前';
 }
 
-function formatDurationMs(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  if (totalSec < 60) return `${totalSec}秒`;
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  if (min < 60) return sec > 0 ? `${min}分${sec}秒` : `${min}分`;
-  const hr = Math.floor(min / 60);
-  const remainMin = min % 60;
-  return remainMin > 0 ? `${hr}小时${remainMin}分` : `${hr}小时`;
-}
+

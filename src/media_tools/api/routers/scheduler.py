@@ -36,7 +36,7 @@ def _run_scan_all_following():
 
 def _register_system_jobs() -> None:
     # Register periodic stale task cleanup (every 10 minutes)
-    from media_tools.api.routers.tasks import cleanup_stale_tasks
+    from media_tools.scheduler.ops import cleanup_stale_tasks
 
     def _cleanup_job():
         try:

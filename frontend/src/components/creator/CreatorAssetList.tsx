@@ -14,7 +14,7 @@ export function StatusLabel({ status, error }: { status: string; error?: string 
   if (status === 'failed' || error) {
     return (
       <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-iron)] tracking-[0.16em] uppercase max-w-[160px] truncate">
-        <span className="status-dot bg-[var(--color-iron)]" />{error ? '失败' : '失败'}
+        <span className="status-dot bg-[var(--color-iron)]" />失败
       </span>
     );
   }

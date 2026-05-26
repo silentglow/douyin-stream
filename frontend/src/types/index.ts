@@ -2,7 +2,7 @@ export interface Creator {
   uid: string;
   nickname: string;
   sec_user_id: string;
-  platform?: 'douyin' | 'bilibili' | 'local' | string;
+  platform?: string;
   sync_status: string;
   avatar?: string;
   bio?: string;

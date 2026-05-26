@@ -2,7 +2,7 @@ from __future__ import annotations
 """素材数据访问层 - 所有 media_assets 表的操作集中在这里"""
 
 import sqlite3
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from media_tools.store.db import get_db_connection, get_table_columns
 from media_tools.assets.file_ops import get_source_url_column

@@ -52,7 +52,7 @@ export default function Home() {
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
         refreshDashboard();
-        getQwenStatus().then((res) => setQwenAccounts(res.accounts || [])).catch(() => { });
+        getQwenStatus().then((res) => { if (!cancelled) setQwenAccounts(res.accounts || []); }).catch(() => { });
       }
     };
     document.addEventListener('visibilitychange', onVisible);

@@ -209,12 +209,10 @@ def update_global_settings(req: GlobalSettingsRequest):
         if req.transcript_output_dir is not None:
             from pathlib import Path
             import os
+            from media_tools.common.paths import get_project_root
             target = Path(req.transcript_output_dir).resolve()
-            # 防止路径注入：只允许项目根目录下的子路径
-            project_root = Path(__file__).resolve().parents[4]
-            try:
-                target.relative_to(project_root)
-            except ValueError:
+            project_root = get_project_root().resolve()
+            if not target.is_relative_to(project_root):
                 raise HTTPException(status_code=400, detail="transcript_output_dir 必须在项目目录内")
             if not os.path.isdir(target):
                 raise HTTPException(status_code=400, detail="transcript_output_dir 目录不存在")

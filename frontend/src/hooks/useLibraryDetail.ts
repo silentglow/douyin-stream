@@ -102,8 +102,7 @@ export function useLibraryDetail() {
     finally {
       setSyncingIds((prev) => { const next = new Set(prev); next.delete(uid); return next; });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [syncingIds]);
 
   const handleDeleteCreator = useCallback((uid: string) => {
     const creator = allCreators.find((c) => c.uid === uid);

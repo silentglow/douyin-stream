@@ -1,7 +1,7 @@
 import asyncio
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, Path
-from media_tools.common.paths import get_download_path, get_transcripts_path, get_project_root
+from media_tools.common.paths import get_download_path, get_transcripts_path
 from media_tools.store.db import get_db_connection, resolve_safe_path, resolve_query_value
 from media_tools.creators.repository import CreatorRepository
 from media_tools.assets.repository import AssetRepository

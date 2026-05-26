@@ -92,7 +92,8 @@ async def get_metadata(
                         "cover_url": cover_url,
                     }
                 )
-            break
+                if len(videos) >= max_counts:
+                    break
 
         return {
             "creator": {

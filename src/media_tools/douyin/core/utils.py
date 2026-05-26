@@ -1,6 +1,6 @@
 from __future__ import annotations
 """抖音核心工具函数"""
-from typing import Optional, Union
+from typing import Optional
 
 import asyncio
 import concurrent.futures

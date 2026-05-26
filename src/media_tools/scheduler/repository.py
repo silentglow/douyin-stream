@@ -7,7 +7,7 @@ import sqlite3
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from media_tools.store.db import get_db_connection
 from media_tools.core.workflow import validate_transition_by_str, InvalidTransitionError

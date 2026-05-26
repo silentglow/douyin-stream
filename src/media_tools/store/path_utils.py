@@ -16,8 +16,7 @@ def resolve_safe_path(base_dir: Path, relative_path: Optional[str]) -> Optional[
     try:
         base = base_dir.resolve()
         target = (base / relative_path).resolve()
-        import os
-        if not str(target).startswith(str(base) + os.sep) and str(target) != str(base):
+        if not target.is_relative_to(base):
             logger.warning(f"Path traversal blocked: {relative_path} -> {target}")
             return None
         return target

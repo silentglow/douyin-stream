@@ -133,8 +133,6 @@ class RetryConfig:
 
 
 @dataclass
-
-@dataclass
 class PipelineResultV2:
     """Pipeline 执行结果 V2"""
     success: bool
