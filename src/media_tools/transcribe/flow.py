@@ -246,6 +246,19 @@ async def run_real_flow(
         except (RuntimeError, OSError, ValueError) as exc:
             logger.warning(f"resume 回退清理云端记录异常 record_id={old_record_id}: {exc}")
 
+    async def _safe_cleanup_failed_record(api: Any, record_id: str) -> None:
+        """_do_flow 失败兜底：清掉云端孤儿 recordId。
+        和 _safe_cleanup_old_record 的区别：本函数在异常处理路径调用，对任何异常都吞掉
+        (包括 CancelledError)，避免在外层 cancel 时把原始异常掩盖。"""
+        try:
+            ok = await delete_record(api, [record_id])
+            if ok:
+                log(f"失败兜底：已清理云端孤儿 record_id={record_id}")
+            else:
+                logger.warning(f"失败兜底清理云端记录返回失败 record_id={record_id}")
+        except BaseException as exc:
+            logger.warning(f"失败兜底清理云端记录异常 record_id={record_id}: {exc}")
+
     async def _do_flow(api: Any) -> FlowResult:
         log(f"Using file: {input_path}")
         log(f"File size: {stats.st_size}")
@@ -271,140 +284,158 @@ async def run_real_flow(
         log(f"genRecordId: {token['genRecordId']}")
         log(f"recordId: {token['recordId']}")
 
-        if account_upload_lock is None:
-            await upload_file_to_oss(
-                token=token,
-                file_path=input_path,
-                mime_type=mime_type,
-                on_progress=_make_upload_progress_logger(log),
-            )
-        else:
-            async with account_upload_lock:
+        # 拿到 recordId 之后任何步骤失败（OSS 上传超时、record/start 失败、poll 超时、
+        # download 失败、cancel）都要清掉云端孤儿 recordId，否则千问账号"记录"列表会越积越多。
+        # 历史教训 v2026-05-26：5 文件 OSS 上传超时后，20 个 recordId 全部留在账号端。
+        try:
+            if account_upload_lock is None:
                 await upload_file_to_oss(
                     token=token,
                     file_path=input_path,
                     mime_type=mime_type,
                     on_progress=_make_upload_progress_logger(log),
                 )
+            else:
+                async with account_upload_lock:
+                    await upload_file_to_oss(
+                        token=token,
+                        file_path=input_path,
+                        mime_type=mime_type,
+                        on_progress=_make_upload_progress_logger(log),
+                    )
 
-        await api_json(
-            api,
-            "https://api.qianwen.com/assistant/api/record/upload_heartbeat?c=tongyi-web",
-            {"genRecordId": token["genRecordId"]},
-        )
-        log("upload heartbeat sent")
-
-        _checkpoint("uploaded", {
-            "record_id": token["recordId"],
-            "gen_record_id": token["genRecordId"],
-        })
-
-        start_json = await api_json(
-            api,
-            "https://api.qianwen.com/assistant/api/record/start?c=tongyi-web",
-            {
-                "taskType": "local",
-                "tingwuRequest": {
-                    "fileLink": token["getLink"],
-                    "transId": token["genRecordId"],
-                    "fileSize": stats.st_size,
-                },
-                "bizTerminal": "web",
-                "dirIdStr": "",
-            },
-        )
-        batch_id = (start_json.get("data") or {}).get("batchId", "")
-        log(f"started batchId={batch_id}")
-
-        _checkpoint("transcribing", {"batch_id": batch_id})
-
-        completed_record = await poll_until_done(api, token["genRecordId"])
-        log(f"record completed with status={completed_record.get('recordStatus', 'unknown')}")
-
-        await api_json(
-            api,
-            "https://api.qianwen.com/assistant/api/record/read?c=tongyi-web",
-            {"recordIds": [token["recordId"]]},
-        )
-
-        _checkpoint("exporting")
-
-        export_url = await export_file(api, token["genRecordId"], export_config)
-
-        _checkpoint("downloading", {"export_url": export_url})
-
-        run_stamp = now_stamp()
-
-        resolved_title = title or _get_video_title_from_db(input_path)
-
-        export_out = build_export_output_path(
-            input_path=input_path,
-            output_dir=output_dir,
-            export_config=export_config,
-            run_stamp=run_stamp,
-            title=resolved_title,
-        )
-
-        ensure_dir(output_dir)
-        await download_file(export_url, export_out)
-
-        log(f"{export_config.label} saved: {export_out}")
-
-        if load_config().save_debug_json:
-            headers = transcript_headers(token["genRecordId"])
-            transcript_json = await api_json(
+            await api_json(
                 api,
-                "https://audio-api.qianwen.com/api/trans/getTransResult?c=tongyi-web",
-                {
-                    "action": "getTransResult",
-                    "version": "1.0",
-                    "transId": token["genRecordId"],
-                },
-                headers,
+                "https://api.qianwen.com/assistant/api/record/upload_heartbeat?c=tongyi-web",
+                {"genRecordId": token["genRecordId"]},
             )
-            doc_edit_json = await api_json(
+            log("upload heartbeat sent")
+
+            _checkpoint("uploaded", {
+                "record_id": token["recordId"],
+                "gen_record_id": token["genRecordId"],
+            })
+
+            start_json = await api_json(
                 api,
-                "https://api.qianwen.com/api/doc/getTransDocEdit?c=tongyi-web",
+                "https://api.qianwen.com/assistant/api/record/start?c=tongyi-web",
                 {
-                    "action": "getTransDocEdit",
-                    "version": "1.0",
-                    "transId": token["genRecordId"],
+                    "taskType": "local",
+                    "tingwuRequest": {
+                        "fileLink": token["getLink"],
+                        "transId": token["genRecordId"],
+                        "fileSize": stats.st_size,
+                    },
+                    "bizTerminal": "web",
+                    "dirIdStr": "",
                 },
-                headers,
             )
-            output_base = input_path.stem
-            debug_artifacts = save_debug_artifacts(
+            batch_id = (start_json.get("data") or {}).get("batchId", "")
+            log(f"started batchId={batch_id}")
+
+            _checkpoint("transcribing", {"batch_id": batch_id})
+
+            completed_record = await poll_until_done(api, token["genRecordId"])
+            log(f"record completed with status={completed_record.get('recordStatus', 'unknown')}")
+
+            await api_json(
+                api,
+                "https://api.qianwen.com/assistant/api/record/read?c=tongyi-web",
+                {"recordIds": [token["recordId"]]},
+            )
+
+            _checkpoint("exporting")
+
+            export_url = await export_file(api, token["genRecordId"], export_config)
+
+            _checkpoint("downloading", {"export_url": export_url})
+
+            run_stamp = now_stamp()
+
+            resolved_title = title or _get_video_title_from_db(input_path)
+
+            export_out = build_export_output_path(
+                input_path=input_path,
                 output_dir=output_dir,
-                output_base=output_base,
+                export_config=export_config,
                 run_stamp=run_stamp,
-                transcript_json=transcript_json,
-                doc_edit_json=doc_edit_json,
+                title=resolved_title,
             )
-            log(f"transcript saved: {debug_artifacts.transcript_path}")
-            log(f"doc edit saved: {debug_artifacts.doc_edit_path}")
 
-        deleted = False
-        if should_delete:
-            deleted = await delete_record(api, [token["recordId"]])
-            log(f"delete status: {'success' if deleted else 'failed'}")
+            ensure_dir(output_dir)
+            await download_file(export_url, export_out)
 
-        quota_after = await get_quota_snapshot(
-            auth_state_path=auth_state_path,
-            account_id=account_id,
-            cookie_string=cookie_string,
-        )
-        record_flow_quota_usage(
-            account_id=account_id,
-            before_snapshot=quota_before,
-            after_snapshot=quota_after,
-            log=log,
-        )
-        return FlowResult(
-            record_id=token["recordId"],
-            gen_record_id=token["genRecordId"],
-            export_path=export_out,
-            remote_deleted=deleted,
-        )
+            log(f"{export_config.label} saved: {export_out}")
+
+            if load_config().save_debug_json:
+                headers = transcript_headers(token["genRecordId"])
+                transcript_json = await api_json(
+                    api,
+                    "https://audio-api.qianwen.com/api/trans/getTransResult?c=tongyi-web",
+                    {
+                        "action": "getTransResult",
+                        "version": "1.0",
+                        "transId": token["genRecordId"],
+                    },
+                    headers,
+                )
+                doc_edit_json = await api_json(
+                    api,
+                    "https://api.qianwen.com/api/doc/getTransDocEdit?c=tongyi-web",
+                    {
+                        "action": "getTransDocEdit",
+                        "version": "1.0",
+                        "transId": token["genRecordId"],
+                    },
+                    headers,
+                )
+                output_base = input_path.stem
+                debug_artifacts = save_debug_artifacts(
+                    output_dir=output_dir,
+                    output_base=output_base,
+                    run_stamp=run_stamp,
+                    transcript_json=transcript_json,
+                    doc_edit_json=doc_edit_json,
+                )
+                log(f"transcript saved: {debug_artifacts.transcript_path}")
+                log(f"doc edit saved: {debug_artifacts.doc_edit_path}")
+
+            deleted = False
+            if should_delete:
+                deleted = await delete_record(api, [token["recordId"]])
+                log(f"delete status: {'success' if deleted else 'failed'}")
+
+            quota_after = await get_quota_snapshot(
+                auth_state_path=auth_state_path,
+                account_id=account_id,
+                cookie_string=cookie_string,
+            )
+            record_flow_quota_usage(
+                account_id=account_id,
+                before_snapshot=quota_before,
+                after_snapshot=quota_after,
+                log=log,
+            )
+            return FlowResult(
+                record_id=token["recordId"],
+                gen_record_id=token["genRecordId"],
+                export_path=export_out,
+                remote_deleted=deleted,
+            )
+        except BaseException:
+            # 兜底清理：失败时也调 delete_record，把云端孤儿干掉。
+            # 即使 should_delete=False（用户想保留成功记录），失败记录是没内容的噪音，应清掉。
+            # shield 防止外层 cancel 把 cleanup 也打断；任何 cleanup 异常都吞掉，避免掩盖原始异常。
+            orphan_record_id = token.get("recordId")
+            if orphan_record_id:
+                try:
+                    await asyncio.shield(_safe_cleanup_failed_record(api, orphan_record_id))
+                except BaseException:
+                    logger.debug(
+                        f"failure-path cleanup orphan recordId={orphan_record_id} 异常忽略",
+                        exc_info=True,
+                    )
+            raise
 
     async def _try_resume_export_only(api: Any) -> FlowResult | None:
         if resume_state is None or not resume_state.export_url:

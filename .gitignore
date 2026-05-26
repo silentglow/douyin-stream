@@ -263,6 +263,7 @@ tests/*
 !tests/test_pipeline_steps.py
 !tests/test_task_service.py
 !tests/test_services.py
+!tests/test_flow_cleanup_orphan_record.py
 tests/bilibili/**/__pycache__/
 tests/regression/**/__pycache__/
 tests/api/**/__pycache__/
