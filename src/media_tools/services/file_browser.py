@@ -12,9 +12,7 @@ logger = logging.getLogger(__name__)
 def _is_allowed_scan_path(dir_path: Path) -> bool:
     """Restrict directory scanning to safe roots."""
     import sys
-    import os
     resolved = dir_path.resolve()
-    dir_str = str(resolved)
 
     if any(part == ".." for part in dir_path.parts):
         return False
@@ -26,8 +24,7 @@ def _is_allowed_scan_path(dir_path: Path) -> bool:
         allowed_roots.append(Path("/Volumes").resolve())
 
     for root in allowed_roots:
-        root_str = str(root)
-        if dir_str.startswith(root_str + os.sep) or dir_str == root_str:
+        if resolved.is_relative_to(root):
             return True
     return False
 

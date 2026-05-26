@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Optional, Union
 
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -29,10 +28,8 @@ def _resolve_asset_video_file(
             allowed_roots = [home, Path("/tmp").resolve()]
             if sys.platform == "darwin":
                 allowed_roots.append(Path("/Volumes").resolve())
-            dir_str = str(target)
             for root in allowed_roots:
-                root_str = str(root)
-                if dir_str.startswith(root_str + os.sep) or dir_str == root_str:
+                if target.is_relative_to(root):
                     return target
             logger.warning(f"Local asset path traversal blocked: {source_url}")
             return None
