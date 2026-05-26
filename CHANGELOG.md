@@ -49,6 +49,20 @@
   4. `test_no_scattered_os_environ_get`：`os.environ.get` 在 src 内仅允许出现在白名单 6 个 bootstrap 文件
 - 新增 **`tests/test_export_format_changes_take_effect.py`** 2 条 e2e 测试：锁住 v2026-05 之前坑用户的 `export_format=pdf` 事故防回归
 
+### 🐛 REFACTOR 之后的实战修复
+
+- **重复浮动球去重**：`AppLayout.tsx` 之前误加了一个 `FloatingTaskButton` 钉在 `fixed bottom-6 right-6`，但 `TaskIsland.tsx:164` 本身已经有一个相同位置的 dynamic island toggle（带进度环 SVG + ping 动效）。两者堆叠 → 用户看到"一个大圈一个小圈"。删掉 AppLayout 里的副本，保留 TaskIsland 内置版（功能更全）。
+- **`_do_flow` 失败时清掉云端孤儿 recordId**：`src/media_tools/transcribe/flow.py` 之前 `delete_record` 只在 `_do_flow` 成功路径调用，OSS 上传超时 / record/start 失败 / poll 超时 / download 失败 / 用户取消等任意异常路径都会让已分配的 recordId 留在千问账号"记录"列表里变孤儿（实测一周累积 64 条）。
+  - 拿到 token 之后整段 `_do_flow` body 用 `try / except BaseException` 包住
+  - 新增内部 helper `_safe_cleanup_failed_record`，`asyncio.shield` 防外层 cancel 打断，任何 cleanup 异常都吞掉避免掩盖原始异常
+  - 即使 `should_delete=False`（用户保留成功记录的配置）也清理失败记录——失败 record 没内容，留着只是噪音
+  - 新增 **`tests/test_flow_cleanup_orphan_record.py`** 3 条回归测试：上传失败触发 cleanup / export 失败触发 cleanup / cleanup 自身失败不掩盖原异常
+- **存量孤儿 recordId 一次性清理脚本**：`scripts/cleanup_orphan_qwen_records.py`
+  - 扫 `data/logs/media_tools_*.log`，把 `[file] recordId: X` 分配行和"`已达最大尝试次数 (N): /path/<file>`" ERROR 行 + 同秒 `保留在账号 X` WARNING 行配对（按 filename 关联账号，并发场景下也准确）
+  - 同 filename 后续有 `md/docx/pdf saved:` 表示最后一个 recordId 已被成功路径清理，剔除
+  - 默认 dry-run，`--apply` 才实际删；`--days N` 控制扫描窗口
+  - **实战执行**：7 天窗口扫到 64 条孤儿，按账号分组 5 批调 `delete_record` 全部成功（qingyin 23 / guiqing 34 / addision 7 / qinggui 0），0 异常
+
 ---
 
 ## [2.5.5] - 2026-05-25
