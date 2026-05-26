@@ -61,7 +61,7 @@ def _register_system_jobs() -> None:
             import asyncio
             from pathlib import Path
             from media_tools.transcribe.quota import claim_equity_quota, has_claimed_equity_today
-            from media_tools.transcribe.db_account_pool import (
+            from media_tools.accounts.db_account_pool import (
                 build_qwen_auth_state_path_for_account,
                 load_qwen_accounts_from_db,
             )

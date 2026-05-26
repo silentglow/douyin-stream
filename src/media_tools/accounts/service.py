@@ -53,7 +53,7 @@ class AccountPoolService:
         """
         try:
             from media_tools.store.db import get_db_connection
-            from media_tools.transcribe.db_account_pool import (
+            from media_tools.accounts.db_account_pool import (
                 build_qwen_auth_state_path_for_account,
                 load_qwen_accounts_from_db,
             )
