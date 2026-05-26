@@ -1,6 +1,6 @@
 from __future__ import annotations
 """素材文件操作服务"""
-from typing import Optional, Union
+from typing import Optional
 
 import logging
 import sys

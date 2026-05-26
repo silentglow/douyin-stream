@@ -5,7 +5,7 @@ import asyncio
 import inspect
 import logging
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from media_tools.core import background
 from media_tools.transcribe.media_extensions import MEDIA_EXTENSIONS

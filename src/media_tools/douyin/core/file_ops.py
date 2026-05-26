@@ -1,6 +1,6 @@
 from __future__ import annotations
 """抖音下载器文件操作工具"""
-from typing import Optional, Union
+from typing import Optional
 
 import logging
 import re

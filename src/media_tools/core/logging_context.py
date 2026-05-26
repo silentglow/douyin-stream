@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from contextvars import ContextVar
 from contextlib import contextmanager
-from typing import Any, Generator, Optional, Union
+from typing import Any, Generator, Optional
 
 
 _request_id: ContextVar[Optional[str]] = ContextVar("request_id", default=None)

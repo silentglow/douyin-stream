@@ -8,7 +8,7 @@ import tempfile
 import threading
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Generator, Optional, Union
+from typing import Any, Generator, Optional
 
 from media_tools.logger import get_logger
 

@@ -6,7 +6,7 @@ import json
 import logging
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from media_tools.transcribe.errors import ErrorType
 from media_tools.common.runtime import ensure_dir

@@ -1,6 +1,6 @@
 from __future__ import annotations
 """Pipeline 工具函数"""
-from typing import Optional, Union
+from typing import Optional
 
 import logging
 import re

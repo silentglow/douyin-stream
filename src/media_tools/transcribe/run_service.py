@@ -2,7 +2,7 @@ from __future__ import annotations
 """转写 run 服务 - 封装 transcribe_runs 表的高级操作。"""
 
 from pathlib import Path
-from typing import Any, Optional, Dict
+from typing import Any, Optional
 
 from media_tools.logger import get_logger
 from media_tools.transcribe.repository import TranscribeRunRepository

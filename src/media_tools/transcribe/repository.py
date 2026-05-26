@@ -9,7 +9,7 @@ stage 字段记录当前进行到哪一阶段，record_id / gen_record_id 在上
 import sqlite3
 import uuid
 from datetime import datetime
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from media_tools.store.db import get_db_connection
 from media_tools.logger import get_logger

@@ -1,7 +1,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, Tuple, Optional, Union
+from typing import Any, Tuple, Optional
 
 import yaml
 from media_tools.logger import get_logger
@@ -55,7 +55,7 @@ class AuthParser:
 
         return True, "解析成功", cookies
 
-    def _get_nested_value(self, data: Dict, path: str) -> Any:
+    def _get_nested_value(self, data: dict, path: str) -> Any:
         keys = path.split(".")
         val = data
         for k in keys:
@@ -112,7 +112,7 @@ class AuthParser:
 
     def validate_data(
         self, raw_data: str, data_type: str = "cookie", rule_name: Optional[str] = None
-    ) -> Tuple[bool, str, Dict]:
+    ) -> Tuple[bool, str]:
         """统一入口：验证与解析"""
         if data_type == "cookie":
             return self.parse_cookie(raw_data, rule_name or "douyin")
