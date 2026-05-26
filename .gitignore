@@ -267,6 +267,7 @@ tests/*
 !tests/test_flow_cleanup_orphan_record.py
 !tests/test_account_pool_lru.py
 !tests/test_account_pool_service_singleton.py
+!tests/test_oss_upload_resumable.py
 tests/bilibili/**/__pycache__/
 tests/regression/**/__pycache__/
 tests/api/**/__pycache__/

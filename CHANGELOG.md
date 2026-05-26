@@ -74,6 +74,17 @@
   - `transcribe/service.py:60` 和 `api/routers/metrics.py:49` 改走单例
   - `resolve_accounts` 改为真正幂等：账号 ID 集合未变时不重建 `AccountPool`，保留 `_use_count` LRU 历史
   - 新增 **`tests/test_account_pool_service_singleton.py`** 4 条测试：多次调用返回同一实例 / upload lock 跨 caller 共享 / reset 后拿到新实例 / 类直接实例化兼容性
+- **OSS multipart 上传换成 `oss2.resumable_upload` (官方 SDK,断点续传)**：`src/media_tools/transcribe/oss_upload.py`。
+  之前是手写 multipart producer/consumer + 单 part 30s 写超时 + 任一片超时就 abort 整次上传——大文件极度脆弱,1.8-4.3 GB 的视频反复失败(`'Connection aborted.', TimeoutError('The write operation timed out')`),小 mp3 文件却能秒传成功,佐证不是带宽问题而是"100+ part 里只要 1 个抖动就整体崩"的脆弱模型。
+  - 新增 `oss2>=2.18` 依赖(`pyproject.toml`)
+  - 新增 `_build_oss2_bucket(token)` + `_resumable_upload_via_oss2(...)` 用阿里官方 SDK
+  - **checkpoint 落盘**到 `data/.upload_cp/`,网络中断 / 进程崩了下次同 fileKey 上传自动从断点继续(不用从 part 1 重传)
+  - **part 级重试**(oss2 内置默认 5 次): 单 part 抖动只重试该 part,不影响其它已传 part
+  - **connect/read timeout 调大到 120s**: 容忍瞬时网络抖动(旧版 30s 极易触发)
+  - `progress_callback` 桥接成原 `part-uploaded` 事件,`flow.py` 的进度日志器无需改动
+  - `direct` 模式(<100MB 小文件 presigned URL)保持不变,不碰 oss2
+  - `buffer` 模式 + multipart 组合明确报错(历史上没人用,简化心智模型)
+  - 新增 **`tests/test_oss_upload_resumable.py`** 5 条测试:`_resolve_part_size` 未变 / multipart 模式调 oss2 / 进度事件契约 / direct 模式不碰 oss2 / buffer+multipart 报错
 
 ---
 

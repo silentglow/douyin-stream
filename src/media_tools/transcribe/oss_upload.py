@@ -11,6 +11,7 @@ from typing import Any, Callable, Iterable, Optional, Union
 from urllib import request as urllib_request
 from xml.sax.saxutils import escape as xml_escape
 
+import oss2
 import requests
 from requests.adapters import HTTPAdapter
 
@@ -18,6 +19,11 @@ from .oss_sign import md5_base64, sign_oss_request, build_oss_url
 
 
 ProgressCallback = Callable[[dict[str, Any]], None]
+
+
+# checkpoint 目录:oss2.resumable_upload 用它存"已传 part" 状态,
+# 网络中断 / 进程崩溃后下次重传可以跳过已传 part 继续。
+_OSS2_CHECKPOINT_DIR = Path("data/.upload_cp")
 
 
 _SESSION: Optional[requests.Session] = None
@@ -349,6 +355,98 @@ def _resolve_part_size(file_size: int, override_mb: int) -> int:
     return 32 * 1024 * 1024
 
 
+def _build_oss2_bucket(token: dict[str, Any]) -> oss2.Bucket:
+    """根据千问返回的 STS 临时凭证构造 oss2.Bucket。"""
+    sts = token["sts"]
+    auth = oss2.StsAuth(
+        sts["accessKeyId"],
+        sts["accessKeySecret"],
+        sts["securityToken"],
+    )
+    # connect/read timeout 调大到 120s,给瞬时网络抖动留余地;
+    # oss2 内部对单 part 写超时也会重试,不会因为一片慢就整次崩
+    return oss2.Bucket(
+        auth,
+        sts["endpoint"],
+        sts["bucket"],
+        connect_timeout=120,
+    )
+
+
+def _resumable_upload_via_oss2(
+    *,
+    token: dict[str, Any],
+    file_path: Path,
+    mime_type: str,
+    part_size: int,
+    concurrency: int,
+    callback: ProgressCallback,
+) -> None:
+    """用阿里官方 oss2.resumable_upload 上传大文件。
+
+    特性:
+    - **断点续传**: checkpoint 存到 data/.upload_cp/,网络中断 / 进程崩溃后下次重传
+      自动跳过已传 part 继续;
+    - **part 级重试**: oss2 内置失败 part 单独重试,不会因为一片崩就整次重来;
+    - **进度回调**: 把 oss2 的 (bytes_consumed, total_bytes) 桥接成原 part-uploaded 事件。
+    """
+    _OSS2_CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    bucket = _build_oss2_bucket(token)
+    key = token["sts"]["fileKey"]
+    file_size = file_path.stat().st_size
+    total_parts = max(1, (file_size + part_size - 1) // part_size)
+
+    store = oss2.ResumableStore(root=str(_OSS2_CHECKPOINT_DIR))
+
+    # oss2 的 progress 是 byte 级单调,把它桥接成 part-uploaded 事件
+    # (flow.py 的 _make_upload_progress_logger 按 part 级 bucket 打 10% 进度日志)
+    last_emitted_part = 0
+
+    def _progress_bridge(bytes_consumed: int, total_bytes: Optional[int]) -> None:
+        nonlocal last_emitted_part
+        if not total_bytes:
+            return
+        completed_parts = max(1, int(bytes_consumed * total_parts / total_bytes))
+        completed_parts = min(completed_parts, total_parts)
+        if completed_parts > last_emitted_part:
+            last_emitted_part = completed_parts
+            callback({
+                "type": "part-uploaded",
+                "partNumber": completed_parts,
+                "completed": completed_parts,
+                "totalParts": total_parts,
+            })
+
+    headers = {"Content-Type": mime_type}
+
+    # oss2.resumable_upload 第一次会调 InitiateMultipartUpload 拿 uploadId,
+    # 我们没办法直接拿到 uploadId 在 multipart-started 事件里上报。
+    # 折中:用 file_key 的最后 16 字符当 placeholder,够追踪日志即可。
+    callback({"type": "multipart-started", "uploadId": f"oss2:{key[-16:]}"})
+
+    oss2.resumable_upload(
+        bucket,
+        key,
+        str(file_path),
+        store=store,
+        multipart_threshold=part_size,
+        part_size=part_size,
+        num_threads=concurrency,
+        progress_callback=_progress_bridge,
+        headers=headers,
+    )
+
+    # 最终事件:确保 flow 看到 100% + complete
+    if last_emitted_part < total_parts:
+        callback({
+            "type": "part-uploaded",
+            "partNumber": total_parts,
+            "completed": total_parts,
+            "totalParts": total_parts,
+        })
+    callback({"type": "multipart-complete"})
+
+
 async def upload_file_to_oss(
     *,
     token: dict[str, Any],
@@ -419,82 +517,22 @@ async def upload_file_to_oss(
             if mode == "direct":
                 raise
 
-    upload_id = await asyncio.to_thread(initiate_multipart_upload, token["sts"], mime_type)
-    callback({"type": "multipart-started", "uploadId": upload_id})
+    # multipart 模式 — 走阿里官方 oss2.resumable_upload(断点续传 + part 级重试)
+    # 历史 v2026-05-26 之前是手写 producer/consumer + 单 part 30s 写超时,任一 part
+    # 超时就 abort 整次上传,大文件极易失败。换 oss2 后:
+    #   - 单 part 失败自动重试(默认 5 次),不影响其它已传 part
+    #   - checkpoint 落盘,网断 / 进程崩了下次同 fileKey 上传从断点继续
+    #   - connect/read timeout 调大到 120s,容忍瞬时抖动
+    if not use_file_path:
+        # 历史 buffer 模式只有小文件 direct 才用,multipart 必须走文件路径
+        raise ValueError("multipart upload via oss2 requires file_path (not file_buffer)")
 
-    total_parts = (file_size + part_size - 1) // part_size
-
-    # 并发上传：producer 顺序读文件 chunk 投到 queue（maxsize=concurrency 起背压作用，
-    # 内存峰值 ≈ 2*concurrency*part_size）；N 个 consumer 并发跑 upload_part。
-    # 任一 consumer 抛错 → asyncio.gather 取消所有兄弟 task → 外层 abort_multipart_upload 兜底清理。
-    queue: asyncio.Queue = asyncio.Queue(maxsize=concurrency)
-    parts_result: list[dict[str, Any]] = []
-    done_counter = 0
-
-    async def producer() -> None:
-        if use_file_path:
-            # 用 to_thread 包 read 避免阻塞事件循环
-            f = open(file_path_obj, "rb")
-            try:
-                for part_number in range(1, total_parts + 1):
-                    chunk = await asyncio.to_thread(f.read, part_size)
-                    if not chunk:
-                        break
-                    await queue.put((part_number, chunk))
-            finally:
-                f.close()
-        else:
-            assert file_buffer is not None
-            for offset, part_number in zip(
-                range(0, len(file_buffer), part_size),
-                range(1, total_parts + 1),
-                strict=True,
-            ):
-                await queue.put((part_number, file_buffer[offset : offset + part_size]))
-        # 投终止哨兵（每个 consumer 一个）
-        for _ in range(concurrency):
-            await queue.put(None)
-
-    async def consumer() -> None:
-        nonlocal done_counter
-        while True:
-            item = await queue.get()
-            if item is None:
-                return
-            part_number, chunk = item
-            etag = await asyncio.to_thread(
-                upload_part, token["sts"], upload_id, part_number, chunk, mime_type,
-            )
-            parts_result.append({"partNumber": part_number, "etag": etag})
-            done_counter += 1
-            callback({
-                "type": "part-uploaded",
-                "partNumber": part_number,
-                "completed": done_counter,
-                "totalParts": total_parts,
-            })
-
-    try:
-        await asyncio.gather(producer(), *(consumer() for _ in range(concurrency)))
-
-        # OSS complete API 要求 parts 按 partNumber 升序
-        parts_result.sort(key=lambda x: x["partNumber"])
-        await asyncio.to_thread(complete_multipart_upload, token["sts"], upload_id, parts_result)
-        callback({"type": "multipart-complete"})
-    except BaseException:
-        # 任何失败（含 asyncio.CancelledError、KeyboardInterrupt 等）都要尝试 abort multipart，
-        # 否则 OSS 上的分片会持续占用直到 lifecycle 规则清掉，按量计费场景会累积成本。
-        # 用 shield 防止 abort 在外层取消信号下被打断。
-        if upload_id:
-            try:
-                await asyncio.shield(
-                    asyncio.to_thread(abort_multipart_upload, token["sts"], upload_id)
-                )
-                callback({"type": "multipart-aborted", "uploadId": upload_id})
-            except BaseException as abort_error:  # noqa: BLE001 - 必须吞掉避免掩盖原始异常
-                callback({
-                    "type": "multipart-abort-failed",
-                    "uploadId": upload_id,
-                    "error": str(abort_error),
-                })
-        raise
+    await asyncio.to_thread(
+        _resumable_upload_via_oss2,
+        token=token,
+        file_path=file_path_obj,
+        mime_type=mime_type,
+        part_size=part_size,
+        concurrency=concurrency,
+        callback=callback,
+    )
