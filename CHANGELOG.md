@@ -85,6 +85,14 @@
   - `direct` 模式(<100MB 小文件 presigned URL)保持不变,不碰 oss2
   - `buffer` 模式 + multipart 组合明确报错(历史上没人用,简化心智模型)
   - 新增 **`tests/test_oss_upload_resumable.py`** 5 条测试:`_resolve_part_size` 未变 / multipart 模式调 oss2 / 进度事件契约 / direct 模式不碰 oss2 / buffer+multipart 报错
+- **OSS 上传层清理:删除 ~300 行手写 multipart 死代码**:`oss_upload.py` 从 540 行降到 238 行(-56%)。
+  - 删除 `initiate_multipart_upload` / `upload_part` / `complete_multipart_upload` / `abort_multipart_upload` / `parse_upload_id` / `_ChunkedFileReader` / `CHUNK_SIZE` 等手写函数(切到 oss2 后再无人调)
+  - 删除 `_open_request` + `_RequestsResponseAdapter` urllib 适配链
+  - 删除整个 **`oss_sign.py`** 文件(MD5/签名/URL 构造只服务于手写 multipart,已无 importer)
+  - 简化 direct 模式:`direct_upload_with_presigned_url` + `_direct_upload_with_presigned_url_from_path` 合并为单一 `_direct_put(url, data, mime_type)`,直接用 `requests.Session.put`,放弃 urllib_request.Request 适配层
+  - direct PUT timeout 30s → 120s(与 multipart 一致)
+  - 移除 `multipart-started` 事件(没有真 uploadId 可报——oss2 自己管 uploadId 生命周期,我们不需要拿出来),`flow.py:600` 对应死 elif 同步删
+  - 净效果:233/233 测试照过,代码量减半,oss2 是唯一 multipart 路径,没有"两套实现"心智负担
 
 ---
 

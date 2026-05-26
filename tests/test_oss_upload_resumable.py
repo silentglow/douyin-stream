@@ -5,8 +5,8 @@
 
 本测试用 mock 锁定:
 1. upload_file_to_oss multipart 模式调用 oss2.resumable_upload
-2. 进度事件保持 part-uploaded / multipart-started / multipart-complete 三段式
-3. direct 模式 (小文件) 走 presigned URL,不碰 oss2
+2. 进度事件保持 part-uploaded / multipart-complete 契约
+3. direct 模式 (小文件) 走 _direct_put,不碰 oss2
 4. part_size 决策逻辑未变(<1G→5MB / <5G→16MB / ≥5G→32MB)
 """
 from __future__ import annotations
@@ -96,9 +96,9 @@ async def test_multipart_mode_uses_oss2_resumable_upload(big_file: Path) -> None
     assert called_with.get("key") == "user/abc/some-file-12345.mp4"
     assert called_with.get("part_size") == 5 * 1024 * 1024
 
-    # 事件契约:multipart-started 在前,multipart-complete 在后,中间有 part-uploaded
+    # 事件契约:part-uploaded → multipart-complete
+    # (multipart-started 不再发,因为没有真 uploadId 可报 — oss2 自己管 uploadId 生命周期)
     event_types = [e["type"] for e in events]
-    assert event_types[0] == "multipart-started", f"首事件应是 multipart-started, 实际 {event_types}"
     assert event_types[-1] == "multipart-complete", f"末事件应是 multipart-complete, 实际 {event_types}"
     assert "part-uploaded" in event_types, "中间必须有至少一次 part-uploaded"
 
@@ -147,11 +147,11 @@ async def test_direct_mode_does_not_touch_oss2(big_file: Path) -> None:
     """direct (小文件预签名 URL) 模式不应该碰 oss2。"""
     events: list[dict] = []
 
-    def _fake_direct(url, file_path, mime_type):
+    def _fake_direct(url, data, mime_type):
         return None
 
     with patch.object(oss_upload, "oss2") as mock_oss2, \
-         patch.object(oss_upload, "_direct_upload_with_presigned_url_from_path", side_effect=_fake_direct):
+         patch.object(oss_upload, "_direct_put", side_effect=_fake_direct):
         mock_oss2.resumable_upload.side_effect = AssertionError("direct 模式不该调 oss2")
 
         await upload_file_to_oss(

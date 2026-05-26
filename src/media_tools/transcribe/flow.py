@@ -597,8 +597,6 @@ def _make_upload_progress_logger(log):
                 log(f"direct upload failed, falling back to multipart: {error}")
             else:
                 log(f"direct upload failed: {error}")
-        elif event_type == "multipart-started":
-            log(f"uploadId: {event.get('uploadId')}")
         elif event_type == "part-uploaded":
             # 优先用 completed（已完成数）保证并发上传时进度单调；fall back partNumber 兼容旧路径
             completed = int(event.get("completed") or event.get("partNumber") or 0)
