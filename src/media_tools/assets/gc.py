@@ -88,7 +88,7 @@ class CloudCleanupService:
             return
 
         try:
-            from media_tools.transcribe.auth_state import resolve_qwen_cookie_string
+            from media_tools.accounts.auth_state import resolve_qwen_cookie_string
             from media_tools.transcribe.flow import delete_record
             from media_tools.transcribe.http import RequestsApiContext
 

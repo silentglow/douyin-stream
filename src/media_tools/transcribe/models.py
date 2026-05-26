@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from media_tools.transcribe.errors import ErrorType
-from media_tools.transcribe.runtime import ensure_dir
+from media_tools.common.runtime import ensure_dir
 
 logger = logging.getLogger(__name__)
 

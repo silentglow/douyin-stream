@@ -11,8 +11,8 @@ from media_tools.douyin.utils.auth_parser import AuthParser
 from media_tools.core.config import get_db_path
 from media_tools.logger import get_logger
 
-from .config import load_config
-from .runtime import as_absolute, ensure_dir
+from media_tools.transcribe.config import load_config
+from media_tools.common.runtime import as_absolute, ensure_dir
 
 logger = get_logger(__name__)
 

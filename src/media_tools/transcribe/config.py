@@ -6,7 +6,7 @@ from pathlib import Path
 import os
 
 from .errors import ConfigurationError
-from .runtime import as_absolute, env_flag
+from media_tools.common.runtime import as_absolute, env_flag
 
 
 @dataclass(frozen=True)

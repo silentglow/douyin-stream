@@ -142,7 +142,7 @@ class CookieManager:
         return ""
 
     def _get_qwen_cookie(self, *, account_id: str = "") -> str:
-        from media_tools.transcribe.auth_state import resolve_qwen_cookie_string, default_qwen_auth_state_path
+        from media_tools.accounts.auth_state import resolve_qwen_cookie_string, default_qwen_auth_state_path
         return resolve_qwen_cookie_string(
             auth_state_path=default_qwen_auth_state_path(),
             account_id=account_id,

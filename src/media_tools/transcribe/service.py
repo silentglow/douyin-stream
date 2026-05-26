@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Optional, Callable, Any
 
 from media_tools.transcribe.flow import run_real_flow
-from media_tools.transcribe.runtime import get_export_config
+from media_tools.common.runtime import get_export_config
 from media_tools.transcribe.config import load_config as load_transcribe_config
 from media_tools.core.config import load_pipeline_config
 from media_tools.core.config import AppConfig

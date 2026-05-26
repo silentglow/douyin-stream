@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from .runtime import ExportConfig, ensure_dir, now_stamp
+from media_tools.common.runtime import ExportConfig, ensure_dir, now_stamp
 
 
 @dataclass(frozen=True)
