@@ -1,4 +1,4 @@
-import { ArrowLeft, RefreshCw, Loader2, X, Download, Trash2 } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Loader2, X, Download, Trash2, Eye, Star } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { TranscriptReader } from '@/components/ui/TranscriptReader';
 import { cn } from '@/lib/utils';
@@ -44,6 +44,8 @@ export default function CreatorDetail() {
     handleBrowseFolder,
     handleBulkExport,
     handleBulkDelete,
+    handleBulkMarkRead,
+    handleBulkMarkStar,
     toggleAssetSelection,
     filteredAssets,
     completedCount,
@@ -147,6 +149,22 @@ export default function CreatorDetail() {
               >
                 <Download className="w-3.5 h-3.5" />
                 导出
+              </button>
+              <button
+                onClick={handleBulkMarkRead}
+                disabled={selectedAssets.size === 0}
+                className="btn-sharp disabled:opacity-40 flex items-center gap-2"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                已读
+              </button>
+              <button
+                onClick={handleBulkMarkStar}
+                disabled={selectedAssets.size === 0}
+                className="btn-sharp disabled:opacity-40 flex items-center gap-2"
+              >
+                <Star className="w-3.5 h-3.5" />
+                收藏
               </button>
               <button
                 onClick={handleBulkDelete}

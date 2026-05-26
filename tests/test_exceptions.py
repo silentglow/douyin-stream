@@ -5,14 +5,14 @@ import unittest
 
 from media_tools.core.exceptions import (
     AppError,
-    ConfigurationError,
+    AppConfigurationError,
     DownloadError,
-    TranscribeError,
+    TranscribeApiError,
     TaskCancelledError,
     NotFoundError,
     ValidationError,
     AuthenticationError,
-    PermissionError,
+    AccessDeniedError,
     ExternalServiceError,
     DatabaseError,
     RateLimitError,
@@ -56,14 +56,14 @@ class ErrorStatusCodeTests(unittest.TestCase):
         exc = AuthenticationError()
         self.assertEqual(exc.status_code, 401)
 
-    def test_permission_error_status_code(self) -> None:
-        """Test PermissionError status code."""
-        exc = PermissionError()
+    def test_access_denied_error_status_code(self) -> None:
+        """Test AccessDeniedError status code."""
+        exc = AccessDeniedError()
         self.assertEqual(exc.status_code, 403)
 
     def test_configuration_error_status_code(self) -> None:
-        """Test ConfigurationError status code."""
-        exc = ConfigurationError("config error")
+        """Test AppConfigurationError status code."""
+        exc = AppConfigurationError("config error")
         self.assertEqual(exc.status_code, 500)
 
     def test_database_error_status_code(self) -> None:
@@ -121,8 +121,8 @@ class SpecificErrorTests(unittest.TestCase):
         self.assertEqual(exc.details["url"], "http://example.com")
 
     def test_transcribe_error(self) -> None:
-        """Test TranscribeError."""
-        exc = TranscribeError("transcribe failed", file_path="/path/to/file.mp4")
+        """Test TranscribeApiError."""
+        exc = TranscribeApiError("transcribe failed", file_path="/path/to/file.mp4")
         self.assertEqual(exc.code, "TRANSCRIBE_ERROR")
         self.assertEqual(exc.details["file_path"], "/path/to/file.mp4")
 

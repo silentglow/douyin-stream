@@ -19,7 +19,7 @@ import logging
 import os
 import sqlite3
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 

@@ -100,40 +100,11 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, ensure_ascii=False, default=str)
 
 
-class StructuredFormatter(logging.Formatter):
-    """结构化 JSON 日志 formatter，输出标准字段 timestamp/level/logger/message。
+class StructuredFormatter(JsonFormatter):
+    """结构化 JSON 日志 formatter，JsonFormatter 的别名。
 
-    通过 MEDIA_TOOLS_LOG_FORMAT=json 启用，适用于日志采集系统（ELK、Loki 等）。
-    extra 字段会平铺到 JSON 顶层；exc_info 渲染为 traceback 字段。
+    保留向后兼容性，新代码应直接使用 JsonFormatter。
     """
-
-    # LogRecord 内部字段集合，用于过滤 extra 字段
-    _RESERVED_ATTRS: frozenset[str] = frozenset({
-        "name", "msg", "args", "levelname", "levelno", "pathname",
-        "filename", "module", "exc_info", "exc_text", "stack_info",
-        "lineno", "funcName", "created", "msecs", "relativeCreated",
-        "thread", "threadName", "processName", "process", "message",
-        "asctime", "taskName",
-    })
-
-    def format(self, record: logging.LogRecord) -> str:
-        payload: dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(record.created).isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": _ANSI_RE.sub("", str(record.getMessage())),
-        }
-        _inject_logging_context(payload)
-        # 异常信息渲染为 traceback 字段
-        if record.exc_info and record.exc_info[0] is not None:
-            payload["traceback"] = self.formatException(record.exc_info)
-        if record.stack_info:
-            payload["stack_info"] = record.stack_info
-        # 平铺 extra 字段到顶层
-        for key, value in record.__dict__.items():
-            if key not in self._RESERVED_ATTRS:
-                payload[key] = value
-        return json.dumps(payload, ensure_ascii=False, default=str)
 
 
 class MediaLogger:
@@ -209,34 +180,34 @@ class MediaLogger:
             self.logger.addHandler(json_handler)
 
     def _clean_msg(self, message: str) -> str:
-        """清理消息中的 ANSI 颜色代码，避免和 RichHandler 的颜色叠加。"""
+        """清理消息中的 ANSI 颜色代码（由 AnsiStripFilter 在 handler 层统一处理，此方法保留兼容）。"""
         if message is None:
             return ""
         return _ANSI_RE.sub("", message)
 
     def debug(self, message: str = "", *args, **kwargs):
         """DEBUG级别日志"""
-        self.logger.debug(self._clean_msg(message), *args, **kwargs)
+        self.logger.debug(message, *args, **kwargs)
 
     def info(self, message: str = "", *args, **kwargs):
         """INFO级别日志"""
-        self.logger.info(self._clean_msg(message), *args, **kwargs)
+        self.logger.info(message, *args, **kwargs)
 
     def warning(self, message: str = "", *args, **kwargs):
         """WARNING级别日志"""
-        self.logger.warning(self._clean_msg(message), *args, **kwargs)
+        self.logger.warning(message, *args, **kwargs)
 
     def error(self, message: str = "", *args, exc_info=False, **kwargs):
         """ERROR级别日志"""
-        self.logger.error(self._clean_msg(message), *args, exc_info=exc_info, **kwargs)
+        self.logger.error(message, *args, exc_info=exc_info, **kwargs)
 
     def critical(self, message: str = "", *args, **kwargs):
         """CRITICAL级别日志"""
-        self.logger.critical(self._clean_msg(message), *args, **kwargs)
+        self.logger.critical(message, *args, **kwargs)
 
     def exception(self, message: str = "", *args, **kwargs):
         """异常日志（自动包含堆栈信息）"""
-        self.logger.exception(self._clean_msg(message), *args, **kwargs)
+        self.logger.exception(message, *args, **kwargs)
 
     def log_operation(
         self,

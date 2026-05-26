@@ -71,12 +71,10 @@ export function ActionMenuModal({
                   <span className="text-[14px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">导出转写</span>
                 </button>
               )}
-              {asset.transcript_status === 'completed' && (
-                <button onClick={() => onViewFile(asset)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-[rgba(243,238,219,0.03)] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
-                  <ExternalLink className="w-3.5 h-3.5 text-[var(--color-rust)]" />
-                  <span className="text-[14px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">查看原文件</span>
-                </button>
-              )}
+              <button onClick={() => onViewFile(asset)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-[rgba(243,238,219,0.03)] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
+                <ExternalLink className="w-3.5 h-3.5 text-[var(--color-rust)]" />
+                <span className="text-[14px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">查看原文件</span>
+              </button>
               {asset.folder_path && (
                 <button onClick={() => onBrowseFolder(asset)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-[rgba(243,238,219,0.03)] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
                   <FolderOpen className="w-3.5 h-3.5 text-[var(--color-rust)]" />

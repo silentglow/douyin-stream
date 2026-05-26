@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse

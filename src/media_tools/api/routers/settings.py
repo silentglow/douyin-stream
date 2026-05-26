@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional
 import logging
 import sqlite3
 import uuid
@@ -207,7 +207,18 @@ def update_global_settings(req: GlobalSettingsRequest):
                 raise HTTPException(status_code=400, detail="export_format must be one of: md, docx, pdf, srt, txt")
             set_runtime_setting("export_format", req.export_format)
         if req.transcript_output_dir is not None:
-            set_runtime_setting("transcript_output_dir", req.transcript_output_dir)
+            from pathlib import Path
+            import os
+            target = Path(req.transcript_output_dir).resolve()
+            # 防止路径注入：只允许项目根目录下的子路径
+            project_root = Path(__file__).resolve().parents[4]
+            try:
+                target.relative_to(project_root)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="transcript_output_dir 必须在项目目录内")
+            if not os.path.isdir(target):
+                raise HTTPException(status_code=400, detail="transcript_output_dir 目录不存在")
+            set_runtime_setting("transcript_output_dir", str(target))
         return {"status": "success"}
     except HTTPException:
         raise

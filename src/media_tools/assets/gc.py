@@ -7,11 +7,32 @@ from datetime import datetime, timedelta
 logger = logging.getLogger(__name__)
 
 
+def _try_cleanup_disk_files(conn: sqlite3.Connection, asset_ids: list[str]) -> None:
+    """尝试清理资产对应的磁盘文件（失败不影响 DB 清理）。"""
+    if not asset_ids:
+        return
+    try:
+        from media_tools.assets.file_ops import delete_asset_files
+        placeholders = ",".join("?" * len(asset_ids))
+        rows = conn.execute(
+            f"SELECT creator_uid, source_url, video_path, transcript_path FROM media_assets WHERE asset_id IN ({placeholders})",
+            asset_ids,
+        ).fetchall()
+        for row in rows:
+            try:
+                delete_asset_files(row[0], row[1] or "", row[2] or "", row[3] or "")
+            except (OSError, RuntimeError) as e:
+                logger.warning(f"GC 清理磁盘文件失败 asset={row[0]}: {e}")
+    except (ImportError, OSError) as e:
+        logger.warning(f"GC 跳过磁盘清理: {e}")
+
+
 def cleanup_stale_assets(conn: sqlite3.Connection) -> dict[str, int]:
     deleted_assets = conn.execute("SELECT asset_id FROM media_assets WHERE video_status='deleted'").fetchall()
     deleted_count = 0
     if deleted_assets:
         deleted_ids = [row[0] for row in deleted_assets]
+        _try_cleanup_disk_files(conn, deleted_ids)
         placeholders = ",".join("?" * len(deleted_ids))
         conn.execute(f"DELETE FROM assets_fts WHERE asset_id IN ({placeholders})", deleted_ids)
         conn.execute(f"DELETE FROM media_assets WHERE asset_id IN ({placeholders})", deleted_ids)
@@ -26,6 +47,7 @@ def cleanup_stale_assets(conn: sqlite3.Connection) -> dict[str, int]:
     stale_pending_count = 0
     if stale_assets:
         stale_ids = [row[0] for row in stale_assets]
+        _try_cleanup_disk_files(conn, stale_ids)
         placeholders = ",".join("?" * len(stale_ids))
         conn.execute(f"DELETE FROM assets_fts WHERE asset_id IN ({placeholders})", stale_ids)
         conn.execute(f"DELETE FROM media_assets WHERE asset_id IN ({placeholders})", stale_ids)

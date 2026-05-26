@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter(prefix="/api/v1/douyin", tags=["douyin"], redirect_slashes=False)

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 
 class VideoInfo:
@@ -18,7 +18,7 @@ class VideoInfo:
         author_id: str,
         duration: int = 0,
         cover_url: str = "",
-        metadata: dict[str, Any] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ):
         self.aweme_id = aweme_id
         self.title = title

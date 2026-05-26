@@ -4,7 +4,7 @@
 视频下载模块 - 单个/批量/交互下载（直接调用 F2 API）
 """
 
-from typing import Optional, Union
+from typing import Optional
 import asyncio
 import os
 import shutil
@@ -110,11 +110,6 @@ def _select_videos_to_download(
     return new_videos, skipped
 
 
-def _get_skill_dir():
-    """获取项目根目录"""
-    return get_config().project_root
-
-
 def _get_f2_kwargs() -> dict:
     """获取 F2 所需的配置参数"""
     return _build_f2_kwargs()
@@ -136,48 +131,41 @@ def _prepare_f2_temp_dir(downloads_path: Path) -> Path:
 
 def _create_video_metadata_table():
     """确保视频元数据表存在"""
-    config = get_config()
-    db_path = config.get_db_path()
-    conn = None
-    try:
-        from media_tools.store.db import get_db_connection
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
+    from media_tools.store.db import get_db_connection
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
 
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS video_metadata (
-                    aweme_id TEXT PRIMARY KEY,
-                    uid TEXT NOT NULL,
-                    nickname TEXT,
-                    desc TEXT,
-                    create_time INTEGER,
-                    duration INTEGER,
-                    digg_count INTEGER DEFAULT 0,
-                    comment_count INTEGER DEFAULT 0,
-                    collect_count INTEGER DEFAULT 0,
-                    share_count INTEGER DEFAULT 0,
-                    play_count INTEGER DEFAULT 0,
-                    local_filename TEXT,
-                    file_size INTEGER,
-                    fetch_time INTEGER
-                )
+        cursor.execute(
             """
+            CREATE TABLE IF NOT EXISTS video_metadata (
+                aweme_id TEXT PRIMARY KEY,
+                uid TEXT NOT NULL,
+                nickname TEXT,
+                desc TEXT,
+                create_time INTEGER,
+                duration INTEGER,
+                digg_count INTEGER DEFAULT 0,
+                comment_count INTEGER DEFAULT 0,
+                collect_count INTEGER DEFAULT 0,
+                share_count INTEGER DEFAULT 0,
+                play_count INTEGER DEFAULT 0,
+                local_filename TEXT,
+                file_size INTEGER,
+                fetch_time INTEGER
             )
+        """
+        )
 
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_video_uid ON video_metadata(uid)"
-            )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_video_uid ON video_metadata(uid)"
+        )
 
-            try:
-                cursor.execute("ALTER TABLE video_metadata ADD COLUMN nickname TEXT")
-            except sqlite3.OperationalError:
-                pass
+        try:
+            cursor.execute("ALTER TABLE video_metadata ADD COLUMN nickname TEXT")
+        except sqlite3.OperationalError:
+            pass
 
-            conn.commit()
-    finally:
-        if conn:
-            conn.close()
+        conn.commit()
 
 
 def _save_video_metadata_from_raw(raw_data: dict, nickname: str = ""):
@@ -186,87 +174,21 @@ def _save_video_metadata_from_raw(raw_data: dict, nickname: str = ""):
     if not aweme_list:
         return 0
 
-    config = get_config()
-    db_path = config.get_db_path()
-    conn = None
-    try:
-        from media_tools.store.db import get_db_connection
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
+    from media_tools.store.db import get_db_connection
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
 
-            fetch_time = int(datetime.now().timestamp())
-            saved_count = 0
+        fetch_time = int(datetime.now().timestamp())
+        saved_count = 0
 
-            for video in aweme_list:
-                aweme_id = video.get("aweme_id", "")
-                if not aweme_id:
-                    continue
-
-                stats = video.get("statistics", {}) or {}
-                author = video.get("author", {}) or {}
-                video_nickname = author.get("nickname", nickname)
-
-                cursor.execute(
-                    """
-                    INSERT OR REPLACE INTO video_metadata
-                    (aweme_id, uid, nickname, desc, create_time, duration,
-                     digg_count, comment_count, collect_count, share_count, play_count,
-                     fetch_time)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                    (
-                        aweme_id,
-                        author.get("uid", ""),
-                        video_nickname,
-                        video.get("desc", ""),
-                        video.get("create_time", 0),
-                        video.get("video", {}).get("duration", 0) if video.get("video") else 0,
-                        stats.get("digg_count", 0),
-                        stats.get("comment_count", 0),
-                        stats.get("collect_count", 0),
-                        stats.get("share_count", 0),
-                        stats.get("play_count", 0),
-                        fetch_time,
-                    ),
-                )
-                saved_count += 1
-
-            conn.commit()
-            return saved_count
-    finally:
-        if conn:
-            conn.close()
-
-
-def _save_single_video_metadata(video: dict, nickname: str = "") -> int:
-    """保存单个视频的元数据"""
-    if not video:
-        return 0
-
-    aweme_id = video.get("aweme_id", "")
-    if not aweme_id:
-        return 0
-
-    config = get_config()
-    db_path = config.get_db_path()
-    conn = None
-    try:
-        from media_tools.store.db import get_db_connection
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
+        for video in aweme_list:
+            aweme_id = video.get("aweme_id", "")
+            if not aweme_id:
+                continue
 
             stats = video.get("statistics", {}) or {}
             author = video.get("author", {}) or {}
-            video_nickname = (
-                video.get("nickname")
-                or author.get("nickname")
-                or nickname
-            )
-            uid = (
-                video.get("uid")
-                or author.get("uid")
-                or video.get("sec_user_id", "")
-            )
+            video_nickname = author.get("nickname", nickname)
 
             cursor.execute(
                 """
@@ -278,7 +200,7 @@ def _save_single_video_metadata(video: dict, nickname: str = "") -> int:
             """,
                 (
                     aweme_id,
-                    uid,
+                    author.get("uid", ""),
                     video_nickname,
                     video.get("desc", ""),
                     video.get("create_time", 0),
@@ -288,15 +210,67 @@ def _save_single_video_metadata(video: dict, nickname: str = "") -> int:
                     stats.get("collect_count", 0),
                     stats.get("share_count", 0),
                     stats.get("play_count", 0),
-                    int(datetime.now().timestamp()),
+                    fetch_time,
                 ),
             )
+            saved_count += 1
 
-            conn.commit()
-            return 1
-    finally:
-        if conn:
-            conn.close()
+        conn.commit()
+        return saved_count
+
+
+def _save_single_video_metadata(video: dict, nickname: str = "") -> int:
+    """保存单个视频的元数据"""
+    if not video:
+        return 0
+
+    aweme_id = video.get("aweme_id", "")
+    if not aweme_id:
+        return 0
+
+    from media_tools.store.db import get_db_connection
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+
+        stats = video.get("statistics", {}) or {}
+        author = video.get("author", {}) or {}
+        video_nickname = (
+            video.get("nickname")
+            or author.get("nickname")
+            or nickname
+        )
+        uid = (
+            video.get("uid")
+            or author.get("uid")
+            or video.get("sec_user_id", "")
+        )
+
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO video_metadata
+            (aweme_id, uid, nickname, desc, create_time, duration,
+             digg_count, comment_count, collect_count, share_count, play_count,
+             fetch_time)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (
+                aweme_id,
+                uid,
+                video_nickname,
+                video.get("desc", ""),
+                video.get("create_time", 0),
+                video.get("video", {}).get("duration", 0) if video.get("video") else 0,
+                stats.get("digg_count", 0),
+                stats.get("comment_count", 0),
+                stats.get("collect_count", 0),
+                stats.get("share_count", 0),
+                stats.get("play_count", 0),
+                int(datetime.now().timestamp()),
+            ),
+        )
+
+        conn.commit()
+        return 1
 
 
 def _rename_videos_in_downloads(nickname: str, uid: str, downloads_path: Path) -> Optional[str]:
@@ -340,7 +314,6 @@ def _rename_videos_in_downloads(nickname: str, uid: str, downloads_path: Path) -
 
             # 只扫描当前博主的目录和 F2 临时目录（douyin/post/），
             # 绝不 rglob 整个 downloads_path，避免把其他博主的文件移过来
-            MIN_VIDEO_BYTES = 10240  # 10KB
             scan_dirs = [user_dir]
             # F2 临时目录（下载后尚未整理的文件）
             f2_temp = downloads_path / "douyin" / "post"
@@ -482,7 +455,6 @@ def _sync_media_assets(uid: str, nickname: str, folder_name: str):
 
             if user_dir and user_dir.exists():
                 # 一次性获取所有mp4文件，过滤掉下载失败的垃圾文件
-                MIN_VIDEO_BYTES = 10240  # 10KB
                 all_files = [f for f in user_dir.glob("*.mp4") if f.stat().st_size >= MIN_VIDEO_BYTES]
 
                 # 构建aweme_id查找表

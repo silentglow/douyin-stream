@@ -37,7 +37,7 @@ export function useLibraryDetail() {
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [transcribing, setTranscribing] = useState(false);
   const [scannedDirectory, setScannedDirectory] = useState('');
-  const [deleteAfter, setDeleteAfter] = useState(true);
+  const [deleteAfter, setDeleteAfter] = useState(false);
 
   const [deleteConfirm, setDeleteConfirm] = useState<{
     uid: string;
@@ -173,7 +173,7 @@ export function useLibraryDetail() {
       setScannedFiles([]);
       setSelectedFiles(new Set());
       setScannedDirectory('');
-      setDeleteAfter(true);
+      setDeleteAfter(false);
     } catch { /* api interceptor handles toast */ }
     finally { setTranscribing(false); }
   }, [selectedFiles, scannedDirectory, deleteAfter]);

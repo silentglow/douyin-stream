@@ -121,7 +121,7 @@ class ConfigManager:
 
     def get_download_path(self):
         """获取下载路径"""
-        path = self.get("download.path")
+        path = self.get("download.path") or self.get("download_path")
         if path:
             return Path(path).expanduser()
 

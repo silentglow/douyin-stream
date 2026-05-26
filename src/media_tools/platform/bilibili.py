@@ -331,23 +331,47 @@ def download_up_by_url(
     if max_counts is not None:
         ydl_opts["playlistend"] = max_counts
 
+    def _run_download(ydl_opts_inner: dict[str, Any]) -> dict:
+        """预提取 UP 主昵称 → 更新 outtmpl → 执行下载。"""
+        nonlocal uploader_info
+        # 1) 预提取元数据（不下载）
+        try:
+            preflight_opts = {k: v for k, v in ydl_opts_inner.items() if k not in ("progress_hooks", "overwrites", "continuedl", "download_archive")}
+            preflight_opts["skip_download"] = True
+            with YoutubeDL(preflight_opts) as pre_ydl:
+                pre_info = pre_ydl.extract_info(url, download=False)
+            if isinstance(pre_info, dict):
+                nick = pre_info.get("uploader") or pre_info.get("channel") or pre_info.get("uploader_name") or ""
+                mid = pre_info.get("uploader_id") or pre_info.get("channel_id") or pre_info.get("mid") or ""
+                if not mid:
+                    up_url = pre_info.get("uploader_url") or ""
+                    m = re.search(r'space\.bilibili\.com/(\d+)', str(up_url))
+                    if m:
+                        mid = m.group(1)
+                if nick and mid:
+                    uploader_info = UploaderInfo(nickname=nick, mid=str(mid), homepage_url=f"https://space.bilibili.com/{mid}")
+                    ydl_opts_inner["outtmpl"] = _build_output_template(downloads_path, nick, "全部投稿")
+        except Exception:
+            pass  # 预提取失败不影响后续下载
+
+        # 2) 执行实际下载
+        with YoutubeDL(ydl_opts_inner) as ydl:
+            return ydl.extract_info(url, download=True)
+
     if cookie_content is not None:
         with managed_temp_file(mode='w', suffix='.txt') as (f, cookie_path):
             f.write(cookie_content)
             f.flush()
             ydl_opts["cookiefile"] = cookie_path
             try:
-                with YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url, download=True)
+                info = _run_download(ydl_opts)
             except BaseException:
-                # extract_info 抛错时立刻 unregister，否则 _cancel_flags 内存泄漏
                 if task_id:
                     unregister_cancel_flag(task_id)
                 raise
     else:
         try:
-            with YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
+            info = _run_download(ydl_opts)
         except BaseException:
             if task_id:
                 unregister_cancel_flag(task_id)

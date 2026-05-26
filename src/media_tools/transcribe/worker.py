@@ -346,19 +346,27 @@ def _find_existing_videos_for_pipeline(url: str, platform: str) -> list[str]:
                 logger.info(f"B 站 pipeline 重试：从数据库找到单个已下载视频 (bvid={normalized.bvid})")
             else:
                 # 兜底：数据库没有记录时，扫描下载目录按 bvid 匹配文件名
-                bilibili_dir = downloads_path / "bilibili" / "全部投稿"
-                if bilibili_dir.exists():
-                    mp4_files = [
-                        f for f in bilibili_dir.glob("*.mp4")
-                        if f.stat().st_size > 10240
-                    ]
-                    # 优先匹配文件名中包含 bvid 的视频
-                    matched = [f for f in mp4_files if normalized.bvid in f.name]
-                    candidates = matched if matched else mp4_files
-                    if candidates:
-                        candidates = sorted(candidates, key=lambda f: f.stat().st_mtime, reverse=True)
-                        existing.append(str(candidates[0]))
-                        logger.info(f"B 站 pipeline 兜底：扫描目录找到视频 {candidates[0].name}")
+                # 兼容旧路径 bilibili/全部投稿 和新路径 <nickname>/全部投稿
+                scan_dirs = [downloads_path / "bilibili" / "全部投稿"]
+                for d in downloads_path.iterdir():
+                    if d.is_dir() and d.name != "bilibili":
+                        sub = d / "全部投稿"
+                        if sub.exists():
+                            scan_dirs.append(sub)
+                mp4_files = []
+                for scan_dir in scan_dirs:
+                    if scan_dir.exists():
+                        mp4_files.extend(
+                            f for f in scan_dir.glob("*.mp4")
+                            if f.stat().st_size > 10240
+                        )
+                # 优先匹配文件名中包含 bvid 的视频
+                matched = [f for f in mp4_files if normalized.bvid in f.name]
+                candidates = matched if matched else mp4_files
+                if candidates:
+                    candidates = sorted(candidates, key=lambda f: f.stat().st_mtime, reverse=True)
+                    existing.append(str(candidates[0]))
+                    logger.info(f"B 站 pipeline 兜底：扫描目录找到视频 {candidates[0].name}")
 
     return existing
 

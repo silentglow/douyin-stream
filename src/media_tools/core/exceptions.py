@@ -9,7 +9,7 @@ from __future__ import annotations
 }
 """
 
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 
 class AppError(Exception):
@@ -31,7 +31,7 @@ class AppError(Exception):
         super().__init__(message)
 
 
-class ConfigurationError(AppError):
+class AppConfigurationError(AppError):
     """配置错误 - 配置项缺失或无效"""
 
     status_code = 500
@@ -47,7 +47,7 @@ class DownloadError(AppError):
         super().__init__("DOWNLOAD_ERROR", message, {"url": url, **kwargs})
 
 
-class TranscribeError(AppError):
+class TranscribeApiError(AppError):
     """转写错误 - Qwen API 调用失败"""
 
     def __init__(self, message: str, file_path: Optional[str] = None, **kwargs):
@@ -88,7 +88,7 @@ class AuthenticationError(AppError):
         super().__init__("AUTH_ERROR", message)
 
 
-class PermissionError(AppError):
+class AccessDeniedError(AppError):
     """权限错误 - 用户无权限执行操作"""
 
     status_code = 403
@@ -153,3 +153,12 @@ def error_response_with_trace(exc: AppError, traceback: str) -> dict[str, Any]:
     response = error_response(exc)
     response["traceback"] = traceback
     return response
+
+
+# --- 向后兼容别名（旧名称 -> 新名称）---
+# PermissionError 覆盖了 Python 内建异常，已重命名为 AccessDeniedError
+# ConfigurationError 与 transcribe/errors.py 中同名类冲突，已重命名为 AppConfigurationError
+# TranscribeError 与 transcribe/errors.py 中同名类冲突，已重命名为 TranscribeApiError
+PermissionError = AccessDeniedError
+ConfigurationError = AppConfigurationError
+TranscribeError = TranscribeApiError

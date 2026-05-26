@@ -10,9 +10,9 @@ from __future__ import annotations
 分散导致调用方要 import 三个地方"的负担。后续如需进一步收敛到单一分类机制，
 另起任务。
 
-注意：本模块的 `TranscribeError` 与 `media_tools.core.exceptions.TranscribeError`
-**同名但不同类**（前者继承 RuntimeError 携带 ErrorInfo；后者继承 AppError 用于
-HTTP 错误响应）——历史命名冲突，未在本任务范围内解决。
+注意：本模块的 `TranscribeError` 与 `media_tools.core.exceptions.TranscribeApiError`
+**不同类**（前者继承 RuntimeError 携带 ErrorInfo；后者继承 AppError 用于
+HTTP 错误响应）——已在 core.exceptions 中重命名为 TranscribeApiError 消除歧义。
 """
 
 from dataclasses import dataclass
@@ -127,7 +127,7 @@ class ErrorInfo:
 class TranscribeError(RuntimeError):
     """携带完整错误上下文的转写异常，供上层做精准重试/账号切换决策。
 
-    注意：与 `media_tools.core.exceptions.TranscribeError` 同名但不同类——
+    注意：与 `media_tools.core.exceptions.TranscribeApiError` 不同类——
     本类用于 worker 内部错误流，那个用于 HTTP 响应。"""
 
     def __init__(self, error_info: ErrorInfo, detail: str = ""):

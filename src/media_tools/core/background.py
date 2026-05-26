@@ -13,7 +13,7 @@ websocket_manager、task_helpers 各有一份，shutdown 时无统一入口取�
 
 import asyncio
 import logging
-from typing import Any, Coroutine, Optional, Union
+from typing import Any, Coroutine, Optional
 
 logger = logging.getLogger(__name__)
 

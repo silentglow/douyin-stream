@@ -221,11 +221,6 @@ async def set_auto_retry(task_id: str, enabled: bool = True):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{task_id}/pause")
-async def pause_task(task_id: str):
-    raise HTTPException(status_code=501, detail="暂停/恢复功能已下线")
-
-
 @router.put("/{task_id}/priority")
 async def update_task_priority(task_id: str, priority: int):
     try:
@@ -243,11 +238,6 @@ async def update_task_priority(task_id: str, priority: int):
     except (sqlite3.Error, OSError, RuntimeError) as e:
         logger.exception(f"update_task_priority failed for {task_id}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/{task_id}/resume")
-async def resume_task(task_id: str):
-    raise HTTPException(status_code=501, detail="暂停/恢复功能已下线")
 
 
 @router.post("/{task_id}/rerun")

@@ -9,6 +9,54 @@
 
 ## [Unreleased] - REFACTOR 2026-05
 
+### 🔧 任务 5：工程化审计与全面修复
+
+系统性代码审计，覆盖逻辑漏洞、安全风险、架构问题、工程化规范四个维度，共修复 20+ 处问题。
+
+#### P0 — 严重逻辑漏洞
+
+- **DB 连接 finally 关闭 Bug**：`platform/douyin.py` 中 `_create_video_metadata_table()`、`_save_video_metadata_from_raw()`、`_save_single_video_metadata()` 三个函数移除了错误的 `finally: conn.close()` 模式。线程缓存连接（`get_db_connection()`）不再被意外关闭，消除了同线程后续调用拿到已关闭连接的崩溃风险。
+- **异常类名冲突消除**：`core/exceptions.py` 中三个异常类重命名，消除内建/跨模块同名冲突：
+  - `PermissionError` → `AccessDeniedError`（不再覆盖 Python 内建 `PermissionError`）
+  - `ConfigurationError` → `AppConfigurationError`（消除与 `transcribe/errors.py` 同名冲突）
+  - `TranscribeError` → `TranscribeApiError`（消除与 `transcribe/errors.py` 同名冲突）
+  - 保留向后兼容别名，更新所有测试引用
+- **事务未回滚导致锁死**：`api/routers/assets.py` 的 `delete_asset` 端点 `BEGIN IMMEDIATE` 事务现在在所有异常路径上都会 `rollback()`，内层 try/except 确保无论哪个步骤失败都能正确回滚。
+
+#### P1 — 安全与架构
+
+- **路径注入防御**：`api/routers/settings.py` 的 `transcript_output_dir` 设置增加路径白名单校验（必须在项目目录内）和目录存在性检查。
+- **Auth Server 请求体限制**：`douyin/auth_server.py` 增加 10MB Content-Length 上限，防止内存耗尽攻击。
+- **架构耦合文档**：`scheduler/ops.py` 和 `scheduler/state.py` 中 scheduler 层对 api/douyin 层的依赖点添加了架构决策注释。
+- **transcribe/errors.py 文档更新**：同步更新异常类重命名后的文档注释。
+
+#### P2 — 工程化基础设施
+
+- **CI 流水线**：新增 `.github/workflows/ci.yml`，包含 ruff lint + pytest 两个 job。
+- **Pre-commit hooks**：新增 `.pre-commit-config.yaml`，ruff check + ruff format。
+- **pyproject.toml 工程化**：
+  - 移除死依赖 `questionary`（项目已无 CLI 交互模式）
+  - 添加 `[project.optional-dependencies]` dev extra（pytest, pytest-asyncio, ruff, mypy）
+  - 添加 `[tool.ruff]` 配置（target-version=py311, line-length=120, lint rules）
+  - 添加 `[tool.mypy]` 配置
+- **依赖同步**：`requirements.txt` 与 `pyproject.toml` 同步——移除 `questionary`、`requests`（已迁移到 httpx），添加 `pypdf`、`oss2`、`httpx`。
+
+#### P2 — 死代码清理
+
+- `api/routers/tasks.py`：移除 `pause_task` / `resume_task` 两个 501 占位端点
+- `store/db.py`：移除空函数 `_invalidate_table_columns_cache()` 及其调用
+- `platform/douyin.py`：移除未使用的 `_get_skill_dir()` 定义；移除 3 处 `MIN_VIDEO_BYTES` 局部重定义，统一使用模块级常量
+- `douyin/core/following_mgr.py`：移除 3 处未使用的 `db_path` 变量和未使用的 `get_config` 导入
+- 6 个文件清理未使用的 `Union` 导入（`core/config.py`, `core/background.py`, `core/exceptions.py`, `platform/douyin.py`, `api/app.py`, `api/routers/douyin.py`, `api/routers/settings.py`）
+- `douyin/core/interface.py`：修复 `metadata: dict[str, Any] = None` 类型不匹配 → `Optional[dict[str, Any]] = None`
+
+#### P2 — 日志系统合并
+
+- `logger.py`：`StructuredFormatter` 改为 `JsonFormatter` 子类（消除 ~30 行重复代码）
+- `MediaLogger` 方法移除冗余的 `_clean_msg()` 调用（`AnsiStripFilter` 已在 handler 层统一处理）
+
+---
+
 ### 🧹 任务 1：清空目录 + 死代码壳 + 孤儿文件
 
 - 删除空目录 `src/media_tools/pipeline/`、`src/media_tools/repositories/`（DDD 重构后未清理的鬼影）

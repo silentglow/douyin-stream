@@ -102,7 +102,10 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         if self.path == "/api/parse":
-            content_length = int(self.headers["Content-Length"])
+            content_length = int(self.headers.get("Content-Length", 0))
+            if content_length > 10 * 1024 * 1024:  # 10MB limit
+                self.send_error(413, "Request body too large")
+                return
             post_data = self.rfile.read(content_length)
 
             try:

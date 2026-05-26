@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import {
-  getAssetsByCreator, getAssetTranscript, markAsset, deleteAsset,
+  getAssetsByCreator, getAssetTranscript, markAsset, deleteAsset, bulkDeleteAssets, bulkMarkAssets,
   exportTranscripts, triggerCreatorDownload, getAssetFileUrl, browseAssetFolder,
 } from '@/lib/api';
 import type { FolderBrowseResult } from '@/lib/api';
@@ -164,11 +164,33 @@ export function useCreatorDetail() {
     if (!confirm(`确定要删除 ${selectedAssets.size} 个素材吗？`)) return;
     try {
       const ids = Array.from(selectedAssets);
-      for (const id of ids) await deleteAsset(id);
+      await bulkDeleteAssets(ids);
       setAssets((prev) => prev.filter((a) => !selectedAssets.has(a.asset_id)));
       toast.success(`已删除 ${ids.length} 个素材`);
       setSelectedAssets(new Set()); setBulkMode(false);
     } catch { toast.error('删除失败'); }
+  }, [selectedAssets]);
+
+  const handleBulkMarkRead = useCallback(async () => {
+    if (selectedAssets.size === 0) return;
+    try {
+      const ids = Array.from(selectedAssets);
+      await bulkMarkAssets(ids, { is_read: true });
+      setAssets((prev) => prev.map((a) => selectedAssets.has(a.asset_id) ? { ...a, is_read: true } : a));
+      toast.success(`已标记 ${ids.length} 个素材为已读`);
+      setSelectedAssets(new Set()); setBulkMode(false);
+    } catch { toast.error('标记失败'); }
+  }, [selectedAssets]);
+
+  const handleBulkMarkStar = useCallback(async () => {
+    if (selectedAssets.size === 0) return;
+    try {
+      const ids = Array.from(selectedAssets);
+      await bulkMarkAssets(ids, { is_starred: true });
+      setAssets((prev) => prev.map((a) => selectedAssets.has(a.asset_id) ? { ...a, is_starred: true } : a));
+      toast.success(`已收藏 ${ids.length} 个素材`);
+      setSelectedAssets(new Set()); setBulkMode(false);
+    } catch { toast.error('收藏失败'); }
   }, [selectedAssets]);
 
   const toggleAssetSelection = useCallback((assetId: string) => {
@@ -222,6 +244,8 @@ export function useCreatorDetail() {
     handleBrowseFolder,
     handleBulkExport,
     handleBulkDelete,
+    handleBulkMarkRead,
+    handleBulkMarkStar,
     toggleAssetSelection,
     filteredAssets,
     completedCount,

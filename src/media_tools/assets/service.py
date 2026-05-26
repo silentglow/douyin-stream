@@ -15,6 +15,11 @@ logger = get_logger(__name__)
 _AWEME_ID_RE = re.compile(r"\d{15,}")
 
 
+def _escape_like(s: str) -> str:
+    """转义 LIKE 通配符，防止文件名中的 % 和 _ 被当作通配符。"""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _resolve_asset_id_from_video_path(video_path: Path) -> Optional[str]:
     """根据视频文件名启发式定位 asset_id。"""
     matches = _AWEME_ID_RE.findall(video_path.name)
@@ -40,7 +45,7 @@ class MediaAssetService:
                     ORDER BY update_time DESC
                     LIMIT 1
                     """,
-                    (f"%{video_path.name}%", f"%{video_path.stem}%"),
+                    (f"%{_escape_like(video_path.name)}%", f"%{_escape_like(video_path.stem)}%"),
                 ).fetchone()
             return row["asset_id"] if row else None
         except sqlite3.Error as e:
@@ -126,7 +131,7 @@ class MediaAssetService:
                         SET video_status = 'archived', update_time = ?
                         WHERE video_path LIKE ? AND video_status IN ('downloaded', 'pending')
                         """,
-                        (now, f"%/{video_path.name}"),
+                        (now, f"%/{_escape_like(video_path.name)}"),
                     )
                 return cur.rowcount or 0
         except sqlite3.Error as e:
@@ -205,7 +210,7 @@ class MediaAssetService:
                         )
                         """,
                         (transcript_name, preview, full_text,
-                         f"%{video_path.name}%", f"%{video_path.stem}%"),
+                         f"%{_escape_like(video_path.name)}%", f"%{_escape_like(video_path.stem)}%"),
                     )
                     if cur.rowcount == 0:
                         logger.warning(
@@ -274,7 +279,7 @@ class MediaAssetService:
                         )
                         """,
                         (err_text, error_type, task_id,
-                         f"%{video_path.name}%", f"%{video_path.stem}%"),
+                         f"%{_escape_like(video_path.name)}%", f"%{_escape_like(video_path.stem)}%"),
                     )
                     if cur.rowcount == 0:
                         logger.warning(

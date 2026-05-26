@@ -10,7 +10,6 @@ from datetime import datetime
 from media_tools.store.db import get_db_connection
 from media_tools.logger import get_logger
 
-from .config_mgr import get_config
 from .ui import (
     info,
     print_header,
@@ -28,9 +27,6 @@ def list_users():
     Returns:
         用户列表 (List of dicts)
     """
-    config = get_config()
-    db_path = config.get_db_path()
-    
     users = []
     try:
         with get_db_connection() as conn:
@@ -55,8 +51,6 @@ def list_users():
 
 
 def get_user(uid: str):
-    config = get_config()
-    db_path = config.get_db_path()
     try:
         from media_tools.store.db import get_db_connection
         with get_db_connection() as conn:
@@ -103,8 +97,6 @@ def add_user(url):
         return False, None
 
     # 检查是否已存在
-    config = get_config()
-    db_path = config.get_db_path()
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()

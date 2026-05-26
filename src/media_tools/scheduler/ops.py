@@ -4,6 +4,8 @@ import logging
 import sqlite3
 from datetime import datetime, timedelta
 from typing import Optional
+# 架构耦合说明：scheduler 层直接依赖 api.websocket_manager 广播任务状态变更。
+# 理想方案是通过事件总线解耦，但当前规模下直接调用更简单可控。
 from media_tools.api.websocket_manager import manager
 from media_tools.store.db import get_db_connection
 from media_tools.scheduler.retry import schedule_auto_retry

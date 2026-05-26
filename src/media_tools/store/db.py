@@ -40,10 +40,6 @@ def get_table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
     return columns
 
 
-def _invalidate_table_columns_cache() -> None:
-    pass
-
-
 # --- Resolved DB path ---
 _db_path: Optional[str] = None
 
@@ -231,8 +227,6 @@ def init_db(db_path: Optional[str] = None) -> None:
     global _db_path
     if db_path:
         _db_path = str(db_path)
-
-    _invalidate_table_columns_cache()
 
     from .schema import init_schema
     from .migrations import run_migrations

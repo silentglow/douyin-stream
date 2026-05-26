@@ -1,6 +1,6 @@
 # Media Tools — 项目现状文档
 
-> 最后更新：2026-05-24
+> 最后更新：2026-05-27
 
 > 这是一份**当前状态快照**。历史变更见 [CHANGELOG.md](../CHANGELOG.md)。
 
@@ -17,8 +17,10 @@
 | 视频抓取 | f2（抖音）+ yt-dlp（B站） |
 | 转写引擎 | Qwen HTTP API（已从 Playwright 迁移） |
 | 实时通信 | WebSocket 推送任务进度（含心跳保活） |
-| Python | 3.9+（`from __future__ import annotations` 全仓铺开，`str | None` 类型语法依赖此导入） |
+| Python | 3.11+（`from __future__ import annotations` 全仓铺开，`str | None` 类型语法依赖此导入） |
 | 启动方式 | `./run.sh`（后端 8000 + 前端 5173） |
+| CI | GitHub Actions（ruff lint + pytest） |
+| Lint | ruff（check + format）+ mypy（可选）+ pre-commit hooks |
 
 ### 素材来源
 
@@ -68,6 +70,12 @@
 | GET | `/api/v1/tasks/active` | 获取活跃任务列表 |
 | GET | `/api/v1/tasks/history` | 获取最近 50 条任务历史 |
 | DELETE | `/api/v1/tasks/history` | 清除历史任务 |
+| POST | `/api/v1/tasks/{task_id}/retry` | 重试失败任务 |
+| POST | `/api/v1/tasks/{task_id}/rerun` | 重新运行任务 |
+| POST | `/api/v1/tasks/{task_id}/cancel` | 取消任务 |
+| DELETE | `/api/v1/tasks/{task_id}` | 删除任务 |
+| POST | `/api/v1/tasks/{task_id}/auto-retry` | 启用/禁用自动重试 |
+| PUT | `/api/v1/tasks/{task_id}/priority` | 更新任务优先级 |
 
 ### 2.4 设置 `/api/v1/settings`
 
@@ -217,8 +225,29 @@ B站对大量视频提供 AV1 编码（压缩率更高但兼容性差），Qwen 
 
 ## 七、待改进项
 
-> 优先级原则：**业务可靠性 > 工程规范**（详见 [CLAUDE.md](../CLAUDE.md)）。
-> 这是单机本地工作台，不引入 CI/CD、Docker、覆盖率门槛、APM 等"生产服务"工程标准。
+> 优先级原则：**业务可靠性 > 工程规范**。
+> 这是单机本地工作台，不引入 Docker、覆盖率门槛、APM 等"生产服务"工程标准。
+
+### P0 — 已修复的严重问题（2026-05-27）
+
+- [x] **DB 连接 finally 关闭 Bug**：`platform/douyin.py` 三处 `finally: conn.close()` 会销毁线程缓存连接，已移除。
+- [x] **异常类名冲突**：`PermissionError`/`ConfigurationError`/`TranscribeError` 三个类覆盖内建或跨模块同名冲突，已重命名为 `AccessDeniedError`/`AppConfigurationError`/`TranscribeApiError`。
+- [x] **事务未回滚**：`delete_asset` 端点 `BEGIN IMMEDIATE` 后异常路径未回滚导致数据库锁死，已修复。
+
+### P1 — 已修复的安全与架构问题（2026-05-27）
+
+- [x] **路径注入防御**：`transcript_output_dir` API 设置增加项目目录白名单校验。
+- [x] **Auth Server 请求体限制**：增加 10MB Content-Length 上限。
+- [x] **架构耦合文档**：scheduler 层对 api/douyin 层的依赖点添加决策注释。
+
+### P2 — 工程化基础设施（2026-05-27）
+
+- [x] **CI 流水线**：`.github/workflows/ci.yml`（ruff lint + pytest）。
+- [x] **Pre-commit hooks**：`.pre-commit-config.yaml`（ruff check + format）。
+- [x] **pyproject.toml 工程化**：dev extra、ruff 配置、mypy 配置。
+- [x] **依赖同步**：`requirements.txt` 与 `pyproject.toml` 对齐，移除死依赖 `questionary`/`requests`。
+- [x] **死代码清理**：501 端点、空函数、未使用变量/导入、重复常量定义。
+- [x] **日志系统合并**：`StructuredFormatter` 合并为 `JsonFormatter` 子类。
 
 ### P2 — 代码质量
 

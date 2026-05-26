@@ -285,30 +285,33 @@ def delete_asset(asset_id: str = Path(..., min_length=1, max_length=128)):
         with get_db_connection() as conn:
             # 开启事务，文件删除失败可回滚
             conn.execute("BEGIN IMMEDIATE")
+            try:
+                row = AssetRepository.find_for_deletion(asset_id)
+                if not row:
+                    conn.rollback()
+                    raise HTTPException(status_code=404, detail="Asset not found")
 
-            row = AssetRepository.find_for_deletion(asset_id)
-            if not row:
-                raise HTTPException(status_code=404, detail="Asset not found")
+                failed = delete_asset_files(
+                    row['creator_uid'], row['source_url'], row['video_path'], row['transcript_path']
+                )
+                if failed:
+                    conn.rollback()
+                    raise HTTPException(status_code=500, detail=f"删除文件失败: {failed[0]}")
 
-            failed = delete_asset_files(
-                row['creator_uid'], row['source_url'], row['video_path'], row['transcript_path']
-            )
-            if failed:
+                # Phase 3: Delete from database (后删DB)
+                AssetRepository.delete_with_fts(asset_id, conn=conn)
+                conn.commit()
+
+                return {"status": "success", "message": f"Asset {asset_id} deleted successfully"}
+            except HTTPException:
                 conn.rollback()
-                raise HTTPException(status_code=500, detail=f"删除文件失败: {failed[0]}")
-
-            # Phase 3: Delete from database (后删DB)
-            AssetRepository.delete_with_fts(asset_id, conn=conn)
-            conn.commit()
-
-            return {"status": "success", "message": f"Asset {asset_id} deleted successfully"}
+                raise
+            except (OSError, sqlite3.Error, RuntimeError) as e:
+                conn.rollback()
+                raise HTTPException(status_code=500, detail=str(e))
 
     except HTTPException:
         raise
-    except OSError:
-        raise
-    except (sqlite3.Error, RuntimeError) as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 class AssetMarkRequest(BaseModel):

@@ -20,10 +20,13 @@ cd media-tools
 ### 3. 设置开发环境
 
 ```bash
-# 运行快速设置
-./run.sh setup
+# 推荐：使用 uv（项目已包含 uv.lock）
+uv sync
 
-# 或手动设置
+# 或 pip 安装（含开发依赖）
+pip install -e ".[dev]"
+
+# 或仅安装运行依赖
 pip install -r requirements.txt
 ```
 
@@ -128,10 +131,26 @@ Closes #123
 
 ```bash
 # 运行所有测试
-./run.sh test
+pytest
 
-# 或
-python test_v2_features.py
+# 运行指定测试文件
+pytest tests/test_exceptions.py
+
+# 带详细输出
+pytest -v
+```
+
+### 代码检查
+
+```bash
+# Lint 检查
+ruff check src/ tests/
+
+# 格式化
+ruff format src/ tests/
+
+# 类型检查（可选）
+mypy src/
 ```
 
 ### 添加测试
