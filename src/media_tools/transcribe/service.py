@@ -56,8 +56,10 @@ class OrchestratorV2:
         self.retry_config = retry_config or RetryConfig()
         self.on_progress = on_progress
         self._creator_folder_override = creator_folder_override
-        from media_tools.accounts.service import AccountPoolService
-        self._account_pool_service = AccountPoolService(
+        from media_tools.accounts.service import get_account_pool_service
+        # 进程内单例:所有 orchestrator 共享同一个 _upload_locks dict,
+        # 避免同账号多文件并发上传(平台只允许 1)。详见 accounts/service.py 末尾说明。
+        self._account_pool_service = get_account_pool_service(
             auth_state_path=self.auth_state_path,
             default_account_id=self.config.pipeline_account_id,
         )

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Any, Optional
 
@@ -46,6 +47,9 @@ class AccountPoolService:
         """从数据库加载活跃 Qwen 账号，构建账号池。
 
         数据库无记录时回退到单账号模式（auth_state_path）。
+
+        幂等：如果账号 ID 集合没变,跳过 AccountPool 重建,保留 _use_count (LRU 历史)。
+        DB 里增删账号时才真正重建。
         """
         try:
             from media_tools.store.db import get_db_connection
@@ -66,6 +70,15 @@ class AccountPoolService:
                 resolved.append({"account_id": account.account_id, "auth_state_path": path})
 
             if resolved:
+                new_ids = {a["account_id"] for a in resolved}
+                if self._account_pool is not None:
+                    old_ids = {
+                        str(a.get("account_id", ""))
+                        for a in self._account_pool._accounts
+                    }
+                    if new_ids == old_ids:
+                        # 账号集合未变,沿用现有 AccountPool (保留 _use_count LRU 历史)
+                        return resolved
                 self._account_pool = AccountPool(resolved)
                 self._account_pool.set_upload_locks_view(self._upload_locks)
                 logger.info(f"账号池初始化: {[a['account_id'] for a in resolved]}")
@@ -80,6 +93,10 @@ class AccountPoolService:
         single_account = [
             {"account_id": self._default_account_id, "auth_state_path": Path(self._auth_state_path)}
         ]
+        if self._account_pool is not None:
+            old_ids = {str(a.get("account_id", "")) for a in self._account_pool._accounts}
+            if old_ids == {self._default_account_id}:
+                return single_account
         self._account_pool = AccountPool(single_account)
         self._account_pool.set_upload_locks_view(self._upload_locks)
         self._adjust_gates()
@@ -129,3 +146,41 @@ class AccountPoolService:
             get_cookie_manager().mark_account_used("qwen", account_id)
         except (RuntimeError, OSError, ValueError) as e:
             logger.warning(f"标记Qwen账号使用失败: {e}")
+
+
+# ═════════════════════════════════════════════════════════════════
+# 单例 accessor
+# ═════════════════════════════════════════════════════════════════
+# 历史 bug v2026-05-26：每次 create_orchestrator() 都新建 AccountPoolService,
+# 新实例的 _upload_locks dict 是空的 → 跨 orchestrator 的同账号上传锁互相不可见,
+# 千问端被同账号多文件并发上传打爆 → OSS write timeout 大量失败。
+#
+# 修复：进程内 process-wide 单例,所有 orchestrator 共享同一个 _upload_locks dict。
+# 第一次调用 get_account_pool_service() 时用传入参数初始化,之后忽略新参数。
+# 单元测试需要重置时用 reset_account_pool_service()。
+
+_singleton: Optional[AccountPoolService] = None
+_singleton_init_lock = threading.Lock()
+
+
+def get_account_pool_service(
+    auth_state_path: Optional[Path] = None,
+    default_account_id: str = "",
+) -> AccountPoolService:
+    """返回进程内唯一的 AccountPoolService 实例(线程安全的 lazy init)。"""
+    global _singleton
+    if _singleton is None:
+        with _singleton_init_lock:
+            if _singleton is None:
+                _singleton = AccountPoolService(
+                    auth_state_path=auth_state_path,
+                    default_account_id=default_account_id,
+                )
+    return _singleton
+
+
+def reset_account_pool_service() -> None:
+    """仅供测试使用：清掉单例,下次 get_account_pool_service() 重新创建。"""
+    global _singleton
+    with _singleton_init_lock:
+        _singleton = None

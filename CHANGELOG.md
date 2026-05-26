@@ -68,6 +68,12 @@
   - 保留 `preferred_account_id` 命中直接返回(resume 路径)、`exclude` 过滤(AUTH/QUOTA 错误后)
   - `get_stats` 新增 `use_count` 字段供观测
   - 新增 **`tests/test_account_pool_lru.py`** 5 条测试：均匀分配 / LRU 顺序 / preferred 优先 / excluded 跳过 / idle 优先级覆盖 LRU
+- **`AccountPoolService` 单例化（修真上传锁失效 bug）**：`src/media_tools/accounts/service.py`。之前每次 `create_orchestrator()` 都新建 `AccountPoolService`，新实例的 `_upload_locks: dict` 是空的——跨 orchestrator 同账号的 upload lock 互相不可见。`workers/transcribe.py:17`、`transcribe/worker.py:31/486/555` 等多个入口都会创建新 orchestrator，retry 链路也是。日志佐证：同账号 `8341abe3` 在一天内出现了 N 次"`上传锁创建: account=...`"日志，理论上应该只 1 次。结果：千问端同账号被多文件并发上传打爆 → OSS write timeout 大量失败（实测 5 文件并发全挂）。
+  - 加 module-level `_singleton: Optional[AccountPoolService]` + `get_account_pool_service(...)` + `reset_account_pool_service()`（测试用）
+  - `threading.Lock` 保护 lazy init，多线程 / 多协程并发首访问安全
+  - `transcribe/service.py:60` 和 `api/routers/metrics.py:49` 改走单例
+  - `resolve_accounts` 改为真正幂等：账号 ID 集合未变时不重建 `AccountPool`，保留 `_use_count` LRU 历史
+  - 新增 **`tests/test_account_pool_service_singleton.py`** 4 条测试：多次调用返回同一实例 / upload lock 跨 caller 共享 / reset 后拿到新实例 / 类直接实例化兼容性
 
 ---
 

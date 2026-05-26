@@ -43,10 +43,11 @@ def _collect_task_counts() -> dict[str, int]:
 
 def _collect_account_pool_stats() -> dict:
     try:
-        from media_tools.accounts.service import AccountPoolService
+        from media_tools.accounts.service import get_account_pool_service
         from media_tools.core.config import load_pipeline_config
         config = load_pipeline_config()
-        service = AccountPoolService(
+        # 走单例,和 orchestrator 共享 _upload_locks/use_count 状态,observability 才能反映真实情况
+        service = get_account_pool_service(
             auth_state_path=None,
             default_account_id=config.pipeline_account_id,
         )
