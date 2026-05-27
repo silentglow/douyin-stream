@@ -28,7 +28,7 @@ export interface TaskSlice {
 
 let fetchTasksPromise: Promise<void> | null = null;
 
-export const createTaskSlice: StateCreator<StoreState, [], [], TaskSlice> = (set, get) => ({
+export const createTaskSlice: StateCreator<StoreState, [], [], TaskSlice> = (set) => ({
   activeTaskId: null,
   setActiveTaskId: (id) => set({ activeTaskId: id }),
   tasks: [],

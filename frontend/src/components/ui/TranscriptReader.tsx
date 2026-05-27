@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -25,6 +25,26 @@ interface Heading {
   text: string;
   id: string;
 }
+
+/* Icon button — editorial */
+const IconBtn = ({ onClick, title, active, disabled, children }: {
+  onClick?: () => void; title: string; active?: boolean; disabled?: boolean; children: ReactNode;
+}) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    title={title}
+    className={cn(
+      'w-9 h-9 flex items-center justify-center rounded-lg border border-transparent transition-all duration-200',
+      active
+        ? 'text-[var(--color-rust)] bg-[rgba(99,102,241,0.08)] border-[var(--color-rust)]/25'
+        : 'text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-white/5 hover:border-white/5',
+      disabled && 'opacity-30 cursor-not-allowed'
+    )}
+  >
+    {children}
+  </button>
+);
 
 interface TranscriptReaderProps {
   asset: Asset;
@@ -120,6 +140,7 @@ export function TranscriptReader({
         console.error('Failed to mark asset as read', err);
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs only on asset_id change
   }, [asset.asset_id]);
 
   useEffect(() => {
@@ -141,7 +162,6 @@ export function TranscriptReader({
   }, [onClose, onPrev, onNext, hasPrev, hasNext, searchOpen]);
 
   useEffect(() => {
-    if (!searchQuery) { setSearchResults([]); return; }
     const lines = content.split('\n');
     const results: number[] = [];
     lines.forEach((line, idx) => {
@@ -183,26 +203,6 @@ export function TranscriptReader({
       (lines[lineIdx] as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [searchResults, currentSearchIndex]);
-
-  /* Icon button — editorial */
-  const IconBtn = ({ onClick, title, active, disabled, children }: {
-    onClick?: () => void; title: string; active?: boolean; disabled?: boolean; children: React.ReactNode;
-  }) => (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={cn(
-        'w-9 h-9 flex items-center justify-center rounded-lg border border-transparent transition-all duration-200',
-        active
-          ? 'text-[var(--color-rust)] bg-[rgba(99,102,241,0.08)] border-[var(--color-rust)]/25'
-          : 'text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-white/5 hover:border-white/5',
-        disabled && 'opacity-30 cursor-not-allowed'
-      )}
-    >
-      {children}
-    </button>
-  );
 
   return (
     <motion.div

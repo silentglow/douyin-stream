@@ -211,6 +211,7 @@ export default function AppLayout() {
   useEffect(() => {
     if (location.pathname === '/tasks') {
       navigate('/home', { replace: true });
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: open drawer on old route redirect
       setTaskDrawerOpen(true);
     }
   }, [location.pathname, navigate]);

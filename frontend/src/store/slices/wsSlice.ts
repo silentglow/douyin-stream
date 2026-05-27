@@ -42,7 +42,7 @@ export const createWsSlice: StateCreator<StoreState, [], [], WsSlice> = (set, ge
     set({ _wsInstance: ws });
 
     ws.onopen = () => {
-      console.log('Task WebSocket connected');
+      console.warn('Task WebSocket connected');
       set({ wsConnected: true, _wsRetryCount: 0 });
       get().fetchInitialTasks();
       get().fetchSettings();
@@ -130,7 +130,7 @@ export const createWsSlice: StateCreator<StoreState, [], [], WsSlice> = (set, ge
         clearTimeout(existingTimer);
       }
       const delay = Math.min(WS_BASE_DELAY * Math.pow(2, retryCount), WS_MAX_DELAY);
-      console.log(`Task WebSocket disconnected, reconnecting in ${delay}ms (attempt ${retryCount + 1})`);
+      console.warn(`Task WebSocket disconnected, reconnecting in ${delay}ms (attempt ${retryCount + 1})`);
       set({ _wsRetryCount: retryCount + 1 });
       const timer = setTimeout(() => {
         get().connectWebSocket();
