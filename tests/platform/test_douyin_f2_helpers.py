@@ -31,6 +31,7 @@ class F2HelperTests(unittest.TestCase):
             with (
                 patch("media_tools.douyin.core.f2_helper.get_config", return_value=fake_config),
                 patch("media_tools.douyin.core.f2_helper.ConfigManager") as mock_config_manager,
+                patch("media_tools.core.cookie_manager.CookieManager.get_cookie", return_value=None),
             ):
                 mock_config_manager.return_value.config = {
                     "douyin": {

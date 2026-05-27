@@ -22,7 +22,8 @@ def test_download_up_returns_requested_filepaths(tmp_path: Path, monkeypatch) ->
             return False
 
         def extract_info(self, url: str, download: bool):
-            assert download is True
+            if not download:
+                return {"uploader": "test", "uploader_id": "123"}
             return {"requested_downloads": [{"filepath": str(expected_file)}]}
 
     monkeypatch.setattr("media_tools.platform.bilibili.YoutubeDL", FakeYDL)
