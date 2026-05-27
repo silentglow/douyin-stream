@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -11,7 +10,6 @@ import pytest
 @pytest.mark.asyncio
 async def test_run_local_transcribe_subtasks_include_error_type(tmp_path: Path) -> None:
     from media_tools.transcribe.errors import ErrorType
-    from media_tools.transcribe.models import PipelineResultV2
     from media_tools.transcribe.worker import run_local_transcribe
 
     video_path = tmp_path / "a.mp4"
@@ -20,16 +18,19 @@ async def test_run_local_transcribe_subtasks_include_error_type(tmp_path: Path) 
     class FakeOrchestrator:
         async def transcribe_batch(self, video_paths: list[Path], resume: bool = True):
             from media_tools.transcribe.models import BatchReport
+
             results = []
             for p in video_paths:
-                results.append({
-                    "video_path": str(p),
-                    "success": False,
-                    "error": "request timed out",
-                    "error_type": ErrorType.TIMEOUT.value,
-                    "attempts": 2,
-                    "transcript_path": None,
-                })
+                results.append(
+                    {
+                        "video_path": str(p),
+                        "success": False,
+                        "error": "request timed out",
+                        "error_type": ErrorType.TIMEOUT.value,
+                        "attempts": 2,
+                        "transcript_path": None,
+                    }
+                )
             return BatchReport(
                 total=len(video_paths),
                 success=0,
@@ -40,9 +41,12 @@ async def test_run_local_transcribe_subtasks_include_error_type(tmp_path: Path) 
     async def noop_progress(*_args, **_kwargs):
         return None
 
-    with patch("media_tools.transcribe.service.create_orchestrator", return_value=FakeOrchestrator()), patch(
-        "media_tools.core.config.load_pipeline_config",
-        return_value=SimpleNamespace(output_dir=str(tmp_path), concurrency=1),
+    with (
+        patch("media_tools.transcribe.service.create_orchestrator", return_value=FakeOrchestrator()),
+        patch(
+            "media_tools.core.config.load_pipeline_config",
+            return_value=SimpleNamespace(output_dir=str(tmp_path), concurrency=1),
+        ),
     ):
         result = await run_local_transcribe([str(video_path)], update_progress_fn=noop_progress, delete_after=False)
 

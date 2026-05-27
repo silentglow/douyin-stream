@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import contextlib
 import sqlite3
 import tempfile
 from pathlib import Path
 
-from media_tools.store.db import init_db
-from media_tools.scheduler.repository import TaskRepository
 from media_tools.scheduler.ops import cleanup_stale_tasks
+from media_tools.scheduler.repository import TaskRepository
+from media_tools.store.db import init_db
 
 
 def test_cleanup_stale_tasks_does_not_delete_media_assets() -> None:
@@ -59,9 +60,6 @@ def test_cleanup_stale_tasks_does_not_delete_media_assets() -> None:
         assert remaining_assets == 1
         assert remaining_fts == 1
     finally:
-        try:
+        with contextlib.suppress(Exception):
             conn.close()
-        except Exception:
-            pass
         db_path.unlink(missing_ok=True)
-

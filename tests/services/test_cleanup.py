@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from media_tools.services.cleanup import (
-    CleanupOutcome,
     cleanup_paths_allowlist,
     cleanup_task_cache_dir,
 )
@@ -64,4 +63,3 @@ def test_cleanup_cache_dir_removed(tmp_path: Path) -> None:
     outcome = cleanup_task_cache_dir(cache_dir)
     assert outcome.deleted_count == 1
     assert not cache_dir.exists()
-

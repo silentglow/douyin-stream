@@ -1,4 +1,5 @@
 """搜索 API 路由"""
+
 from fastapi import APIRouter, Query
 
 from media_tools.assets.repository import AssetRepository

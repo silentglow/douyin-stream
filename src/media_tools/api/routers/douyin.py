@@ -1,9 +1,8 @@
-from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter(prefix="/api/v1/douyin", tags=["douyin"], redirect_slashes=False)
 
-_f2_import_error: Optional[Exception] = None
+_f2_import_error: Exception | None = None
 
 try:
     from f2.apps.douyin.handler import DouyinHandler as _RealDouyinHandler
@@ -62,9 +61,7 @@ async def get_metadata(
                 for video in page_data[:max_counts]:
                     aweme_id = str(video.get("aweme_id") or "")
                     cover_url = (
-                        video.get("video", {}).get("cover", {}).get("url_list", [None])[0]
-                        or video.get("cover")
-                        or ""
+                        video.get("video", {}).get("cover", {}).get("url_list", [None])[0] or video.get("cover") or ""
                     )
                     videos.append(
                         {

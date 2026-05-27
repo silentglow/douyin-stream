@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Optional, Union
 import json
 import logging
 import re
 import uuid
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 from media_tools.accounts.auth_state import resolve_qwen_cookie_string
-from media_tools.transcribe.config import load_config
 from media_tools.common.http import RequestsApiContext, api_json
 from media_tools.common.runtime import ensure_dir
+from media_tools.transcribe.config import load_config
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +71,7 @@ def _write_quota_state(records: dict[str, Any]) -> Path:
     tmp_path = file_path.with_suffix(".tmp")
     tmp_path.write_text(json.dumps(records, indent=2), encoding="utf-8")
     import os
+
     os.replace(str(tmp_path), str(file_path))
     return file_path
 
@@ -129,7 +130,7 @@ def merge_equity_claim_record(
 
 async def get_quota_snapshot(
     *,
-    auth_state_path: Union[str, Path],
+    auth_state_path: str | Path,
     account_id: str = "",
     cookie_string: str = "",
     referer: str = "https://www.qianwen.com/discover/audioread",
@@ -160,6 +161,7 @@ async def get_quota_snapshot(
     # API 返回登录错误时直接抛出，让上层识别为 AUTH 错误
     if isinstance(quota_json, dict) and quota_json.get("errorCode") == "NOT_LOGIN":
         from media_tools.transcribe.errors import TranscribeErrorClassifier
+
         error_info = TranscribeErrorClassifier.classify("账号权限不足")
         raise RuntimeError(f"{error_info.message}: {quota_json.get('errorMsg', '未登录')}")
 
@@ -167,7 +169,11 @@ async def get_quota_snapshot(
     tingwu_benefit = {}
     if isinstance(data, list):
         tingwu_benefit = next(
-            (item for item in data if isinstance(item, dict) and item.get("benefitType") == "TINGWU_TRANSCRIPTION_DURATION"),
+            (
+                item
+                for item in data
+                if isinstance(item, dict) and item.get("benefitType") == "TINGWU_TRANSCRIPTION_DURATION"
+            ),
             {},
         )
 
@@ -231,7 +237,7 @@ def record_quota_consumption(
                 consumed_minutes=minutes,
                 before_remaining=before_snapshot.remaining_upload,
                 after_remaining=after_snapshot.remaining_upload,
-                updated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                updated_at=datetime.now(UTC).isoformat(timespec="seconds"),
             )
             records[key] = account_record
             _write_quota_state(records)
@@ -287,7 +293,7 @@ def _write_equity_claim_record(
             key = account_key(account_id)
             day = today_key()
             account_record = records.get(key, {})
-            claimed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            claimed_at = datetime.now(UTC).isoformat(timespec="seconds")
             account_record[day] = merge_equity_claim_record(
                 account_record.get(day, {}),
                 before_remaining=before_snapshot.remaining_upload,
@@ -303,7 +309,7 @@ def _write_equity_claim_record(
 async def claim_equity_quota(
     *,
     account_id: str,
-    auth_state_path: Union[str, Path],
+    auth_state_path: str | Path,
     force: bool = False,
 ) -> ClaimEquityResult:
     if not force and has_claimed_equity_today(account_id):
@@ -330,9 +336,7 @@ async def claim_equity_quota(
     try:
         await trigger_equity_claim_via_api(cookie_string=cookie_string)
     except (RuntimeError, OSError, ValueError) as e:
-        logger.warning(
-            f"[额度领取] trigger 调用异常 account_id={account_id}: {e}"
-        )
+        logger.warning(f"[额度领取] trigger 调用异常 account_id={account_id}: {e}")
 
     after_snapshot = await get_quota_snapshot(
         auth_state_path=auth_state_path,

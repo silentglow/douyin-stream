@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
 import json
 import os
 import tempfile
-from unittest.mock import patch
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from media_tools.transcribe.accounts import load_accounts_config, resolve_auth_state_path
 from media_tools.transcribe.errors import ConfigurationError
@@ -31,6 +31,8 @@ class AccountsTests(unittest.TestCase):
             accounts_path = Path(tmp_dir) / "accounts.json"
             accounts_path.write_text("[]", encoding="utf-8")
 
-            with patch.dict(os.environ, {"QWEN_ACCOUNTS_FILE": str(accounts_path)}, clear=True):
-                with self.assertRaises(ConfigurationError):
-                    resolve_auth_state_path(account_id="missing")
+            with (
+                patch.dict(os.environ, {"QWEN_ACCOUNTS_FILE": str(accounts_path)}, clear=True),
+                self.assertRaises(ConfigurationError),
+            ):
+                resolve_auth_state_path(account_id="missing")

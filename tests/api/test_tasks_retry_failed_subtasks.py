@@ -1,3 +1,4 @@
+import contextlib
 import json
 import sqlite3
 from pathlib import Path
@@ -9,10 +10,8 @@ from media_tools.api.app import app
 
 
 def _skip_background_task(_task_id, coro):
-    try:
+    with contextlib.suppress(Exception):
         coro.close()
-    except Exception:
-        pass
     return None
 
 
@@ -58,14 +57,16 @@ def test_retry_failed_subtasks_creates_local_transcribe_task(tmp_path: Path) -> 
     )
     conn.commit()
 
-    with patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
-        "media_tools.scheduler.repository.get_db_connection",
-        return_value=conn,
-    ), patch("media_tools.scheduler.dispatcher.notify_task_update"), patch(
-        "media_tools.scheduler.dispatcher._register_background_task", side_effect=_skip_background_task
-    ), patch(
-        "media_tools.scheduler.dispatcher._register_local_assets"
-    ) as register_local_assets:
+    with (
+        patch.object(tasks_router, "get_db_connection", return_value=conn),
+        patch(
+            "media_tools.scheduler.repository.get_db_connection",
+            return_value=conn,
+        ),
+        patch("media_tools.scheduler.dispatcher.notify_task_update"),
+        patch("media_tools.scheduler.dispatcher._register_background_task", side_effect=_skip_background_task),
+        patch("media_tools.scheduler.dispatcher._register_local_assets") as register_local_assets,
+    ):
         client = TestClient(app)
         resp = client.post("/api/v1/tasks/source-task/retry-failed")
 
@@ -116,9 +117,12 @@ def test_retry_failed_subtasks_requires_existing_failed_paths(tmp_path: Path) ->
     )
     conn.commit()
 
-    with patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
-        "media_tools.scheduler.repository.get_db_connection",
-        return_value=conn,
+    with (
+        patch.object(tasks_router, "get_db_connection", return_value=conn),
+        patch(
+            "media_tools.scheduler.repository.get_db_connection",
+            return_value=conn,
+        ),
     ):
         client = TestClient(app)
         resp = client.post("/api/v1/tasks/source-task/retry-failed")

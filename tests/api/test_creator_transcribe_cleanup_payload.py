@@ -102,7 +102,9 @@ def test_creator_transcribe_writes_cleanup_payload_and_deletes_files(tmp_path: P
             "subtasks": [],
         }
 
-    monkeypatch.setattr("media_tools.workers.creator_transcribe_worker.run_local_transcribe", _fake_run_local_transcribe)
+    monkeypatch.setattr(
+        "media_tools.workers.creator_transcribe_worker.run_local_transcribe", _fake_run_local_transcribe
+    )
 
     asyncio.run(CreatorTranscribeWorker().execute(task_id, uid=uid))
 
@@ -122,4 +124,3 @@ def test_creator_transcribe_writes_cleanup_payload_and_deletes_files(tmp_path: P
     assert payload["cleanup_failed_count"] == 0
     assert payload["cleanup_failed_paths"] == []
     assert payload["pipeline_progress"]["stage"] == "done"
-

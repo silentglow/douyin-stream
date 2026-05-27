@@ -3,6 +3,7 @@ from __future__ import annotations
 
 def test_rehydrate_qwen_accounts_updates_auth_state_paths(monkeypatch) -> None:
     import sqlite3
+
     from media_tools.api.routers import settings as settings_router
 
     conn = sqlite3.connect(":memory:")
@@ -39,4 +40,3 @@ def test_rehydrate_qwen_accounts_updates_auth_state_paths(monkeypatch) -> None:
     row = conn.execute("SELECT auth_state_path FROM Accounts_Pool WHERE account_id='a1'").fetchone()
     assert row is not None
     assert str(row["auth_state_path"]).strip()
-

@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 
 from media_tools.api.app import app
 
-
 client = TestClient(app)
 
 
@@ -52,4 +51,3 @@ def test_update_global_settings_accepts_concurrency_in_range() -> None:
         resp = client.post("/api/v1/settings/global", json={"concurrency": 20})
     assert resp.status_code == 200
     assert ("concurrency", 20) in calls
-

@@ -9,9 +9,9 @@
 3. direct 模式 (小文件) 走 _direct_put,不碰 oss2
 4. part_size 决策逻辑未变(<1G→5MB / <5G→16MB / ≥5G→32MB)
 """
+
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from unittest.mock import patch
 
@@ -150,8 +150,10 @@ async def test_direct_mode_does_not_touch_oss2(big_file: Path) -> None:
     def _fake_direct(url, data, mime_type):
         return None
 
-    with patch.object(oss_upload, "oss2") as mock_oss2, \
-         patch.object(oss_upload, "_direct_put", side_effect=_fake_direct):
+    with (
+        patch.object(oss_upload, "oss2") as mock_oss2,
+        patch.object(oss_upload, "_direct_put", side_effect=_fake_direct),
+    ):
         mock_oss2.resumable_upload.side_effect = AssertionError("direct 模式不该调 oss2")
 
         await upload_file_to_oss(

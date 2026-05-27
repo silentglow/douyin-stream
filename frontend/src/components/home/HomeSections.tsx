@@ -76,7 +76,7 @@ export function RecentTranscriptsSection({
                 {t.title || '未命名'}
               </div>
               <div className="mono-cap mt-1">
-                {t.creator_name || '本地'} · {new Date(t.create_time).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                {t.creator_name || '本地'} · {t.create_time ? new Date(t.create_time).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }) : ''}
               </div>
             </div>
             <span className="text-[10px] tracking-[0.16em] uppercase text-[var(--color-patina)] font-bold">

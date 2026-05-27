@@ -35,11 +35,11 @@ async def test_update_task_progress_does_not_revive_failed_task() -> None:
     )
     conn.commit()
 
-    with patch.object(task_ops, "get_db_connection", return_value=conn), patch.object(
-        task_ops, "notify_task_update", new=AsyncMock()
+    with (
+        patch.object(task_ops, "get_db_connection", return_value=conn),
+        patch.object(task_ops, "notify_task_update", new=AsyncMock()),
     ):
         await task_ops.update_task_progress("t1", 0.5, "progress", "pipeline")
 
     status = conn.execute("SELECT status FROM task_queue WHERE task_id = ?", ("t1",)).fetchone()["status"]
     assert status == "FAILED"
-

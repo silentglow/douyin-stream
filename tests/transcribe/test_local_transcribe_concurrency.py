@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
-import asyncio
+from typing import Any
 
 
 @dataclass(frozen=True)
 class _Result:
     success: bool
-    transcript_path: Optional[str] = None
+    transcript_path: str | None = None
 
 
 class _FakeOrchestrator:
@@ -27,9 +27,7 @@ class _FakeOrchestrator:
                 "success": len(video_paths),
                 "failed": 0,
                 "skipped": 0,
-                "results": [
-                    {"video_path": str(p), "success": True, "transcript_path": None} for p in video_paths
-                ],
+                "results": [{"video_path": str(p), "success": True, "transcript_path": None} for p in video_paths],
             },
         )()
 
@@ -42,8 +40,7 @@ def test_pipeline_config_default_concurrency_is_10(monkeypatch, tmp_path) -> Non
     import sqlite3
     from contextlib import contextmanager
 
-    from media_tools.core.config import load_pipeline_config
-    from media_tools.core.config import _invalidate_settings_cache
+    from media_tools.core.config import _invalidate_settings_cache, load_pipeline_config
 
     _invalidate_settings_cache()
 
@@ -68,8 +65,7 @@ def test_pipeline_config_concurrency_uses_system_settings(monkeypatch, tmp_path)
     import sqlite3
     from contextlib import contextmanager
 
-    from media_tools.core.config import load_pipeline_config
-    from media_tools.core.config import _invalidate_settings_cache
+    from media_tools.core.config import _invalidate_settings_cache, load_pipeline_config
 
     _invalidate_settings_cache()
 
@@ -95,8 +91,7 @@ def test_pipeline_config_concurrency_env_overrides_system_settings(monkeypatch, 
     import sqlite3
     from contextlib import contextmanager
 
-    from media_tools.core.config import load_pipeline_config
-    from media_tools.core.config import _invalidate_settings_cache
+    from media_tools.core.config import _invalidate_settings_cache, load_pipeline_config
 
     _invalidate_settings_cache()
 

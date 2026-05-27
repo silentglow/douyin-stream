@@ -15,19 +15,19 @@ import pytest
 def test_unified_errors_module_exports_all_legacy_apis():
     """合并后 errors.py 必须能 import 出原三模块的全部公开名字。"""
     from media_tools.transcribe.errors import (
-        # 原 errors.py 异常类层级
-        QwenTranscribeError,
-        UserFacingError,
-        ConfigurationError,
-        InputValidationError,
         AuthenticationRequiredError,
-        # 原 error_types.py
-        ErrorType,
-        classify_error,
+        ConfigurationError,
         # 原 error_classifier.py
         ErrorInfo,
+        # 原 error_types.py
+        ErrorType,
+        InputValidationError,
+        # 原 errors.py 异常类层级
+        QwenTranscribeError,
         TranscribeError,
         TranscribeErrorClassifier,
+        UserFacingError,
+        classify_error,
     )
 
     # 类型校验：拿到的确实是预期类型，不只是 None

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 import httpx
 import oss2
-
 
 ProgressCallback = Callable[[dict[str, Any]], None]
 
@@ -44,7 +44,7 @@ async def _direct_put(url: str, data: bytes, mime_type: str, timeout: int = 120)
     """direct 模式:async PUT 数据到千问预签名 URL。
     网络错误重试 3 次(指数退避 1s/2s/4s);HTTP 4xx/5xx 立即抛错不重试。
     """
-    last_error: Optional[BaseException] = None
+    last_error: BaseException | None = None
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(
             connect=10.0,
@@ -69,7 +69,7 @@ async def _direct_put(url: str, data: bytes, mime_type: str, timeout: int = 120)
             except (httpx.RequestError, OSError) as e:
                 last_error = e
                 if attempt < 2:
-                    await asyncio.sleep(2 ** attempt)
+                    await asyncio.sleep(2**attempt)
         raise RuntimeError(f"direct PUT 失败 (重试3次): {last_error}") from last_error
 
 
@@ -115,18 +115,20 @@ def _resumable_upload_via_oss2(
 
     last_emitted_part = 0
 
-    def _progress_bridge(bytes_consumed: int, total_bytes: Optional[int]) -> None:
+    def _progress_bridge(bytes_consumed: int, total_bytes: int | None) -> None:
         nonlocal last_emitted_part
         if not total_bytes:
             return
         completed_parts = min(total_parts, max(1, int(bytes_consumed * total_parts / total_bytes)))
         if completed_parts > last_emitted_part:
             last_emitted_part = completed_parts
-            callback({
-                "type": "part-uploaded",
-                "completed": completed_parts,
-                "totalParts": total_parts,
-            })
+            callback(
+                {
+                    "type": "part-uploaded",
+                    "completed": completed_parts,
+                    "totalParts": total_parts,
+                }
+            )
 
     oss2.resumable_upload(
         bucket,
@@ -142,11 +144,13 @@ def _resumable_upload_via_oss2(
 
     # 收尾:确保 flow 看到 100% + complete(progress_bridge 可能没推进到 totalParts)
     if last_emitted_part < total_parts:
-        callback({
-            "type": "part-uploaded",
-            "completed": total_parts,
-            "totalParts": total_parts,
-        })
+        callback(
+            {
+                "type": "part-uploaded",
+                "completed": total_parts,
+                "totalParts": total_parts,
+            }
+        )
     callback({"type": "multipart-complete"})
 
 
@@ -154,11 +158,11 @@ async def upload_file_to_oss(
     *,
     token: dict[str, Any],
     file_buffer: bytes | None = None,
-    file_path: str | Optional[Path] = None,
+    file_path: str | Path | None = None,
     mime_type: str,
     part_size: int = 0,
     on_progress: ProgressCallback | None = None,
-    upload_mode: Optional[str] = None,
+    upload_mode: str | None = None,
 ) -> None:
     """上传文件到 OSS。
 
@@ -169,13 +173,23 @@ async def upload_file_to_oss(
     """
     token = normalize_oss_token(token)
 
-    required_keys = ["getLink", "sts", "bucket", "endpoint", "fileKey", "accessKeyId", "accessKeySecret", "securityToken"]
+    required_keys = [
+        "getLink",
+        "sts",
+        "bucket",
+        "endpoint",
+        "fileKey",
+        "accessKeyId",
+        "accessKeySecret",
+        "securityToken",
+    ]
     for key in required_keys:
         if key not in token:
             raise ValueError(f"Token missing required key: {key}")
 
     callback = on_progress or (lambda _event: None)
     from media_tools.core.config import get_app_config
+
     app_config = get_app_config()
     mode = (upload_mode or app_config.qwen_oss_upload_mode).strip().lower()
     if mode not in {"multipart", "auto", "direct"}:

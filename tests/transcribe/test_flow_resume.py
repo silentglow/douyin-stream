@@ -3,6 +3,7 @@
 13a：resume_state 有 export_url 时，零 Qwen API 调用，只 download。
 13a fallback：download 失败时回退到完整 flow，stage 重置为 queued。
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -12,8 +13,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from media_tools.store.db import init_db
-from media_tools.transcribe.repository import TranscribeRunRepository
 from media_tools.transcribe.flow import ResumeState, run_real_flow
+from media_tools.transcribe.repository import TranscribeRunRepository
 from media_tools.transcribe.runtime import ExportConfig
 
 
@@ -48,10 +49,13 @@ async def test_resume_with_export_url_skips_all_qwen_apis(
 ) -> None:
     """有 export_url 时，零调用 Qwen，仅 download_file 被调一次。"""
     run_id = TranscribeRunRepository.create(
-        asset_id="asset-RES", video_path=str(video_file), account_id="acc-1",
+        asset_id="asset-RES",
+        video_path=str(video_file),
+        account_id="acc-1",
     )
     TranscribeRunRepository.update_stage(
-        run_id, "downloading",
+        run_id,
+        "downloading",
         {"gen_record_id": "gen-X", "record_id": "rec-X", "export_url": "https://x/out.docx"},
     )
 
@@ -62,21 +66,30 @@ async def test_resume_with_export_url_skips_all_qwen_apis(
     upload = AsyncMock(side_effect=AssertionError("upload 不应被调用"))
     export_fn = AsyncMock(side_effect=AssertionError("export_file 不应被调用"))
     poll = AsyncMock(side_effect=AssertionError("poll_until_done 不应被调用"))
-    quota = AsyncMock(return_value=type("Q", (), {
-        "remaining_upload": 100, "total_upload": 100,
-        "remaining_equity": 100, "total_equity": 100,
-    })())
+    quota = AsyncMock(
+        return_value=type(
+            "Q",
+            (),
+            {
+                "remaining_upload": 100,
+                "total_upload": 100,
+                "remaining_equity": 100,
+                "total_equity": 100,
+            },
+        )()
+    )
 
-    with patch.object(flow_mod, "download_file", download_file), \
-         patch.object(flow_mod, "api_json", api_json), \
-         patch.object(flow_mod, "upload_file_to_oss", upload), \
-         patch.object(flow_mod, "export_file", export_fn), \
-         patch.object(flow_mod, "poll_until_done", poll), \
-         patch.object(flow_mod, "delete_record", AsyncMock(return_value=True)), \
-         patch.object(flow_mod, "get_quota_snapshot", quota), \
-         patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None), \
-         patch.object(flow_mod, "load_config", return_value=type("C", (), {"save_debug_json": False})()):
-
+    with (
+        patch.object(flow_mod, "download_file", download_file),
+        patch.object(flow_mod, "api_json", api_json),
+        patch.object(flow_mod, "upload_file_to_oss", upload),
+        patch.object(flow_mod, "export_file", export_fn),
+        patch.object(flow_mod, "poll_until_done", poll),
+        patch.object(flow_mod, "delete_record", AsyncMock(return_value=True)),
+        patch.object(flow_mod, "get_quota_snapshot", quota),
+        patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None),
+        patch.object(flow_mod, "load_config", return_value=type("C", (), {"save_debug_json": False})()),
+    ):
         result = await run_real_flow(
             file_path=video_file,
             auth_state_path=tmp_path / "auth.json",
@@ -109,10 +122,13 @@ async def test_resume_with_export_url_fallbacks_when_download_fails(
 ) -> None:
     """download 失败 -> stage 回退到 queued -> 完整 flow 接管完成转写。"""
     run_id = TranscribeRunRepository.create(
-        asset_id="asset-RES", video_path=str(video_file), account_id="acc-1",
+        asset_id="asset-RES",
+        video_path=str(video_file),
+        account_id="acc-1",
     )
     TranscribeRunRepository.update_stage(
-        run_id, "downloading",
+        run_id,
+        "downloading",
         {"gen_record_id": "gen-Y", "record_id": "rec-Y", "export_url": "https://expired.example/out"},
     )
 
@@ -129,9 +145,14 @@ async def test_resume_with_export_url_fallbacks_when_download_fails(
         target.write_text("ok")
 
     token_data = {
-        "genRecordId": "gen-NEW", "recordId": "rec-NEW",
-        "getLink": "x", "ossAccessKeyId": "k", "policy": "p",
-        "signature": "s", "host": "x", "key": "k",
+        "genRecordId": "gen-NEW",
+        "recordId": "rec-NEW",
+        "getLink": "x",
+        "ossAccessKeyId": "k",
+        "policy": "p",
+        "signature": "s",
+        "host": "x",
+        "key": "k",
     }
 
     async def api_router(api, url, body, headers=None):
@@ -145,21 +166,30 @@ async def test_resume_with_export_url_fallbacks_when_download_fails(
         return f"https://example.com/export/{gen_record_id}.docx"
 
     upload = AsyncMock(return_value=None)
-    quota = AsyncMock(return_value=type("Q", (), {
-        "remaining_upload": 1, "total_upload": 1,
-        "remaining_equity": 1, "total_equity": 1,
-    })())
+    quota = AsyncMock(
+        return_value=type(
+            "Q",
+            (),
+            {
+                "remaining_upload": 1,
+                "total_upload": 1,
+                "remaining_equity": 1,
+                "total_equity": 1,
+            },
+        )()
+    )
 
-    with patch.object(flow_mod, "download_file", side_effect=fake_download), \
-         patch.object(flow_mod, "api_json", side_effect=api_router), \
-         patch.object(flow_mod, "upload_file_to_oss", upload), \
-         patch.object(flow_mod, "export_file", side_effect=export_url_router), \
-         patch.object(flow_mod, "poll_until_done", AsyncMock(return_value={"recordStatus": 30})), \
-         patch.object(flow_mod, "delete_record", AsyncMock(return_value=True)), \
-         patch.object(flow_mod, "get_quota_snapshot", quota), \
-         patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None), \
-         patch.object(flow_mod, "load_config", return_value=type("C", (), {"save_debug_json": False})()):
-
+    with (
+        patch.object(flow_mod, "download_file", side_effect=fake_download),
+        patch.object(flow_mod, "api_json", side_effect=api_router),
+        patch.object(flow_mod, "upload_file_to_oss", upload),
+        patch.object(flow_mod, "export_file", side_effect=export_url_router),
+        patch.object(flow_mod, "poll_until_done", AsyncMock(return_value={"recordStatus": 30})),
+        patch.object(flow_mod, "delete_record", AsyncMock(return_value=True)),
+        patch.object(flow_mod, "get_quota_snapshot", quota),
+        patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None),
+        patch.object(flow_mod, "load_config", return_value=type("C", (), {"save_debug_json": False})()),
+    ):
         result = await run_real_flow(
             file_path=video_file,
             auth_state_path=tmp_path / "auth.json",
@@ -190,20 +220,25 @@ async def test_resume_with_export_url_fallbacks_when_download_fails(
 
 
 @pytest.mark.asyncio
-async def test_no_resume_state_runs_full_flow(
-    db: sqlite3.Connection, video_file: Path, tmp_path: Path
-) -> None:
+async def test_no_resume_state_runs_full_flow(db: sqlite3.Connection, video_file: Path, tmp_path: Path) -> None:
     """resume_state=None 时行为与 Step 11 完全一致（向后兼容）。"""
     run_id = TranscribeRunRepository.create(
-        asset_id="asset-FULL", video_path=str(video_file), account_id="acc-1",
+        asset_id="asset-FULL",
+        video_path=str(video_file),
+        account_id="acc-1",
     )
 
     from media_tools.transcribe import flow as flow_mod
 
     token_data = {
-        "genRecordId": "gen-F", "recordId": "rec-F",
-        "getLink": "x", "ossAccessKeyId": "k", "policy": "p",
-        "signature": "s", "host": "x", "key": "k",
+        "genRecordId": "gen-F",
+        "recordId": "rec-F",
+        "getLink": "x",
+        "ossAccessKeyId": "k",
+        "policy": "p",
+        "signature": "s",
+        "host": "x",
+        "key": "k",
     }
 
     async def api_router(api, url, body, headers=None):
@@ -216,19 +251,32 @@ async def test_no_resume_state_runs_full_flow(
     async def export_url(api, gen_record_id, export_config):
         return f"https://export/{gen_record_id}.docx"
 
-    with patch.object(flow_mod, "api_json", side_effect=api_router), \
-         patch.object(flow_mod, "upload_file_to_oss", AsyncMock()), \
-         patch.object(flow_mod, "export_file", side_effect=export_url), \
-         patch.object(flow_mod, "poll_until_done", AsyncMock(return_value={"recordStatus": 30})), \
-         patch.object(flow_mod, "delete_record", AsyncMock(return_value=True)), \
-         patch.object(flow_mod, "download_file", AsyncMock()), \
-         patch.object(flow_mod, "get_quota_snapshot", AsyncMock(return_value=type("Q", (), {
-             "remaining_upload": 1, "total_upload": 1,
-             "remaining_equity": 1, "total_equity": 1,
-         })())), \
-         patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None), \
-         patch.object(flow_mod, "load_config", return_value=type("C", (), {"save_debug_json": False})()):
-
+    with (
+        patch.object(flow_mod, "api_json", side_effect=api_router),
+        patch.object(flow_mod, "upload_file_to_oss", AsyncMock()),
+        patch.object(flow_mod, "export_file", side_effect=export_url),
+        patch.object(flow_mod, "poll_until_done", AsyncMock(return_value={"recordStatus": 30})),
+        patch.object(flow_mod, "delete_record", AsyncMock(return_value=True)),
+        patch.object(flow_mod, "download_file", AsyncMock()),
+        patch.object(
+            flow_mod,
+            "get_quota_snapshot",
+            AsyncMock(
+                return_value=type(
+                    "Q",
+                    (),
+                    {
+                        "remaining_upload": 1,
+                        "total_upload": 1,
+                        "remaining_equity": 1,
+                        "total_equity": 1,
+                    },
+                )()
+            ),
+        ),
+        patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None),
+        patch.object(flow_mod, "load_config", return_value=type("C", (), {"save_debug_json": False})()),
+    ):
         result = await run_real_flow(
             file_path=video_file,
             auth_state_path=tmp_path / "auth.json",
@@ -246,16 +294,17 @@ async def test_no_resume_state_runs_full_flow(
 
 
 @pytest.mark.asyncio
-async def test_resume_with_gen_record_id_skips_upload(
-    db: sqlite3.Connection, video_file: Path, tmp_path: Path
-) -> None:
+async def test_resume_with_gen_record_id_skips_upload(db: sqlite3.Connection, video_file: Path, tmp_path: Path) -> None:
     """Step 13b：有 gen_record_id 但无 export_url 时，跳过 token/upload/heartbeat/start，
     仅调 poll/read/export/download。"""
     run_id = TranscribeRunRepository.create(
-        asset_id="asset-G", video_path=str(video_file), account_id="acc-1",
+        asset_id="asset-G",
+        video_path=str(video_file),
+        account_id="acc-1",
     )
     TranscribeRunRepository.update_stage(
-        run_id, "transcribing",
+        run_id,
+        "transcribing",
         {"gen_record_id": "gen-G", "record_id": "rec-G", "batch_id": "batch-G"},
     )
 
@@ -281,19 +330,32 @@ async def test_resume_with_gen_record_id_skips_upload(
 
     download = AsyncMock(return_value=None)
 
-    with patch.object(flow_mod, "api_json", side_effect=api_router), \
-         patch.object(flow_mod, "upload_file_to_oss", upload), \
-         patch.object(flow_mod, "export_file", side_effect=export_url_fn), \
-         patch.object(flow_mod, "poll_until_done", AsyncMock(return_value={"recordStatus": 30})), \
-         patch.object(flow_mod, "delete_record", AsyncMock(return_value=True)), \
-         patch.object(flow_mod, "download_file", download), \
-         patch.object(flow_mod, "get_quota_snapshot", AsyncMock(return_value=type("Q", (), {
-             "remaining_upload": 1, "total_upload": 1,
-             "remaining_equity": 1, "total_equity": 1,
-         })())), \
-         patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None), \
-         patch.object(flow_mod, "load_config", return_value=type("C", (), {"save_debug_json": False})()):
-
+    with (
+        patch.object(flow_mod, "api_json", side_effect=api_router),
+        patch.object(flow_mod, "upload_file_to_oss", upload),
+        patch.object(flow_mod, "export_file", side_effect=export_url_fn),
+        patch.object(flow_mod, "poll_until_done", AsyncMock(return_value={"recordStatus": 30})),
+        patch.object(flow_mod, "delete_record", AsyncMock(return_value=True)),
+        patch.object(flow_mod, "download_file", download),
+        patch.object(
+            flow_mod,
+            "get_quota_snapshot",
+            AsyncMock(
+                return_value=type(
+                    "Q",
+                    (),
+                    {
+                        "remaining_upload": 1,
+                        "total_upload": 1,
+                        "remaining_equity": 1,
+                        "total_equity": 1,
+                    },
+                )()
+            ),
+        ),
+        patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None),
+        patch.object(flow_mod, "load_config", return_value=type("C", (), {"save_debug_json": False})()),
+    ):
         result = await run_real_flow(
             file_path=video_file,
             auth_state_path=tmp_path / "auth.json",
@@ -330,10 +392,13 @@ async def test_resume_gen_record_id_fallback_when_poll_fails(
     """关键安全网：续传分支 poll 抛错（如 gen_record_id 已失效）时，
     必须 fallback 到完整 flow（哪怕代价是重新上传），保证业务永远跑通。"""
     run_id = TranscribeRunRepository.create(
-        asset_id="asset-FB", video_path=str(video_file), account_id="acc-1",
+        asset_id="asset-FB",
+        video_path=str(video_file),
+        account_id="acc-1",
     )
     TranscribeRunRepository.update_stage(
-        run_id, "transcribing",
+        run_id,
+        "transcribing",
         {"gen_record_id": "gen-STALE", "record_id": "rec-STALE"},
     )
 
@@ -352,9 +417,14 @@ async def test_resume_gen_record_id_fallback_when_poll_fails(
         return {"recordStatus": 30}
 
     token_data = {
-        "genRecordId": "gen-NEW", "recordId": "rec-NEW",
-        "getLink": "x", "ossAccessKeyId": "k", "policy": "p",
-        "signature": "s", "host": "x", "key": "k",
+        "genRecordId": "gen-NEW",
+        "recordId": "rec-NEW",
+        "getLink": "x",
+        "ossAccessKeyId": "k",
+        "policy": "p",
+        "signature": "s",
+        "host": "x",
+        "key": "k",
     }
 
     async def api_router(api, url, body, headers=None):
@@ -367,19 +437,32 @@ async def test_resume_gen_record_id_fallback_when_poll_fails(
     async def export_url(api, gen_record_id, export_config):
         return f"https://export/{gen_record_id}.docx"
 
-    with patch.object(flow_mod, "api_json", side_effect=api_router), \
-         patch.object(flow_mod, "upload_file_to_oss", AsyncMock()), \
-         patch.object(flow_mod, "export_file", side_effect=export_url), \
-         patch.object(flow_mod, "poll_until_done", side_effect=poll_side_effect), \
-         patch.object(flow_mod, "delete_record", AsyncMock(return_value=True)), \
-         patch.object(flow_mod, "download_file", AsyncMock()), \
-         patch.object(flow_mod, "get_quota_snapshot", AsyncMock(return_value=type("Q", (), {
-             "remaining_upload": 1, "total_upload": 1,
-             "remaining_equity": 1, "total_equity": 1,
-         })())), \
-         patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None), \
-         patch.object(flow_mod, "load_config", return_value=type("C", (), {"save_debug_json": False})()):
-
+    with (
+        patch.object(flow_mod, "api_json", side_effect=api_router),
+        patch.object(flow_mod, "upload_file_to_oss", AsyncMock()),
+        patch.object(flow_mod, "export_file", side_effect=export_url),
+        patch.object(flow_mod, "poll_until_done", side_effect=poll_side_effect),
+        patch.object(flow_mod, "delete_record", AsyncMock(return_value=True)),
+        patch.object(flow_mod, "download_file", AsyncMock()),
+        patch.object(
+            flow_mod,
+            "get_quota_snapshot",
+            AsyncMock(
+                return_value=type(
+                    "Q",
+                    (),
+                    {
+                        "remaining_upload": 1,
+                        "total_upload": 1,
+                        "remaining_equity": 1,
+                        "total_equity": 1,
+                    },
+                )()
+            ),
+        ),
+        patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None),
+        patch.object(flow_mod, "load_config", return_value=type("C", (), {"save_debug_json": False})()),
+    ):
         result = await run_real_flow(
             file_path=video_file,
             auth_state_path=tmp_path / "auth.json",

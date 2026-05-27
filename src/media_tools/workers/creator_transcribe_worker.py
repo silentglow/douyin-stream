@@ -7,16 +7,16 @@ import sqlite3
 import uuid as _uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-from media_tools.common.paths import get_download_path, get_transcripts_path, get_project_root
+from media_tools.assets.file_ops import _resolve_asset_video_file, get_source_url_column
+from media_tools.common.paths import get_download_path, get_transcripts_path
 from media_tools.core.config import get_runtime_setting_bool
+from media_tools.scheduler.base import BaseWorker, register_worker
+from media_tools.scheduler.repository import TaskRepository
+from media_tools.services.cleanup import cleanup_paths_allowlist, cleanup_task_cache_dir
 from media_tools.store.db import get_db_connection
 from media_tools.transcribe.worker import run_local_transcribe
-from media_tools.scheduler.repository import TaskRepository
-from media_tools.assets.file_ops import _resolve_asset_video_file, get_source_url_column
-from media_tools.services.cleanup import cleanup_paths_allowlist, cleanup_task_cache_dir
-from media_tools.scheduler.base import BaseWorker, register_worker
 
 logger = logging.getLogger(__name__)
 
@@ -205,12 +205,10 @@ class CreatorTranscribeWorker(BaseWorker):
         task_id: str,
         *,
         uid: str,
-        delete_after: Optional[bool] = None,
+        delete_after: bool | None = None,
     ) -> None:
         # Phase 1: 扫描（在 heartbeat 内执行，与旧行为一致）
-        await self.report_progress(
-            0.01, "正在扫描待转写文件...", stage="scanning"
-        )
+        await self.report_progress(0.01, "正在扫描待转写文件...", stage="scanning")
         file_paths, not_found = await asyncio.to_thread(_discover_creator_files, uid)
 
         if not file_paths:
@@ -222,9 +220,7 @@ class CreatorTranscribeWorker(BaseWorker):
             await self.finalize_failure(message)
             return
 
-        TaskRepository.patch_payload(
-            task_id, {"creator_uid": uid, "file_paths": file_paths}
-        )
+        TaskRepository.patch_payload(task_id, {"creator_uid": uid, "file_paths": file_paths})
         await self.report_progress(
             0.02,
             f"扫描完成，准备转写 {len(file_paths)} 个文件",
@@ -239,20 +235,12 @@ class CreatorTranscribeWorker(BaseWorker):
         cache_dir.mkdir(parents=True, exist_ok=True)
         TaskRepository.patch_payload(task_id, {"cleanup_cache_dir": str(cache_dir)})
 
-        should_delete = (
-            delete_after
-            if delete_after is not None
-            else get_runtime_setting_bool("auto_delete", True)
-        )
-        result = await run_local_transcribe(
-            file_paths, self._progress_fn, delete_after=False, task_id=task_id
-        )
+        should_delete = delete_after if delete_after is not None else get_runtime_setting_bool("auto_delete", True)
+        result = await run_local_transcribe(file_paths, self._progress_fn, delete_after=False, task_id=task_id)
         s_count = int(result.get("success_count", 0) or 0)
         f_count = int(result.get("failed_count", 0) or 0)
         total = int(result.get("total", s_count + f_count) or (s_count + f_count))
-        success_paths = [
-            Path(p) for p in (result.get("success_paths") or []) if isinstance(p, str)
-        ]
+        success_paths = [Path(p) for p in (result.get("success_paths") or []) if isinstance(p, str)]
 
         deleted_count = 0
         failed_paths: list[Path] = []
@@ -284,9 +272,7 @@ class CreatorTranscribeWorker(BaseWorker):
                 {
                     "cleanup_deleted_count": deleted_count,
                     "cleanup_failed_count": len(failed_paths),
-                    "cleanup_failed_paths": [
-                        {"path": fp.path, "reason": fp.reason} for fp in failed_paths
-                    ],
+                    "cleanup_failed_paths": [{"path": fp.path, "reason": fp.reason} for fp in failed_paths],
                     "cleanup_cache_dir": str(cache_dir),
                 },
             )
@@ -324,9 +310,7 @@ class CreatorTranscribeWorker(BaseWorker):
         }
         subtasks = result.get("subtasks") if isinstance(result, dict) else None
         if f_count == 0:
-            await self.finalize_success(
-                msg, result_summary=result_summary, subtasks=subtasks
-            )
+            await self.finalize_success(msg, result_summary=result_summary, subtasks=subtasks)
         elif s_count > 0:
             await self.finalize_partial(
                 msg,
@@ -342,8 +326,5 @@ class CreatorTranscribeWorker(BaseWorker):
                 subtasks=subtasks,
             )
 
-    async def _progress_fn(
-        self, p: float, m: str, stage: str = "", pipeline_progress: dict | None = None
-    ) -> None:
+    async def _progress_fn(self, p: float, m: str, stage: str = "", pipeline_progress: dict | None = None) -> None:
         await self.report_progress(p, m, stage=stage, pipeline_progress=pipeline_progress)
-

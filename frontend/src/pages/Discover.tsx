@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Link2, Loader2, AlertCircle, Check, Download, FileAudio } from 'lucide-react';
 import { toast } from 'sonner';
-import { fetchMetadata, triggerBatchPipeline, triggerDownloadBatch } from '@/lib/api';
+import { fetchMetadata, triggerPipeline, triggerBatchPipeline, triggerDownloadBatch } from '@/lib/api';
 import type { DouyinVideoMeta } from '@/types';
 import { LinkInfo, detectLinkType } from '@/components/discover/discoverUtils';
 import { DirectLinkCard } from '@/components/discover/DirectLinkCard';

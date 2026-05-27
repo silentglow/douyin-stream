@@ -4,12 +4,11 @@ import asyncio
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import httpx
 
 from .runtime import ensure_dir
-
 
 # ═════════════════════════════════════════════════════════════════
 # 千问 API 客户端 — httpx.AsyncClient 包装
@@ -27,6 +26,7 @@ class HttpxApiResponse:
     """fetch() 返回的响应,鸭子类型符合调用方期待:
     `.ok` / `.status` / `.status_text` / async `.json()`。
     """
+
     ok: bool
     status: int
     status_text: str
@@ -86,7 +86,7 @@ class HttpxApiContext:
         *,
         method: str = "POST",
         headers: dict[str, str] | None = None,
-        data: Optional[str] = None,
+        data: str | None = None,
     ) -> HttpxApiResponse:
         content = data.encode("utf-8") if isinstance(data, str) else data
         try:
@@ -153,33 +153,35 @@ async def api_json(
 
 async def download_file(
     url: str,
-    output_path: Union[str, Path],
+    output_path: str | Path,
     timeout: int = 30,
 ) -> Path:
     """下载 URL 到本地文件,流式落盘 + 3 次指数退避重试。"""
     path = Path(output_path).resolve()
     ensure_dir(path.parent)
 
-    last_error: Optional[BaseException] = None
+    last_error: BaseException | None = None
     for attempt in range(3):
         try:
-            async with httpx.AsyncClient(
-                timeout=httpx.Timeout(
-                    connect=10.0,
-                    read=float(timeout),
-                    write=float(timeout),
-                    pool=5.0,
-                ),
-                follow_redirects=True,
-            ) as client:
-                async with client.stream("GET", url) as response:
-                    response.raise_for_status()
-                    with open(path, "wb") as f:
-                        async for chunk in response.aiter_bytes():
-                            f.write(chunk)
+            async with (
+                httpx.AsyncClient(
+                    timeout=httpx.Timeout(
+                        connect=10.0,
+                        read=float(timeout),
+                        write=float(timeout),
+                        pool=5.0,
+                    ),
+                    follow_redirects=True,
+                ) as client,
+                client.stream("GET", url) as response,
+            ):
+                response.raise_for_status()
+                with open(path, "wb") as f:
+                    async for chunk in response.aiter_bytes():
+                        f.write(chunk)
             return path
         except (httpx.RequestError, httpx.HTTPStatusError) as e:
             last_error = e
             if attempt < 2:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
     raise RuntimeError(f"下载失败 (重试3次): {url}") from last_error

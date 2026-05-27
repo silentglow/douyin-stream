@@ -9,7 +9,6 @@ from media_tools.api.app import app
 from media_tools.transcribe.media_extensions import MEDIA_EXTENSIONS
 from media_tools.transcribe.worker import filter_supported_media_paths
 
-
 client = TestClient(app)
 
 

@@ -1,11 +1,12 @@
 from __future__ import annotations
+
 """Pipeline 任务辅助函数"""
 
 import asyncio
 import inspect
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from media_tools.core import background
 from media_tools.transcribe.media_extensions import MEDIA_EXTENSIONS
@@ -15,7 +16,9 @@ logger = logging.getLogger(__name__)
 MIN_VIDEO_BYTES = 10240  # 10KB
 
 
-async def call_progress(update_progress_fn, progress: float, msg: str, stage: str = "", pipeline_progress: Optional[dict] = None) -> None:
+async def call_progress(
+    update_progress_fn, progress: float, msg: str, stage: str = "", pipeline_progress: dict | None = None
+) -> None:
     if not update_progress_fn:
         return
     try:

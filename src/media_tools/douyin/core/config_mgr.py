@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 统一配置管理模块
 """
@@ -50,7 +49,7 @@ class ConfigManager:
     def _load_config(self):
         """加载配置文件"""
         if self.config_path.exists():
-            with open(self.config_path, "r", encoding="utf-8") as f:
+            with open(self.config_path, encoding="utf-8") as f:
                 self._config = yaml.safe_load(f) or {}
         else:
             self._config = {}
@@ -143,31 +142,31 @@ class ConfigManager:
         """获取是否开启自动转写（委托到 SystemSettings 表）。"""
         try:
             from media_tools.core.config import get_runtime_setting_bool
+
             return get_runtime_setting_bool("auto_transcribe", False)
         except (ImportError, OSError, sqlite3.Error):
             # fallback 到 config.yaml（兼容旧代码）
             val = self.get("auto_transcribe", False)
             if isinstance(val, str):
-                return val.lower() in ('true', '1', 'yes')
+                return val.lower() in ("true", "1", "yes")
             return bool(val)
 
     def is_auto_delete_video(self):
         """获取是否开启转写成功后自动删除视频（委托到 SystemSettings 表）。"""
         try:
             from media_tools.core.config import get_runtime_setting_bool
+
             return get_runtime_setting_bool("auto_delete", True)
         except (ImportError, OSError, sqlite3.Error):
             # fallback 到 config.yaml（兼容旧代码）
             val = self.get("auto_delete_video", True)
             if isinstance(val, str):
-                return val.lower() in ('true', '1', 'yes')
+                return val.lower() in ("true", "1", "yes")
             return bool(val)
 
     def get_api_key(self):
         """获取 API 认证密钥（可选）"""
         return self.get("api_key", "")
-
-
 
     def validate(self):
         """
@@ -224,6 +223,7 @@ def reset_config():
     _config_instance = None
     try:
         from media_tools.core.config import reset_config_cache
+
         reset_config_cache()
     except ImportError:
         pass

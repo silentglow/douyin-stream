@@ -1,25 +1,26 @@
-from typing import Any, Optional, Callable
 import uuid
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import HTTPException
 
 from media_tools.api.schemas import (
-    PipelineRequest,
     BatchPipelineRequest,
     DownloadBatchRequest,
     LocalTranscribeRequest,
+    PipelineRequest,
 )
-from media_tools.scheduler.repository import TaskRepository
-from media_tools.scheduler.ops import notify_task_update
-from media_tools.scheduler.state import _register_background_task
 from media_tools.assets.local import _register_local_assets
-from media_tools.workers.pipeline_worker import PipelineWorker
+from media_tools.creators.sync import CreatorSyncWorker
 from media_tools.download.worker import DownloadWorker
+from media_tools.scheduler.ops import notify_task_update
+from media_tools.scheduler.repository import TaskRepository
+from media_tools.scheduler.state import _register_background_task
+from media_tools.workers.aweme_recover_worker import AwemeRecoverWorker
+from media_tools.workers.creator_transcribe_worker import CreatorTranscribeWorker
 from media_tools.workers.full_sync_worker import FullSyncWorker
 from media_tools.workers.local_transcribe_worker import LocalTranscribeWorker
-from media_tools.workers.creator_transcribe_worker import CreatorTranscribeWorker
-from media_tools.workers.aweme_recover_worker import AwemeRecoverWorker
-from media_tools.creators.sync import CreatorSyncWorker
+from media_tools.workers.pipeline_worker import PipelineWorker
 
 
 async def _create_task(task_id: str, task_type: str, request_params: dict):
@@ -42,7 +43,7 @@ class _WorkerDispatch:
         match: Callable[[str, dict[str, Any]], bool],
         build_request: Callable[[dict[str, Any]], Any],
         build_worker: Callable[[str, Any, dict[str, Any]], Any],
-        retry_task_type: Optional[Callable[[Any], str]] = None,
+        retry_task_type: Callable[[Any], str] | None = None,
         retry_params: Callable[[Any, dict[str, Any]], dict[str, Any]],
         needs_register_local_assets: bool = False,
         start_message: str = "Task started",
@@ -205,12 +206,8 @@ async def _start_task_worker(task_id: str, task_type: str, original_params: dict
         if entry.match(task_type, original_params):
             req = entry.build_request(original_params)
             if entry.needs_register_local_assets:
-                _register_local_assets(
-                    req.file_paths, req.delete_after, req.directory_root
-                )
-            _register_background_task(
-                task_id, entry.build_worker(task_id, req, original_params)
-            )
+                _register_local_assets(req.file_paths, req.delete_after, req.directory_root)
+            _register_background_task(task_id, entry.build_worker(task_id, req, original_params))
             return {
                 "task_id": task_id,
                 "status": "started",
@@ -233,20 +230,14 @@ async def _retry_task_worker(task_id: str, task_type: str, original_params: dict
         if entry.match(task_type, original_params):
             req = entry.build_request(original_params)
             new_task_id = str(uuid.uuid4())
-            new_task_type = (
-                entry.retry_task_type(req)
-                if entry.retry_task_type
-                else task_type
-            )
+            new_task_type = entry.retry_task_type(req) if entry.retry_task_type else task_type
             await _create_task(
                 new_task_id,
                 new_task_type,
                 entry.retry_params(req, original_params),
             )
             if entry.needs_register_local_assets:
-                _register_local_assets(
-                    req.file_paths, req.delete_after, req.directory_root
-                )
+                _register_local_assets(req.file_paths, req.delete_after, req.directory_root)
             _register_background_task(
                 new_task_id,
                 entry.build_worker(new_task_id, req, original_params),
@@ -256,6 +247,4 @@ async def _retry_task_worker(task_id: str, task_type: str, original_params: dict
                 "status": "started",
                 "message": entry.retry_message,
             }
-    raise HTTPException(
-        status_code=400, detail=f"Unsupported task type for retry: {task_type}"
-    )
+    raise HTTPException(status_code=400, detail=f"Unsupported task type for retry: {task_type}")

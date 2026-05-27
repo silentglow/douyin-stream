@@ -1,29 +1,22 @@
 from __future__ import annotations
 
+import contextlib
 import inspect
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional
-
-from media_tools.common.paths import get_download_path
-from media_tools.logger import get_logger
+from typing import Any
 
 from media_tools.bilibili.cookies import get_bilibili_cookie_string
 from media_tools.bilibili.naming import sanitize_filename
-from media_tools.bilibili.temp_files import managed_temp_file
 from media_tools.bilibili.task_control import (
-    PauseController,
     register_cancel_flag,
-    cancel_download,
     unregister_cancel_flag,
-    register_pause_controller,
-    get_pause_controller,
-    unregister_pause_controller,
-    pause_task,
-    resume_task,
-    cancel_task_download,
 )
+from media_tools.bilibili.temp_files import managed_temp_file
+from media_tools.common.paths import get_download_path
+from media_tools.logger import get_logger
 
 logger = get_logger("bilibili")
 
@@ -31,6 +24,7 @@ logger = get_logger("bilibili")
 @dataclass
 class UploaderInfo:
     """B站 UP 主信息"""
+
     nickname: str
     mid: str
     homepage_url: str = ""
@@ -46,6 +40,7 @@ try:
     from yt_dlp import YoutubeDL
 except ImportError:
     YoutubeDL = None
+
 
 def _format_speed(speed_bytes_per_sec: float) -> str:
     """格式化下载速度"""
@@ -74,7 +69,7 @@ def _build_output_template(base_dir: Path, creator_folder: str) -> str:
     return str(target_dir / "%(title)s__%(id)s__%(format_id)s.%(ext)s")
 
 
-def _iter_yt_dlp_entries(info: Optional[dict]):
+def _iter_yt_dlp_entries(info: dict | None):
     """扁平化 yt-dlp info：单视频返回自身，playlist/channel 递归其 entries。"""
     if not isinstance(info, dict):
         return
@@ -87,7 +82,7 @@ def _iter_yt_dlp_entries(info: Optional[dict]):
 
 
 def _persist_bilibili_assets_to_db(
-    info: Optional[dict],
+    info: dict | None,
     new_files: list[str],
     downloads_path: Path,
     uploader_info: UploaderInfo | None,
@@ -101,7 +96,7 @@ def _persist_bilibili_assets_to_db(
         return
 
     from media_tools.assets.service import MediaAssetService
-    from media_tools.bilibili.naming import build_bilibili_creator_uid, build_bilibili_asset_id
+    from media_tools.bilibili.naming import build_bilibili_asset_id, build_bilibili_creator_uid
 
     new_files_resolved = {str(Path(p).resolve()): p for p in new_files}
 
@@ -112,7 +107,7 @@ def _persist_bilibili_assets_to_db(
 
         # 解析对应的下载文件（requested_downloads 里有 filepath）
         requested = entry.get("requested_downloads") or []
-        downloaded_path: Optional[Path] = None
+        downloaded_path: Path | None = None
         for item in requested:
             fp = item.get("filepath")
             if not fp:
@@ -124,12 +119,16 @@ def _persist_bilibili_assets_to_db(
         if downloaded_path is None:
             continue
 
-        uploader = (
-            entry.get("uploader") or entry.get("channel") or entry.get("uploader_name")
+        (
+            entry.get("uploader")
+            or entry.get("channel")
+            or entry.get("uploader_name")
             or (uploader_info.nickname if uploader_info else "")
         )
         mid = (
-            entry.get("uploader_id") or entry.get("channel_id") or entry.get("mid")
+            entry.get("uploader_id")
+            or entry.get("channel_id")
+            or entry.get("mid")
             or (uploader_info.mid if uploader_info else "")
         )
 
@@ -137,7 +136,7 @@ def _persist_bilibili_assets_to_db(
         if not mid:
             for key in ("uploader_url", "channel_url", "webpage_url"):
                 url_val = entry.get(key) or ""
-                m = re.search(r'space\.bilibili\.com/(\d+)', str(url_val))
+                m = re.search(r"space\.bilibili\.com/(\d+)", str(url_val))
                 if m:
                     mid = m.group(1)
                     break
@@ -182,10 +181,10 @@ def _persist_bilibili_assets_to_db(
 
 def download_up_by_url(
     url: str,
-    max_counts: Optional[int] = None,
+    max_counts: int | None = None,
     skip_existing: bool = True,
     progress_cb: ProgressCallback | None = None,
-    task_id: Optional[str] = None,
+    task_id: str | None = None,
     disable_auto_transcribe: bool = False,
     force: bool = False,
 ) -> dict:
@@ -261,12 +260,17 @@ def download_up_by_url(
         if uploader_info is None:
             entry = d.get("info", {})
             if entry:
-                uploader = entry.get("uploader") or entry.get("uploader_name") or entry.get("channel") or entry.get("channel_id")
+                uploader = (
+                    entry.get("uploader")
+                    or entry.get("uploader_name")
+                    or entry.get("channel")
+                    or entry.get("channel_id")
+                )
                 mid = entry.get("uploader_id") or entry.get("channel_id") or entry.get("mid")
                 # fallback：从 uploader_url 提取 mid
                 if not mid:
                     uploader_url = entry.get("uploader_url") or ""
-                    m = re.search(r'space\.bilibili\.com/(\d+)', str(uploader_url))
+                    m = re.search(r"space\.bilibili\.com/(\d+)", str(uploader_url))
                     if m:
                         mid = m.group(1)
                 if uploader and mid:
@@ -301,12 +305,13 @@ def download_up_by_url(
         ydl_opts["download_archive"] = str(archive_path)
 
     from media_tools.core.config import get_app_config
+
     proxy = get_app_config().bilibili_proxy
     ydl_opts["proxy"] = proxy
 
     # Cookie 配置 - 转换为 Netscape 格式文件
     # expires 使用 2038-01-01 (2145888000) 避免 session cookie 立即过期
-    cookie_content: Optional[str] = None
+    cookie_content: str | None = None
     if cookie:
         cookie_lines = ["# Netscape HTTP Cookie File"]
         for part in cookie.split(";"):
@@ -330,7 +335,11 @@ def download_up_by_url(
         nonlocal uploader_info
         # 1) 预提取元数据（不下载）
         try:
-            preflight_opts = {k: v for k, v in ydl_opts_inner.items() if k not in ("progress_hooks", "overwrites", "continuedl", "download_archive")}
+            preflight_opts = {
+                k: v
+                for k, v in ydl_opts_inner.items()
+                if k not in ("progress_hooks", "overwrites", "continuedl", "download_archive")
+            }
             preflight_opts["skip_download"] = True
             with YoutubeDL(preflight_opts) as pre_ydl:
                 pre_info = pre_ydl.extract_info(url, download=False)
@@ -339,11 +348,13 @@ def download_up_by_url(
                 mid = pre_info.get("uploader_id") or pre_info.get("channel_id") or pre_info.get("mid") or ""
                 if not mid:
                     up_url = pre_info.get("uploader_url") or ""
-                    m = re.search(r'space\.bilibili\.com/(\d+)', str(up_url))
+                    m = re.search(r"space\.bilibili\.com/(\d+)", str(up_url))
                     if m:
                         mid = m.group(1)
                 if nick and mid:
-                    uploader_info = UploaderInfo(nickname=nick, mid=str(mid), homepage_url=f"https://space.bilibili.com/{mid}")
+                    uploader_info = UploaderInfo(
+                        nickname=nick, mid=str(mid), homepage_url=f"https://space.bilibili.com/{mid}"
+                    )
                     ydl_opts_inner["outtmpl"] = _build_output_template(downloads_path, nick)
         except Exception:
             logger.debug("预提取 UP 主信息失败，使用默认路径", exc_info=True)
@@ -353,7 +364,7 @@ def download_up_by_url(
             return ydl.extract_info(url, download=True)
 
     if cookie_content is not None:
-        with managed_temp_file(mode='w', suffix='.txt') as (f, cookie_path):
+        with managed_temp_file(mode="w", suffix=".txt") as (f, cookie_path):
             f.write(cookie_content)
             f.flush()
             ydl_opts["cookiefile"] = cookie_path
@@ -378,7 +389,7 @@ def download_up_by_url(
         # fallback：从 uploader_url 提取 mid
         if not mid:
             uploader_url = info.get("uploader_url") or ""
-            m = re.search(r'space\.bilibili\.com/(\d+)', str(uploader_url))
+            m = re.search(r"space\.bilibili\.com/(\d+)", str(uploader_url))
             if m:
                 mid = m.group(1)
         if uploader and mid:
@@ -447,16 +458,14 @@ def download_up_by_url(
         else:
             logger.warning(f"[B站下载] 完成 — 无新文件 ({total_entries} 个视频)")
     else:
-        logger.warning(f"[B站下载] 完成 — 未获取到任何视频")
+        logger.warning("[B站下载] 完成 — 未获取到任何视频")
 
     # 下载完成后检查是否被取消
     if cancel_flag and cancel_flag.is_set():
         logger.info(f"下载被取消，清理已下载文件: task_id={task_id}")
         for f in new_files:
-            try:
+            with contextlib.suppress(OSError):
                 Path(f).unlink()
-            except OSError:
-                pass
         if task_id:
             unregister_cancel_flag(task_id)
         return {"success": False, "new_files": [], "cancelled": True}

@@ -46,13 +46,15 @@ def test_assets_search_does_not_call_ensure_fts_populated() -> None:
     )
     conn.commit()
 
-    with patch("media_tools.store.db.ensure_fts_populated", side_effect=_fake_ensure), patch(
-        "media_tools.api.routers.assets.get_db_connection",
-        return_value=conn,
+    with (
+        patch("media_tools.store.db.ensure_fts_populated", side_effect=_fake_ensure),
+        patch(
+            "media_tools.api.routers.assets.get_db_connection",
+            return_value=conn,
+        ),
+        TestClient(app) as client,
     ):
-        with TestClient(app) as client:
-            resp = client.get("/api/v1/assets/search?q=hello")
+        resp = client.get("/api/v1/assets/search?q=hello")
 
     assert resp.status_code == 200
     assert called["count"] == 1
-

@@ -1,7 +1,5 @@
 """WebSocket 测试"""
-import asyncio
 
-import pytest
 from fastapi.testclient import TestClient
 
 from media_tools.api.app import app
@@ -15,29 +13,27 @@ class TestWebSocket:
 
     def test_websocket_connect(self):
         """WebSocket 连接成功建立"""
-        with client.websocket_connect("/api/v1/tasks/ws") as websocket:
+        with client.websocket_connect("/api/v1/tasks/ws"):
             pass  # 连接自动关闭
 
     def test_websocket_receive_ping(self):
         """WebSocket 收到服务端 ping 消息"""
-        with client.websocket_connect("/api/v1/tasks/ws") as websocket:
+        with client.websocket_connect("/api/v1/tasks/ws"):
             # 心跳间隔 20s，测试中不会收到
             # 这里主要验证连接不会立即断开
             pass
 
     def test_broadcast_message(self):
         """广播消息到所有活跃连接"""
-        import anyio
 
         async def _test():
-            from starlette.testclient import TestClient as StarletteTestClient
 
             # 重置连接管理器统计
             manager._stats["connected"] = 0
             manager._stats["disconnected"] = 0
             manager._stats["broadcast_success"] = 0
 
-            with client.websocket_connect("/api/v1/tasks/ws") as websocket:
+            with client.websocket_connect("/api/v1/tasks/ws"):
                 # 广播一条消息
                 await manager.broadcast({"type": "test", "message": "hello"})
 
@@ -57,7 +53,7 @@ class TestWebSocket:
         """断开连接后清理连接列表"""
         initial_count = len(manager.active_connections)
 
-        with client.websocket_connect("/api/v1/tasks/ws") as websocket:
+        with client.websocket_connect("/api/v1/tasks/ws"):
             # 连接期间活跃连接数增加
             assert len(manager.active_connections) >= initial_count
 

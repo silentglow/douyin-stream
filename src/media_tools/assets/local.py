@@ -1,14 +1,14 @@
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+
 from media_tools.store.db import get_db_connection, local_asset_id
 
 LOCAL_CREATOR_UID = "local:upload"
 LOCAL_CREATOR_NAME = "本地上传"
 
 
-def _compute_folder_path(file_path: Path, directory_root: Optional[str]) -> str:
+def _compute_folder_path(file_path: Path, directory_root: str | None) -> str:
     try:
         p = file_path.resolve()
         parent_name = p.parent.name
@@ -17,7 +17,7 @@ def _compute_folder_path(file_path: Path, directory_root: Optional[str]) -> str:
         return "(其他)"
 
 
-def _register_local_assets(file_paths: list[str], delete_after: bool, directory_root: Optional[str] = None) -> None:
+def _register_local_assets(file_paths: list[str], delete_after: bool, directory_root: str | None = None) -> None:
     now = datetime.now().isoformat()
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row

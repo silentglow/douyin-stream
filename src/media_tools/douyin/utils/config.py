@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 统一配置加载模块
 
@@ -11,9 +10,10 @@
 
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
+
 from media_tools.logger import get_logger
 
 logger = get_logger(__name__)
@@ -78,7 +78,7 @@ def load_config() -> dict[str, Any]:
     if not CONFIG_PATH.exists():
         return {}
 
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    with open(CONFIG_PATH, encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
 
@@ -174,17 +174,13 @@ def get_db_path() -> Path:
     return PROJECT_ROOT / "data" / "media_tools.db"
 
 
-
-
-
 # 导出常用路径（延迟计算）
 class Paths:
     """常用路径集合（延迟计算）"""
 
-    _download_path: Optional[Path] = None
-    _data_output_path: Optional[Path] = None
-    _db_path: Optional[Path] = None
-
+    _download_path: Path | None = None
+    _data_output_path: Path | None = None
+    _db_path: Path | None = None
 
     @classmethod
     def DOWNLOADS(cls) -> Path:
@@ -207,15 +203,12 @@ class Paths:
             cls._db_path = get_db_path()
         return cls._db_path
 
-
-
     @classmethod
     def reset(cls):
         """重置缓存的路径（用于配置更改后）"""
         cls._download_path = None
         cls._data_output_path = None
         cls._db_path = None
-
 
 
 if __name__ == "__main__":
@@ -225,7 +218,6 @@ if __name__ == "__main__":
     logger.info(f"默认下载路径: {get_default_download_path()}")
     logger.info(f"实际下载路径: {get_download_path()}")
     logger.info(f"数据库路径: {get_db_path()}")
-
 
     # 测试文件夹名称清理
     test_names = [

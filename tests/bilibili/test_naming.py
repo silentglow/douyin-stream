@@ -17,4 +17,3 @@ def test_asset_id_multip() -> None:
 
 def test_sanitize_filename() -> None:
     assert sanitize_filename('a/b:c*?"<>|') == "abc"
-

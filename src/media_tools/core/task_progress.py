@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """任务进度模型 — 被 pipeline、downloader、API 路由共享。
 
 原位于 pipeline/models.py，因 douyin 下载器也需要使用而提取到 core，
@@ -6,11 +7,10 @@ from __future__ import annotations
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 
-class Stage(str, Enum):
+class Stage(StrEnum):
     """任务阶段枚举"""
 
     CREATED = "created"
@@ -76,7 +76,7 @@ class DownloadProgress:
         }
 
     @classmethod
-    def from_dict(cls, data: Optional[dict]) -> Optional[DownloadProgress]:
+    def from_dict(cls, data: dict | None) -> DownloadProgress | None:
         if not data:
             return None
         return cls(
@@ -112,7 +112,7 @@ class TranscribeProgress:
         }
 
     @classmethod
-    def from_dict(cls, data: Optional[dict]) -> Optional[TranscribeProgress]:
+    def from_dict(cls, data: dict | None) -> TranscribeProgress | None:
         if not data:
             return None
         return cls(
@@ -131,12 +131,12 @@ class TaskProgress:
 
     stage: Stage = field(default_factory=lambda: Stage.CREATED)
     overall_percent: float = 0.0
-    download_progress: Optional[DownloadProgress] = None
-    transcribe_progress: Optional[TranscribeProgress] = None
+    download_progress: DownloadProgress | None = None
+    transcribe_progress: TranscribeProgress | None = None
     error_count: int = 0
     errors: list = field(default_factory=list)
     details: list = field(default_factory=list)
-    start_time: Optional[str] = None
+    start_time: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -151,7 +151,7 @@ class TaskProgress:
         }
 
     @classmethod
-    def from_dict(cls, data: Optional[dict]) -> Optional[TaskProgress]:
+    def from_dict(cls, data: dict | None) -> TaskProgress | None:
         if not data:
             return None
         stage_str = data.get("stage", "created")

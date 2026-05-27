@@ -4,6 +4,7 @@
 mark_transcribe_failed（aweme 路径 + 通用 LIKE 路径）、mark_transcribe_completed
 （清错）、find_pending_to_transcribe 各种过滤组合。
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -52,8 +53,9 @@ def _build_in_memory_db() -> sqlite3.Connection:
 @pytest.fixture
 def db():
     conn = _build_in_memory_db()
-    with patch("media_tools.assets.service.get_db_connection", return_value=conn), patch(
-        "media_tools.assets.service.update_fts_for_asset", return_value=None
+    with (
+        patch("media_tools.assets.service.get_db_connection", return_value=conn),
+        patch("media_tools.assets.service.update_fts_for_asset", return_value=None),
     ):
         yield conn
     conn.close()
@@ -187,12 +189,12 @@ def test_find_pending_to_transcribe_filters(db: sqlite3.Connection) -> None:
 
     seed = [
         # asset_id, creator, status, error_type, platform
-        ("c1",  "u1", "completed", None,    "douyin"),
-        ("p1",  "u1", "pending",   None,    "douyin"),
-        ("n1",  "u1", "none",      None,    "douyin"),
-        ("f1",  "u1", "failed",    "auth",  "douyin"),
-        ("f2",  "u2", "failed",    "quota", "bilibili"),
-        ("f3",  "u1", "failed",    "auth",  "bilibili"),
+        ("c1", "u1", "completed", None, "douyin"),
+        ("p1", "u1", "pending", None, "douyin"),
+        ("n1", "u1", "none", None, "douyin"),
+        ("f1", "u1", "failed", "auth", "douyin"),
+        ("f2", "u2", "failed", "quota", "bilibili"),
+        ("f3", "u1", "failed", "auth", "bilibili"),
     ]
     for aid, uid, st, et, plat in seed:
         db.execute(
@@ -209,9 +211,7 @@ def test_find_pending_to_transcribe_filters(db: sqlite3.Connection) -> None:
     auth_only = MediaAssetService.find_pending_to_transcribe(only_failed=True, error_types=["auth"])
     assert sorted(r["asset_id"] for r in auth_only) == ["f1", "f3"]
 
-    bilibili_failed = MediaAssetService.find_pending_to_transcribe(
-        only_failed=True, platform="bilibili"
-    )
+    bilibili_failed = MediaAssetService.find_pending_to_transcribe(only_failed=True, platform="bilibili")
     assert sorted(r["asset_id"] for r in bilibili_failed) == ["f2", "f3"]
 
     u1_failed = MediaAssetService.find_pending_to_transcribe(only_failed=True, creator_uid="u1")

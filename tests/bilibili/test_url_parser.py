@@ -1,6 +1,4 @@
-import pytest
-
-from media_tools.bilibili.core.url_parser import normalize_bilibili_url, BilibiliUrlKind
+from media_tools.bilibili.core.url_parser import BilibiliUrlKind, normalize_bilibili_url
 
 
 def test_normalize_space_url() -> None:
@@ -19,4 +17,3 @@ def test_normalize_short_url_is_detected() -> None:
     parsed = normalize_bilibili_url("https://b23.tv/abcd")
     assert parsed.kind is BilibiliUrlKind.SHORT
     assert parsed.original_url == "https://b23.tv/abcd"
-

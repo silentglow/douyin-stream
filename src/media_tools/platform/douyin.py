@@ -1,40 +1,34 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 视频下载模块 - 单个/批量/交互下载（直接调用 F2 API）
 """
 
-from typing import Optional
 import asyncio
-import os
+import re
 import shutil
 import sqlite3
-import subprocess
-import sys
 from datetime import datetime
 from pathlib import Path
-import re
 
+from media_tools.core.task_progress import Stage
 from media_tools.douyin.core.f2_helper import get_f2_kwargs as _build_f2_kwargs
+from media_tools.douyin.core.file_ops import _clean_video_title, _reorganize_files, _update_last_fetch_time
 from media_tools.logger import get_logger
 from media_tools.store.db import resolve_safe_path
-from media_tools.core.task_progress import Stage
-from media_tools.douyin.core.file_ops import _clean_video_title, _reorganize_files, _update_last_fetch_time
 
-logger = get_logger('downloader')
+logger = get_logger("downloader")
 
+import contextlib
+
+from media_tools.douyin.core.config_mgr import get_config
+from media_tools.douyin.core.following_mgr import list_users
 from media_tools.douyin.core.ui import (
     error,
     info,
     print_header,
-    print_status,
     success,
     warning,
-    ProgressBar,
 )
-from media_tools.douyin.core.config_mgr import get_config
-from media_tools.douyin.core.following_mgr import list_users
-
 
 MIN_VIDEO_BYTES = 10240  # 10KB（与 pipeline/task_helpers.py 保持一致）
 
@@ -52,7 +46,7 @@ def _is_probably_valid_mp4(file_path: Path) -> bool:
         return False
 
 
-def _extract_aweme_id_from_filename(stem: str) -> Optional[str]:
+def _extract_aweme_id_from_filename(stem: str) -> str | None:
     m = re.search(r"\d{15,}", stem)
     return m.group(0) if m else None
 
@@ -86,17 +80,13 @@ def _select_videos_to_download(
     skipped = 0
 
     for video in video_list:
-        aweme_id = (
-            video.get("aweme_id", "") if isinstance(video, dict) else getattr(video, "aweme_id", "")
-        )
+        aweme_id = video.get("aweme_id", "") if isinstance(video, dict) else getattr(video, "aweme_id", "")
         aweme_id = str(aweme_id or "")
 
         if aweme_id and aweme_id in corrupt_files:
             for p in corrupt_files.get(aweme_id) or []:
-                try:
+                with contextlib.suppress(OSError):
                     p.unlink()
-                except OSError:
-                    pass
             new_videos.append(video)
             existing_aweme_ids.add(aweme_id)
             continue
@@ -132,6 +122,7 @@ def _prepare_f2_temp_dir(downloads_path: Path) -> Path:
 def _create_video_metadata_table():
     """确保视频元数据表存在"""
     from media_tools.store.db import get_db_connection
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
 
@@ -156,14 +147,10 @@ def _create_video_metadata_table():
         """
         )
 
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_video_uid ON video_metadata(uid)"
-        )
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_video_uid ON video_metadata(uid)")
 
-        try:
+        with contextlib.suppress(sqlite3.OperationalError):
             cursor.execute("ALTER TABLE video_metadata ADD COLUMN nickname TEXT")
-        except sqlite3.OperationalError:
-            pass
 
         conn.commit()
 
@@ -175,6 +162,7 @@ def _save_video_metadata_from_raw(raw_data: dict, nickname: str = ""):
         return 0
 
     from media_tools.store.db import get_db_connection
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
 
@@ -229,21 +217,14 @@ def _save_single_video_metadata(video: dict, nickname: str = "") -> int:
         return 0
 
     from media_tools.store.db import get_db_connection
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
 
         stats = video.get("statistics", {}) or {}
         author = video.get("author", {}) or {}
-        video_nickname = (
-            video.get("nickname")
-            or author.get("nickname")
-            or nickname
-        )
-        uid = (
-            video.get("uid")
-            or author.get("uid")
-            or video.get("sec_user_id", "")
-        )
+        video_nickname = video.get("nickname") or author.get("nickname") or nickname
+        uid = video.get("uid") or author.get("uid") or video.get("sec_user_id", "")
 
         cursor.execute(
             """
@@ -273,13 +254,13 @@ def _save_single_video_metadata(video: dict, nickname: str = "") -> int:
         return 1
 
 
-def _rename_videos_in_downloads(nickname: str, uid: str, downloads_path: Path) -> Optional[str]:
+def _rename_videos_in_downloads(nickname: str, uid: str, downloads_path: Path) -> str | None:
     """重命名下载目录下的视频文件（包括已在目标子目录的情况）"""
     import re
     import sqlite3
 
     config = get_config()
-    db_path = config.get_db_path()
+    config.get_db_path()
 
     # 博主文件夹
     folder_name = nickname or uid
@@ -292,14 +273,12 @@ def _rename_videos_in_downloads(nickname: str, uid: str, downloads_path: Path) -
     # 连接数据库获取该博主最近的视频标题
     try:
         from media_tools.store.db import get_db_connection
+
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
             # 查询该博主所有视频标题（不限数量，确保批量下载时全部能匹配）
-            cursor.execute(
-                "SELECT aweme_id, desc FROM video_metadata WHERE uid = ? ORDER BY fetch_time DESC",
-                (uid,)
-            )
+            cursor.execute("SELECT aweme_id, desc FROM video_metadata WHERE uid = ? ORDER BY fetch_time DESC", (uid,))
             recent_videos = cursor.fetchall()
 
             if not recent_videos:
@@ -310,7 +289,6 @@ def _rename_videos_in_downloads(nickname: str, uid: str, downloads_path: Path) -
 
             renamed_count = 0
             processed_count = 0
-            db_updated = False
 
             # 只扫描当前博主的目录和 F2 临时目录（douyin/post/），
             # 绝不 rglob 整个 downloads_path，避免把其他博主的文件移过来
@@ -339,7 +317,7 @@ def _rename_videos_in_downloads(nickname: str, uid: str, downloads_path: Path) -
 
                 # 方法0：直接从文件名提取 aweme_id（处理 F2 原始格式如 7620767195682364133_video.mp4）
                 aweme_id = None
-                aweme_match = re.match(r'^(\d{15,})(?:_video)?$', stem)
+                aweme_match = re.match(r"^(\d{15,})(?:_video)?$", stem)
                 if aweme_match:
                     candidate = aweme_match.group(1)
                     if candidate in title_map:
@@ -354,7 +332,7 @@ def _rename_videos_in_downloads(nickname: str, uid: str, downloads_path: Path) -
 
                 # 方法1：尝试从文件名匹配 title_map 中的 aweme_id
                 if not aweme_id:
-                    for vid in title_map.keys():
+                    for vid in title_map:
                         if vid in stem:
                             aweme_id = vid
                             break
@@ -365,7 +343,7 @@ def _rename_videos_in_downloads(nickname: str, uid: str, downloads_path: Path) -
                         # 提取标题中的中文关键词
                         clean_title = _clean_video_title(title)
                         # 检查标题中的连续中文是否出现在文件名中
-                        chinese_words = re.findall(r'[\u4e00-\u9fa5]{2,}', clean_title)
+                        chinese_words = re.findall(r"[\u4e00-\u9fa5]{2,}", clean_title)
                         for word in chinese_words[:3]:  # 取前3个关键词
                             if word in stem:
                                 aweme_id = vid
@@ -376,7 +354,7 @@ def _rename_videos_in_downloads(nickname: str, uid: str, downloads_path: Path) -
                 if aweme_id and aweme_id in title_map:
                     title = title_map[aweme_id]
                     clean_title = _clean_video_title(title)
-                    clean_title = re.sub(r'[<>:"/\\|?*]', '', clean_title).strip()
+                    clean_title = re.sub(r'[<>:"/\\|?*]', "", clean_title).strip()
                     if len(clean_title) > 60:
                         clean_title = clean_title[:60]
 
@@ -387,10 +365,8 @@ def _rename_videos_in_downloads(nickname: str, uid: str, downloads_path: Path) -
                     if f.name == new_name and f.parent == user_dir:
                         # 更新数据库中的 local_filename
                         cursor.execute(
-                            "UPDATE video_metadata SET local_filename = ? WHERE aweme_id = ?",
-                            (new_name, aweme_id)
+                            "UPDATE video_metadata SET local_filename = ? WHERE aweme_id = ?", (new_name, aweme_id)
                         )
-                        db_updated = True
                         continue
 
                     if not dest.exists():
@@ -410,17 +386,17 @@ def _rename_videos_in_downloads(nickname: str, uid: str, downloads_path: Path) -
 
                     # 更新数据库中的 local_filename
                     cursor.execute(
-                        "UPDATE video_metadata SET local_filename = ? WHERE aweme_id = ?",
-                        (new_name, aweme_id)
+                        "UPDATE video_metadata SET local_filename = ? WHERE aweme_id = ?", (new_name, aweme_id)
                     )
-                    db_updated = True
                 else:
                     # 无法匹配 aweme_id，跳过——绝不移动无法确认归属的文件
                     # 之前的逻辑会把所有未匹配 mp4 移入当前博主目录，造成跨博主污染
                     pass
 
             if processed_count > 0:
-                logger.info(info(f"  [整理] 已处理 {processed_count} 个文件到 {folder_name}/（{renamed_count} 个已重命名）"))
+                logger.info(
+                    info(f"  [整理] 已处理 {processed_count} 个文件到 {folder_name}/（{renamed_count} 个已重命名）")
+                )
     except (sqlite3.Error, OSError) as e:
         logger.warning(f"整理下载文件失败: {e}")
 
@@ -432,11 +408,12 @@ def _sync_media_assets(uid: str, nickname: str, folder_name: str):
     import re
 
     config = get_config()
-    db_path = config.get_db_path()
+    config.get_db_path()
     downloads_path = config.get_download_path()
 
     try:
         from media_tools.store.db import get_db_connection
+
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
@@ -460,13 +437,13 @@ def _sync_media_assets(uid: str, nickname: str, folder_name: str):
                 # 构建aweme_id查找表
                 for f in all_files:
                     # 尝试从文件名提取aweme_id（15位及以上数字）
-                    aweme_matches = re.findall(r'\d{15,}', f.stem)
+                    aweme_matches = re.findall(r"\d{15,}", f.stem)
                     for aweme_id in aweme_matches:
                         file_lookup[aweme_id] = f"{folder_name}/{f.name}"
 
                     # 构建关键词查找表（同一关键词对应多个文件时用列表保留）
                     clean_stem = f.stem.lower()
-                    chinese_words = re.findall(r'[\u4e00-\u9fa5]{2,}', clean_stem)
+                    chinese_words = re.findall(r"[\u4e00-\u9fa5]{2,}", clean_stem)
                     for word in chinese_words:
                         keyword_lookup.setdefault(word, []).append(f"{folder_name}/{f.name}")
 
@@ -475,7 +452,7 @@ def _sync_media_assets(uid: str, nickname: str, folder_name: str):
             local_filename_map: dict[str, str] = {}
             cursor.execute(
                 "SELECT aweme_id, local_filename FROM video_metadata WHERE uid = ? AND local_filename IS NOT NULL AND local_filename != ''",
-                (uid,)
+                (uid,),
             )
             for row in cursor.fetchall():
                 local_filename_map[row[0]] = row[1]
@@ -504,7 +481,7 @@ def _sync_media_assets(uid: str, nickname: str, folder_name: str):
                 # 方法2：通过中文关键词匹配 + 校验文件存在（兜底，加防误匹配校验）
                 if not video_path:
                     clean_title = _clean_video_title(desc)
-                    chinese_words = re.findall(r'[一-龥]{2,}', clean_title)
+                    chinese_words = re.findall(r"[一-龥]{2,}", clean_title)
                     for word in chinese_words[:3]:
                         if word in keyword_lookup:
                             for candidate in keyword_lookup[word]:
@@ -512,17 +489,22 @@ def _sync_media_assets(uid: str, nickname: str, folder_name: str):
                                 if abs_path.exists():
                                     # 防误匹配：候选文件名必须包含标题前8个汉字中的至少2个关键词
                                     candidate_stem = Path(candidate).stem.lower()
-                                    title_prefix = ''.join(chinese_words)[:8]
-                                    match_count = sum(1 for w in re.findall(r'[一-龥]{2,}', title_prefix) if w in candidate_stem)
+                                    title_prefix = "".join(chinese_words)[:8]
+                                    match_count = sum(
+                                        1 for w in re.findall(r"[一-龥]{2,}", title_prefix) if w in candidate_stem
+                                    )
                                     if match_count >= 2 or len(title_prefix) <= 4:
                                         video_path = candidate
-                                        video_status = "downloaded" if _is_probably_valid_mp4(abs_path) else "corrupt_file"
+                                        video_status = (
+                                            "downloaded" if _is_probably_valid_mp4(abs_path) else "corrupt_file"
+                                        )
                                         break
                             if video_path:
                                 break
 
                 # 统一使用 MediaAssetService 入库，与 Bilibili 保持一致
                 from media_tools.assets.service import MediaAssetService
+
                 MediaAssetService.mark_downloaded(
                     asset_id=aweme_id,
                     creator_uid=uid,
@@ -536,13 +518,14 @@ def _sync_media_assets(uid: str, nickname: str, folder_name: str):
     except (sqlite3.Error, OSError) as e:
         logger.error(f"同步 media_assets 失败: {e}")
 
+
 async def _download_with_stats(
     url: str,
-    max_counts: Optional[int] = None,
+    max_counts: int | None = None,
     skip_existing: bool = True,
-    interval: Optional[str] = None,
+    interval: str | None = None,
     existing_source: str = "file+db",
-    task_id: Optional[str] = None,
+    task_id: str | None = None,
 ):
     """
     使用 F2 API 下载视频并保存统计数据
@@ -559,13 +542,13 @@ async def _download_with_stats(
 
     # 导入进度追踪函数
     from media_tools.douyin.core.cancel_registry import (
-        init_download_progress,
-        update_stage,
-        update_current_video,
+        add_download_error,
         increment_downloaded,
         increment_skipped,
-        add_download_error,
+        init_download_progress,
         set_total_count,
+        update_current_video,
+        update_stage,
     )
 
     logger.info(f"开始下载: {url}")
@@ -584,7 +567,7 @@ async def _download_with_stats(
     downloads_path = config.get_download_path()
 
     # 清理临时目录
-    f2_temp_path = _prepare_f2_temp_dir(downloads_path)
+    _prepare_f2_temp_dir(downloads_path)
 
     logger.info(info("[下载] 开始下载..."))
     logger.info(info(f"[路径] {downloads_path}"))
@@ -630,16 +613,14 @@ async def _download_with_stats(
         user_path = await handler.get_or_add_user_data(kwargs, sec_user_id, db)
 
     # 从数据库获取用户信息（通过 sec_user_id 精确匹配）
-    db_path = config.get_db_path()
+    config.get_db_path()
     user_info = None
     try:
         from media_tools.store.db import get_db_connection
+
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT uid, nickname FROM user_info_web WHERE sec_user_id = ? LIMIT 1",
-                (sec_user_id,)
-            )
+            cursor.execute("SELECT uid, nickname FROM user_info_web WHERE sec_user_id = ? LIMIT 1", (sec_user_id,))
             user_info = cursor.fetchone()
     except (sqlite3.Error, OSError):
         pass
@@ -648,11 +629,10 @@ async def _download_with_stats(
     if not user_info:
         try:
             from media_tools.store.db import get_db_connection
+
             with get_db_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT uid, nickname FROM user_info_web ORDER BY ROWID DESC LIMIT 1"
-                )
+                cursor.execute("SELECT uid, nickname FROM user_info_web ORDER BY ROWID DESC LIMIT 1")
                 user_info = cursor.fetchone()
         except (sqlite3.Error, OSError):
             pass
@@ -679,12 +659,10 @@ async def _download_with_stats(
         if existing_source != "file":
             try:
                 from media_tools.store.db import get_db_connection
+
                 with get_db_connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute(
-                        "SELECT aweme_id FROM video_metadata WHERE uid = ? AND aweme_id != ''",
-                        (uid,)
-                    )
+                    cursor.execute("SELECT aweme_id FROM video_metadata WHERE uid = ? AND aweme_id != ''", (uid,))
                     db_videos = {row[0] for row in cursor.fetchall() if row[0]}
 
                     if db_videos:
@@ -708,11 +686,9 @@ async def _download_with_stats(
     logger.info(info("[下载] 正在获取视频列表..."))
     logger.info("正在获取视频列表...")
 
-    fetch_error: Optional[str] = None
+    fetch_error: str | None = None
     try:
-        async for aweme_data_list in handler.fetch_user_post_videos(
-            sec_user_id, max_counts=max_counts or float("inf")
-        ):
+        async for aweme_data_list in handler.fetch_user_post_videos(sec_user_id, max_counts=max_counts or float("inf")):
             video_list = aweme_data_list._to_list()
             all_videos_count += len(video_list)
 
@@ -724,15 +700,15 @@ async def _download_with_stats(
 
                 # 增量/全量：过滤或全量重拉
                 if skip_existing:
-                    new_videos, skipped = _select_videos_to_download(
-                        video_list, existing_videos, corrupt_files
-                    )
+                    new_videos, skipped = _select_videos_to_download(video_list, existing_videos, corrupt_files)
                     total_skipped += skipped
                     # 更新跳过的视频进度
                     for video in video_list:
                         if video not in new_videos:
-                            title = video.get('desc', '') if isinstance(video, dict) else getattr(video, 'desc', '')
-                            aweme_id = video.get('aweme_id', '') if isinstance(video, dict) else getattr(video, 'aweme_id', '')
+                            title = video.get("desc", "") if isinstance(video, dict) else getattr(video, "desc", "")
+                            aweme_id = (
+                                video.get("aweme_id", "") if isinstance(video, dict) else getattr(video, "aweme_id", "")
+                            )
                             if task_id:
                                 increment_skipped(task_id, str(title or aweme_id or "未知"))
                 else:
@@ -746,8 +722,10 @@ async def _download_with_stats(
                     # 逐个下载视频，追踪进度
                     new_videos_total = len(new_videos)
                     for video_idx, video in enumerate(new_videos, 1):
-                        aweme_id = video.get('aweme_id', '') if isinstance(video, dict) else getattr(video, 'aweme_id', '')
-                        title = video.get('desc', '') if isinstance(video, dict) else getattr(video, 'desc', '')
+                        aweme_id = (
+                            video.get("aweme_id", "") if isinstance(video, dict) else getattr(video, "aweme_id", "")
+                        )
+                        title = video.get("desc", "") if isinstance(video, dict) else getattr(video, "desc", "")
                         video_title = str(title or aweme_id or "未知")
 
                         # 更新当前下载的视频
@@ -758,9 +736,7 @@ async def _download_with_stats(
 
                         try:
                             # 单视频下载
-                            await handler.downloader.create_download_tasks(
-                                kwargs, [video], user_path
-                            )
+                            await handler.downloader.create_download_tasks(kwargs, [video], user_path)
 
                             if aweme_id:
                                 new_aweme_ids.append(aweme_id)
@@ -815,13 +791,13 @@ async def _download_with_stats(
     logger.info(info("[整理] 重新组织文件..."))
     post_path = downloads_path / "douyin" / "post"
     folder_name = None
-    
+
     # 处理 douyin/post 下的文件
     if post_path.exists():
         for folder in post_path.iterdir():
             if folder.is_dir():
                 folder_name = _reorganize_files(folder.name, uid)
-    
+
     # 处理直接在下载目录或子目录下的文件（兼容不同 F2 版本的下载路径）
     folder_name = _rename_videos_in_downloads(nickname, uid, downloads_path) or folder_name
 
@@ -842,9 +818,10 @@ async def _download_with_stats(
     if new_aweme_ids and folder_name:
         try:
             from media_tools.store.db import get_db_connection
+
             with get_db_connection() as conn:
                 cursor = conn.cursor()
-                placeholders = ','.join(['?'] * len(new_aweme_ids))
+                placeholders = ",".join(["?"] * len(new_aweme_ids))
                 cursor.execute(f"SELECT video_path FROM media_assets WHERE asset_id IN ({placeholders})", new_aweme_ids)
                 for row in cursor.fetchall():
                     if row[0]:
@@ -860,9 +837,7 @@ async def _download_with_stats(
     # （cookie 过期、风控、网络等），声明下载了 N 个但实际 0 个落盘
     silent_fail_error = ""
     if new_aweme_ids and not new_files:
-        silent_fail_error = (
-            f"声明下载 {len(new_aweme_ids)} 个但实际 0 个落盘（cookie 可能过期或被风控）"
-        )
+        silent_fail_error = f"声明下载 {len(new_aweme_ids)} 个但实际 0 个落盘（cookie 可能过期或被风控）"
         logger.error(silent_fail_error)
         logger.info(error(f"[失败] {silent_fail_error}"))
         if task_id:
@@ -879,15 +854,22 @@ async def _download_with_stats(
 
     final_error = fetch_error or silent_fail_error
     return {
-        'success': not final_error,
-        'error': final_error,
-        'uid': uid,
-        'nickname': nickname,
-        'new_files': new_files,
+        "success": not final_error,
+        "error": final_error,
+        "uid": uid,
+        "nickname": nickname,
+        "new_files": new_files,
     }
 
 
-def download_by_url_sync(url, max_counts=None, skip_existing: bool = True, interval: Optional[str] = None, existing_source: str = "file+db", task_id: Optional[str] = None):
+def download_by_url_sync(
+    url,
+    max_counts=None,
+    skip_existing: bool = True,
+    interval: str | None = None,
+    existing_source: str = "file+db",
+    task_id: str | None = None,
+):
     """同步包装器：通过 URL 下载单个博主的视频"""
     try:
         # 检查是否已有运行中的事件循环
@@ -899,21 +881,27 @@ def download_by_url_sync(url, max_counts=None, skip_existing: bool = True, inter
         if loop and loop.is_running():
             # 如果已有事件循环，创建任务并等待
             import warnings
+
             warnings.warn(
-                "download_by_url_sync called from running event loop. "
-                "Consider using the async version directly.",
+                "download_by_url_sync called from running event loop. Consider using the async version directly.",
                 RuntimeWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             # 在已有循环中，我们需要用 run_until_complete 的替代方案
             # 但由于无法在同步函数中等待异步，只能抛出异常
-            raise RuntimeError(
-                "Cannot call sync wrapper from async context. "
-                "Use _download_with_stats directly."
-            )
+            raise RuntimeError("Cannot call sync wrapper from async context. Use _download_with_stats directly.")
         else:
             # 没有运行中的循环，可以安全使用 asyncio.run()
-            return asyncio.run(_download_with_stats(url, max_counts, skip_existing=skip_existing, interval=interval, existing_source=existing_source, task_id=task_id))
+            return asyncio.run(
+                _download_with_stats(
+                    url,
+                    max_counts,
+                    skip_existing=skip_existing,
+                    interval=interval,
+                    existing_source=existing_source,
+                    task_id=task_id,
+                )
+            )
     except (RuntimeError, OSError, ValueError) as e:
         logger.info(error(f"下载出错: {e}"))
         return {"success": False, "new_files": [], "error": str(e)}
@@ -921,11 +909,11 @@ def download_by_url_sync(url, max_counts=None, skip_existing: bool = True, inter
 
 def download_by_url(
     url,
-    max_counts: Optional[int] = None,
+    max_counts: int | None = None,
     disable_auto_transcribe=False,
     skip_existing: bool = True,
-    task_id: Optional[str] = None,
-    interval: Optional[str] = None,
+    task_id: str | None = None,
+    interval: str | None = None,
     existing_source: str = "file+db",
 ):
     """
@@ -952,7 +940,14 @@ def download_by_url(
     logger.info(info("开始下载..."))
     logger.info("")
 
-    result = download_by_url_sync(url, max_counts, skip_existing=skip_existing, interval=interval, existing_source=existing_source, task_id=task_id)
+    result = download_by_url_sync(
+        url,
+        max_counts,
+        skip_existing=skip_existing,
+        interval=interval,
+        existing_source=existing_source,
+        task_id=task_id,
+    )
 
     if result:
         logger.info(success("下载完成！"))
@@ -1041,6 +1036,7 @@ async def download_aweme_by_url(url: str):
 
     try:
         from media_tools.store.db import get_db_connection
+
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -1050,9 +1046,8 @@ async def download_aweme_by_url(url: str):
             row = cursor.fetchone()
             if row and row[0]:
                 full_path = downloads_path / row[0]
-                if full_path.exists():
-                    if str(full_path) not in new_files:
-                        new_files.append(str(full_path))
+                if full_path.exists() and str(full_path) not in new_files:
+                    new_files.append(str(full_path))
     except (sqlite3.Error, OSError, RuntimeError) as e:
         logger.warning(f"查询单视频文件路径失败: {e}")
 
@@ -1066,7 +1061,14 @@ async def download_aweme_by_url(url: str):
     }
 
 
-def download_by_uid(uid, max_counts=None, skip_existing: bool = True, task_id: Optional[str] = None, interval: Optional[str] = None, existing_source: str = "file+db"):
+def download_by_uid(
+    uid,
+    max_counts=None,
+    skip_existing: bool = True,
+    task_id: str | None = None,
+    interval: str | None = None,
+    existing_source: str = "file+db",
+):
     """
     通过 UID 下载博主视频
 
@@ -1096,7 +1098,14 @@ def download_by_uid(uid, max_counts=None, skip_existing: bool = True, task_id: O
     name = user.get("nickname", user.get("name", "未知"))
     logger.info(info(f"博主: {name} (UID: {uid})"))
 
-    result = download_by_url(url, max_counts, skip_existing=skip_existing, task_id=task_id, interval=interval, existing_source=existing_source)
+    result = download_by_url(
+        url,
+        max_counts,
+        skip_existing=skip_existing,
+        task_id=task_id,
+        interval=interval,
+        existing_source=existing_source,
+    )
 
     return result
 

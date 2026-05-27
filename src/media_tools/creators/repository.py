@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 """创作者数据访问层 - 所有 creators 表的操作集中在这里"""
 
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from media_tools.store.db import get_db_connection, get_table_columns
 
@@ -20,7 +21,7 @@ class CreatorRepository:
             return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
-    def find_by_id(uid: str) -> Optional[dict[str, Any]]:
+    def find_by_id(uid: str) -> dict[str, Any] | None:
         """按 ID 查询创作者"""
         with get_db_connection() as conn:
             cursor = conn.execute(
@@ -63,9 +64,9 @@ class CreatorRepository:
     @staticmethod
     def update(
         uid: str,
-        sec_user_id: Optional[str] = None,
-        nickname: Optional[str] = None,
-        homepage_url: Optional[str] = None,
+        sec_user_id: str | None = None,
+        nickname: str | None = None,
+        homepage_url: str | None = None,
     ) -> None:
         """更新创作者信息"""
         with get_db_connection() as conn:
@@ -212,7 +213,7 @@ class CreatorRepository:
             return not exists
 
     @staticmethod
-    def delete_with_assets(uid: str) -> tuple[Optional[str], list[dict[str, Any]]]:
+    def delete_with_assets(uid: str) -> tuple[str | None, list[dict[str, Any]]]:
         """级联删除创作者及其素材。返回 (nickname, assets_list) 用于后续文件清理。"""
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row

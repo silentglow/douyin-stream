@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 """转写 run 服务 - 封装 transcribe_runs 表的高级操作。"""
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from media_tools.logger import get_logger
 from media_tools.transcribe.repository import TranscribeRunRepository
@@ -18,7 +19,7 @@ class TranscribeRunService:
     """
 
     @staticmethod
-    def check_saved(asset_id: str) -> Optional[tuple[Path, str]]:
+    def check_saved(asset_id: str) -> tuple[Path, str] | None:
         """检查 asset 是否已有成功且非空的缓存转写文件。
 
         Returns:
@@ -33,10 +34,7 @@ class TranscribeRunService:
             saved_path = Path(saved_run.get("transcript_path", ""))
             account_id = str(saved_run.get("account_id", ""))
             if saved_path.exists() and saved_path.stat().st_size > 0:
-                logger.info(
-                    f"命中缓存转写 (run_id={saved_run.get('run_id')}, "
-                    f"size={saved_path.stat().st_size})"
-                )
+                logger.info(f"命中缓存转写 (run_id={saved_run.get('run_id')}, size={saved_path.stat().st_size})")
                 return saved_path, account_id
             if saved_path.exists() and saved_path.stat().st_size == 0:
                 logger.warning("缓存的转录文件为空，重新转录")
@@ -51,7 +49,7 @@ class TranscribeRunService:
         asset_id: str,
         video_path: str,
         account_id: str,
-    ) -> tuple[Optional[str], Optional[dict[str, Any]]]:
+    ) -> tuple[str | None, dict[str, Any] | None]:
         """查找可续传的 run 或创建新 run。
 
         Returns:
@@ -61,7 +59,7 @@ class TranscribeRunService:
             return None, None
 
         # 先查可续传 run
-        resumable_run: Optional[dict[str, Any]] = None
+        resumable_run: dict[str, Any] | None = None
         try:
             resumable_run = TranscribeRunRepository.find_resumable(asset_id, account_id)
         except (OSError, ValueError) as exc:
@@ -117,7 +115,7 @@ class TranscribeRunService:
 
     @staticmethod
     def get_failed_record_ids(
-        asset_id: Optional[str],
+        asset_id: str | None,
         video_path: str,
         account_id: str = "",
     ) -> list[str]:

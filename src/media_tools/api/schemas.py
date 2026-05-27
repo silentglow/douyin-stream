@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
-
 
 _HTTP_PREFIXES = ("http://", "https://")
 _MAX_FILE_PATHS = 500
@@ -37,7 +36,7 @@ def _validate_path(value: str) -> str:
 class PipelineRequest(BaseModel):
     url: str
     max_counts: int = Field(default=5, ge=1, le=1000)
-    auto_delete: Optional[bool] = None
+    auto_delete: bool | None = None
 
     @field_validator("url")
     @classmethod
@@ -47,7 +46,7 @@ class PipelineRequest(BaseModel):
 
 class BatchPipelineRequest(BaseModel):
     video_urls: list[str]
-    auto_delete: Optional[bool] = None
+    auto_delete: bool | None = None
 
     @field_validator("video_urls")
     @classmethod
@@ -78,18 +77,18 @@ SyncMode = Literal["incremental", "full"]
 class CreatorDownloadRequest(BaseModel):
     uid: str = Field(min_length=1, max_length=200)
     mode: SyncMode = "incremental"
-    batch_size: Optional[int] = Field(default=None, ge=1, le=1000)
+    batch_size: int | None = Field(default=None, ge=1, le=1000)
 
 
 class FullSyncRequest(BaseModel):
     mode: SyncMode = "incremental"
-    batch_size: Optional[int] = Field(default=None, ge=1, le=1000)
+    batch_size: int | None = Field(default=None, ge=1, le=1000)
 
 
 class LocalTranscribeRequest(BaseModel):
     file_paths: list[str]
-    delete_after: Optional[bool] = None
-    directory_root: Optional[str] = None
+    delete_after: bool | None = None
+    directory_root: str | None = None
 
     @field_validator("file_paths")
     @classmethod
@@ -102,7 +101,7 @@ class LocalTranscribeRequest(BaseModel):
 
     @field_validator("directory_root")
     @classmethod
-    def _check_dir(cls, v: Optional[str]) -> Optional[str]:
+    def _check_dir(cls, v: str | None) -> str | None:
         if v is None or v == "":
             return v
         return _validate_path(v)
@@ -110,7 +109,7 @@ class LocalTranscribeRequest(BaseModel):
 
 class CreatorTranscribeRequest(BaseModel):
     uid: str = Field(min_length=1, max_length=200)
-    delete_after: Optional[bool] = None
+    delete_after: bool | None = None
 
 
 class ScanDirectoryRequest(BaseModel):
@@ -155,19 +154,19 @@ class RetryFailedAssetsRequest(BaseModel):
 
     空参数表示"重试所有失败的资产"；filter 组合生效。
     """
-    creator_uid: Optional[str] = Field(default=None, max_length=200)
-    platform: Optional[str] = Field(default=None, max_length=40)
-    error_types: Optional[list[str]] = None
-    limit: Optional[int] = Field(default=None, ge=1, le=5000)
-    delete_after: Optional[bool] = None
+
+    creator_uid: str | None = Field(default=None, max_length=200)
+    platform: str | None = Field(default=None, max_length=40)
+    error_types: list[str] | None = None
+    limit: int | None = Field(default=None, ge=1, le=5000)
+    delete_after: bool | None = None
 
     @field_validator("error_types")
     @classmethod
-    def _check_error_types(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+    def _check_error_types(cls, v: list[str] | None) -> list[str] | None:
         if v is None:
             return v
         if len(v) > 20:
             raise ValueError("error_types 最多 20 项")
         cleaned = [str(x).strip() for x in v if isinstance(x, str) and str(x).strip()]
         return cleaned or None
-

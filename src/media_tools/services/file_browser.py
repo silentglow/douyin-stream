@@ -1,10 +1,12 @@
 import logging
-import subprocess
 import platform
+import subprocess
 from pathlib import Path
+
 from fastapi import HTTPException
-from media_tools.transcribe.media_extensions import MEDIA_EXTENSIONS
+
 from media_tools.common.paths import get_download_path
+from media_tools.transcribe.media_extensions import MEDIA_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +14,7 @@ logger = logging.getLogger(__name__)
 def _is_allowed_scan_path(dir_path: Path) -> bool:
     """Restrict directory scanning to safe roots."""
     import sys
+
     resolved = dir_path.resolve()
 
     if any(part == ".." for part in dir_path.parts):
@@ -23,10 +26,7 @@ def _is_allowed_scan_path(dir_path: Path) -> bool:
     if sys.platform == "darwin":
         allowed_roots.append(Path("/Volumes").resolve())
 
-    for root in allowed_roots:
-        if resolved.is_relative_to(root):
-            return True
-    return False
+    return any(resolved.is_relative_to(root) for root in allowed_roots)
 
 
 def select_folder():
@@ -38,7 +38,9 @@ def select_folder():
         if system == "Darwin":
             result = subprocess.run(
                 ["osascript", "-e", 'POSIX path of (choose folder with prompt "选择要扫描的文件夹")'],
-                capture_output=True, text=True, timeout=60,
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             if result.returncode == 0:
                 selected = result.stdout.strip()
@@ -47,7 +49,9 @@ def select_folder():
         elif system == "Linux":
             result = subprocess.run(
                 ["zenity", "--file-selection", "--directory", "--title=选择要扫描的文件夹"],
-                capture_output=True, text=True, timeout=60,
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             if result.returncode == 0:
                 selected = result.stdout.strip()
@@ -63,7 +67,9 @@ def select_folder():
             )
             result = subprocess.run(
                 ["powershell", "-Command", ps_cmd],
-                capture_output=True, text=True, timeout=60,
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             if result.returncode == 0:
                 selected = result.stdout.strip()

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Qwen 账户状态查询与配额领取服务"""
 
 import logging
@@ -6,15 +7,14 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from media_tools.store.db import get_db_connection
 from media_tools.accounts.auth_state import save_qwen_cookie_string
 from media_tools.accounts.db_account_pool import build_qwen_auth_state_path_for_account
 from media_tools.accounts.quota import (
     claim_equity_quota,
     get_quota_snapshot,
-    has_claimed_equity_today,
     remaining_hours_from_snapshot,
 )
+from media_tools.store.db import get_db_connection
 
 logger = logging.getLogger(__name__)
 
@@ -42,18 +42,17 @@ async def get_qwen_account_status() -> dict:
             remaining_hours = 0
             resolved_auth_state_path = auth_state_path.strip()
 
-            if status == "active":
-                if not resolved_auth_state_path:
-                    if cookie_data.strip():
-                        resolved_path = build_qwen_auth_state_path_for_account(account_id)
-                        try:
-                            save_qwen_cookie_string(cookie_data, resolved_path, sync_db=False)
-                            path_updates.append((str(resolved_path), account_id))
-                            resolved_auth_state_path = str(resolved_path)
-                        except (OSError, sqlite3.Error):
-                            status = "invalid"
-                    else:
+            if status == "active" and not resolved_auth_state_path:
+                if cookie_data.strip():
+                    resolved_path = build_qwen_auth_state_path_for_account(account_id)
+                    try:
+                        save_qwen_cookie_string(cookie_data, resolved_path, sync_db=False)
+                        path_updates.append((str(resolved_path), account_id))
+                        resolved_auth_state_path = str(resolved_path)
+                    except (OSError, sqlite3.Error):
                         status = "invalid"
+                else:
+                    status = "invalid"
 
             if status == "active" and resolved_auth_state_path:
                 try:
@@ -69,12 +68,14 @@ async def get_qwen_account_status() -> dict:
             if status != str(account["status"] or "active"):
                 status_updates.append((status, account_id))
 
-            rows.append({
-                "account_id": account_id,
-                "account_label": remark or account_id,
-                "remaining_hours": remaining_hours,
-                "status": status,
-            })
+            rows.append(
+                {
+                    "account_id": account_id,
+                    "account_label": remark or account_id,
+                    "remaining_hours": remaining_hours,
+                    "status": status,
+                }
+            )
 
         if path_updates or status_updates:
             with get_db_connection() as conn:
@@ -111,34 +112,43 @@ async def claim_qwen_quota() -> dict:
         auth_state_path = str(account["auth_state_path"] or "")
 
         if status != "active":
-            results.append({
-                "account_id": account_id,
-                "status": "skipped",
-                "reason": f"account-{status}",
-            })
+            results.append(
+                {
+                    "account_id": account_id,
+                    "status": "skipped",
+                    "reason": f"account-{status}",
+                }
+            )
             logger.info(f"[额度领取] {remark}: 跳过（账号状态 {status}）")
             continue
 
-        resolved_path = Path(auth_state_path) if auth_state_path.strip() else build_qwen_auth_state_path_for_account(account_id)
+        resolved_path = (
+            Path(auth_state_path) if auth_state_path.strip() else build_qwen_auth_state_path_for_account(account_id)
+        )
         result = await claim_equity_quota(account_id=account_id, auth_state_path=resolved_path, force=True)
         if result.claimed:
             before = result.before_snapshot.remaining_upload if result.before_snapshot else "?"
             after = result.after_snapshot.remaining_upload if result.after_snapshot else "?"
             delta = (
                 result.after_snapshot.remaining_upload - result.before_snapshot.remaining_upload
-                if result.before_snapshot and result.after_snapshot else "?"
+                if result.before_snapshot and result.after_snapshot
+                else "?"
             )
             logger.info(f"[额度领取] {remark}: 领取成功（额度 {before} → {after}, +{delta} 分钟）")
         elif result.reason == "quota-unchanged":
             before = result.before_snapshot.remaining_upload if result.before_snapshot else "?"
             after = result.after_snapshot.remaining_upload if result.after_snapshot else "?"
-            logger.warning(f"[额度领取] {remark}: 未领到（额度未变化 {before} → {after}，可能 cookie 失效或 API 已变更）")
+            logger.warning(
+                f"[额度领取] {remark}: 未领到（额度未变化 {before} → {after}，可能 cookie 失效或 API 已变更）"
+            )
         else:
             logger.info(f"[额度领取] {remark}: 跳过（{result.reason}）")
-        results.append({
-            "account_id": account_id,
-            "status": "claimed" if result.claimed else "skipped",
-            "reason": result.reason,
-        })
+        results.append(
+            {
+                "account_id": account_id,
+                "status": "claimed" if result.claimed else "skipped",
+                "reason": result.reason,
+            }
+        )
     logger.info(f"[额度领取] 完成，共 {len(results)} 个账号")
     return {"status": "success", "results": results}

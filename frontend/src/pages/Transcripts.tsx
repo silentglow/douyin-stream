@@ -29,6 +29,7 @@ export default function Transcripts() {
   const [readingContent, setReadingContent] = useState('');
   const [readingFormat, setReadingFormat] = useState<'markdown' | 'text'>('markdown');
   const [readingLoading, setReadingLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const lastCompletedTaskTime = useStore((state) => state.lastCompletedTaskTime);
 
@@ -40,7 +41,7 @@ export default function Transcripts() {
       .catch(() => { /* ignore */ })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => { controller.abort(); };
-  }, [filter, lastCompletedTaskTime]);
+  }, [filter, lastCompletedTaskTime, refreshKey]);
 
   const handleOpenTranscript = useCallback(async (item: TranscriptItem) => {
     setSelectedId(item.asset_id);
@@ -214,7 +215,7 @@ export default function Transcripts() {
               setReadingAsset(null);
               setReadingContent('');
               setSelectedId(null);
-              loadTranscripts();
+              setRefreshKey((k) => k + 1);
             }}
             onAssetUpdate={(updated) => {
               setItems((prev) =>

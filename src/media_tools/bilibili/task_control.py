@@ -1,7 +1,7 @@
 from __future__ import annotations
+
 """下载任务取消/暂停控制"""
 
-import os
 import signal
 import subprocess
 import threading
@@ -10,7 +10,7 @@ from media_tools.logger import get_logger
 
 logger = get_logger("bilibili")
 
-_pause_controllers: dict[str, "PauseController"] = {}
+_pause_controllers: dict[str, PauseController] = {}
 _pause_lock = threading.Lock()
 
 # 全局取消标志（用于库内调用的 yt-dlp，无法通过 subprocess 信号中断）
@@ -55,7 +55,7 @@ class PauseController:
         self._paused.clear()
         if self._process and self._process.poll() is None:
             try:
-                if hasattr(signal, 'SIGSTOP'):
+                if hasattr(signal, "SIGSTOP"):
                     self._process.send_signal(signal.SIGSTOP)
                 logger.info(f"Task {self.task_id} paused")
             except (OSError, ProcessLookupError) as e:
@@ -66,7 +66,7 @@ class PauseController:
         self._paused.set()
         if self._process and self._process.poll() is None:
             try:
-                if hasattr(signal, 'SIGCONT'):
+                if hasattr(signal, "SIGCONT"):
                     self._process.send_signal(signal.SIGCONT)
                 logger.info(f"Task {self.task_id} resumed")
             except (OSError, ProcessLookupError) as e:

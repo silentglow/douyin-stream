@@ -47,8 +47,6 @@ def test_cleanup_stale_tasks_marks_long_running_failed(monkeypatch) -> None:
     monkeypatch.setenv("MEDIA_TOOLS_TASK_STALE_MINUTES", "20")
     cleanup_stale_tasks(conn)
 
-    row = conn.execute(
-        "SELECT status, error_msg FROM task_queue WHERE task_id = ?", ("t-stale",)
-    ).fetchone()
+    row = conn.execute("SELECT status, error_msg FROM task_queue WHERE task_id = ?", ("t-stale",)).fetchone()
     assert row["status"] == "FAILED"
     assert row["error_msg"]

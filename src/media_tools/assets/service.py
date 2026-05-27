@@ -1,14 +1,15 @@
 from __future__ import annotations
+
 """assets 域服务：media_assets 表的统一访问与状态更新。"""
 
 import re
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-from media_tools.store.db import get_db_connection, update_fts_for_asset
 from media_tools.logger import get_logger
+from media_tools.store.db import get_db_connection, update_fts_for_asset
 
 logger = get_logger(__name__)
 
@@ -20,7 +21,7 @@ def _escape_like(s: str) -> str:
     return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _resolve_asset_id_from_video_path(video_path: Path) -> Optional[str]:
+def _resolve_asset_id_from_video_path(video_path: Path) -> str | None:
     """根据视频文件名启发式定位 asset_id。"""
     matches = _AWEME_ID_RE.findall(video_path.name)
     return matches[0] if matches else None
@@ -30,7 +31,7 @@ class MediaAssetService:
     """media_assets 表的写入与发现层"""
 
     @staticmethod
-    def find_asset_id_for_video_path(video_path: Path) -> Optional[str]:
+    def find_asset_id_for_video_path(video_path: Path) -> str | None:
         """三段式 fallback 找出视频对应的 asset_id。"""
         guessed = _resolve_asset_id_from_video_path(video_path)
         if guessed:
@@ -62,7 +63,7 @@ class MediaAssetService:
         source_platform: str,
         source_url: str = "",
         folder_path: str = "",
-        duration: Optional[int] = None,
+        duration: int | None = None,
         video_status: str = "downloaded",
     ) -> None:
         """新视频下载完成后入库。"""
@@ -79,10 +80,17 @@ class MediaAssetService:
                     VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
                     """,
                     (
-                        asset_id, creator_uid, source_url, title, duration,
-                        video_path, video_status,
-                        source_platform, folder_path,
-                        now, now,
+                        asset_id,
+                        creator_uid,
+                        source_url,
+                        title,
+                        duration,
+                        video_path,
+                        video_status,
+                        source_platform,
+                        folder_path,
+                        now,
+                        now,
                     ),
                 )
                 conn.execute(
@@ -108,6 +116,7 @@ class MediaAssetService:
         Returns: 受影响的行数。
         """
         from media_tools.core.config import get_download_path
+
         try:
             downloads_root = get_download_path()
             try:
@@ -139,7 +148,7 @@ class MediaAssetService:
             return 0
 
     @staticmethod
-    def mark_transcribe_running(asset_id: str, task_id: Optional[str] = None) -> None:
+    def mark_transcribe_running(asset_id: str, task_id: str | None = None) -> None:
         if not asset_id:
             return
         try:
@@ -161,7 +170,7 @@ class MediaAssetService:
     def mark_transcribe_completed(
         *,
         video_path: Path,
-        transcript_path: Optional[Path],
+        transcript_path: Path | None,
         output_dir: Path,
         preview: str = "",
         full_text: str = "",
@@ -209,8 +218,13 @@ class MediaAssetService:
                             LIMIT 1
                         )
                         """,
-                        (transcript_name, preview, full_text,
-                         f"%{_escape_like(video_path.name)}%", f"%{_escape_like(video_path.stem)}%"),
+                        (
+                            transcript_name,
+                            preview,
+                            full_text,
+                            f"%{_escape_like(video_path.name)}%",
+                            f"%{_escape_like(video_path.stem)}%",
+                        ),
                     )
                     if cur.rowcount == 0:
                         logger.warning(
@@ -236,7 +250,7 @@ class MediaAssetService:
         video_path: Path,
         error_type: str,
         error_message: str,
-        task_id: Optional[str] = None,
+        task_id: str | None = None,
     ) -> None:
         """转写失败：写入错误类型/信息，retry_count +1，failed_at 戳为当前时间。"""
         err_text = (error_message or "")[:500]
@@ -278,23 +292,25 @@ class MediaAssetService:
                             LIMIT 1
                         )
                         """,
-                        (err_text, error_type, task_id,
-                         f"%{_escape_like(video_path.name)}%", f"%{_escape_like(video_path.stem)}%"),
+                        (
+                            err_text,
+                            error_type,
+                            task_id,
+                            f"%{_escape_like(video_path.name)}%",
+                            f"%{_escape_like(video_path.stem)}%",
+                        ),
                     )
                     if cur.rowcount == 0:
-                        logger.warning(
-                            f"mark_transcribe_failed: 无法定位 asset，跳过更新 "
-                            f"(video_path={video_path})"
-                        )
+                        logger.warning(f"mark_transcribe_failed: 无法定位 asset，跳过更新 (video_path={video_path})")
         except sqlite3.Error as e:
             logger.warning(f"mark_transcribe_failed({video_path}) 失败: {e}")
 
     @staticmethod
     def find_pending_to_transcribe(
         *,
-        creator_uid: Optional[str] = None,
-        platform: Optional[str] = None,
-        error_types: Optional[list[str]] = None,
+        creator_uid: str | None = None,
+        platform: str | None = None,
+        error_types: list[str] | None = None,
         only_failed: bool = False,
         limit: int = 1000,
     ) -> list[dict[str, Any]]:
@@ -323,7 +339,7 @@ class MediaAssetService:
                    transcript_retry_count, transcript_failed_at,
                    source_platform, folder_path, last_task_id
             FROM media_assets
-            WHERE {' AND '.join(clauses)}
+            WHERE {" AND ".join(clauses)}
             ORDER BY transcript_failed_at DESC, update_time DESC
             LIMIT ?
         """
@@ -345,7 +361,7 @@ class AssetUpdateService:
     @staticmethod
     def mark_transcribe_completed(
         video_path: Path,
-        transcript_path: Optional[Path],
+        transcript_path: Path | None,
         output_dir: Path,
     ) -> None:
         try:

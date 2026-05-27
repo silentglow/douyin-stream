@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import sqlite3
 from datetime import datetime
-from typing import Optional
 
-from media_tools.store.db import get_db_connection
-from media_tools.douyin.core.cancel_registry import clear_download_progress, get_download_progress
-from media_tools.platform.douyin import download_by_uid
-from media_tools.douyin.core.following_mgr import list_users
-from media_tools.scheduler.base import BaseWorker, register_worker
 from media_tools.creators.sync import _build_interval_from_last_fetch
+from media_tools.douyin.core.cancel_registry import clear_download_progress, get_download_progress
+from media_tools.douyin.core.following_mgr import list_users
+from media_tools.platform.douyin import download_by_uid
+from media_tools.scheduler.base import BaseWorker, register_worker
+from media_tools.store.db import get_db_connection
 
 
 @register_worker("full_sync")
@@ -24,8 +24,8 @@ class FullSyncWorker(BaseWorker):
         task_id: str,
         *,
         mode: str = "incremental",
-        batch_size: Optional[int] = None,
-        original_params: Optional[dict] = None,
+        batch_size: int | None = None,
+        original_params: dict | None = None,
     ) -> None:
         users = list_users()
         if not users:
@@ -65,17 +65,13 @@ class FullSyncWorker(BaseWorker):
                         existing_source,
                     )
                 )
-                poll_task = asyncio.create_task(
-                    self._poll_creator_download(task_id, index, total, name, batch_size)
-                )
+                poll_task = asyncio.create_task(self._poll_creator_download(task_id, index, total, name, batch_size))
                 try:
                     result = await dl_task
                 finally:
                     poll_task.cancel()
-                    try:
+                    with contextlib.suppress(asyncio.CancelledError):
                         await poll_task
-                    except asyncio.CancelledError:
-                        pass
                     clear_download_progress(task_id)
 
                 if isinstance(result, dict) and result.get("success"):
@@ -132,12 +128,11 @@ class FullSyncWorker(BaseWorker):
                         (uid,),
                     )
                     row = cursor.fetchone()
-                    last_fetch = (
-                        row["last_fetch_time"] if isinstance(row, dict) else row[0]
-                    ) if row else None
+                    last_fetch = (row["last_fetch_time"] if isinstance(row, dict) else row[0]) if row else None
                 return _build_interval_from_last_fetch(last_fetch)
             except (sqlite3.Error, OSError):
                 return None
+
         return await asyncio.to_thread(_fetch)
 
     async def _update_last_fetch_time(self, uid: str) -> None:
@@ -150,6 +145,7 @@ class FullSyncWorker(BaseWorker):
                     )
             except sqlite3.Error:
                 pass
+
         await asyncio.to_thread(_update)
 
     async def _poll_creator_download(
@@ -158,7 +154,7 @@ class FullSyncWorker(BaseWorker):
         index: int,
         total: int,
         name: str,
-        batch_size: Optional[int],
+        batch_size: int | None,
     ) -> None:
         while True:
             await asyncio.sleep(5)
@@ -167,14 +163,11 @@ class FullSyncWorker(BaseWorker):
                 continue
             d = info.get("download_progress", {}).get("downloaded", 0)
             s = info.get("download_progress", {}).get("skipped", 0)
-            details = info.get("details", [])
-            errors = info.get("errors", [])
-            progress = (index - 1) / total + 0.5 / total * min(
-                d / max(batch_size or 50, 1), 1.0
-            )
+            info.get("details", [])
+            info.get("errors", [])
+            progress = (index - 1) / total + 0.5 / total * min(d / max(batch_size or 50, 1), 1.0)
             await self.report_progress(
                 progress,
                 f"{name}：已下载 {d} 个，跳过 {s} 个",
                 pipeline_progress={"download": {"done": d, "skipped": s}},
             )
-

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """统一配置系统 — AppConfig 是运行时配置的唯一事实源。
 
 配置项归属：
@@ -8,7 +9,7 @@ from __future__ import annotations
 
 使用方式：
     from media_tools.core.config import get_app_config
-    
+
     config = get_app_config()
     config.concurrency      # 并发数
     config.download_path    # 下载路径
@@ -18,8 +19,9 @@ from __future__ import annotations
 import logging
 import os
 import sqlite3
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -50,35 +52,33 @@ _settings_cache_ttl: int = 5  # 5 秒：配置变更后最坏需要 5s 被新读
 # API 路径走 _set_system_setting 会主动 invalidate 缓存，不受影响。
 
 
-def _get_system_setting(key: str) -> Optional[str]:
+def _get_system_setting(key: str) -> str | None:
     """从 SystemSettings 表读取单个配置值（带缓存）。"""
     now = time.time()
-    
+
     # 先检查缓存
     if key in _settings_cache:
         value, expire_time = _settings_cache[key]
         if now < expire_time:
             return value
-    
+
     # 缓存未命中或已过期，从数据库读取
     try:
         with get_db_connection() as conn:
-            row = conn.execute(
-                "SELECT value FROM SystemSettings WHERE key = ?", (key,)
-            ).fetchone()
+            row = conn.execute("SELECT value FROM SystemSettings WHERE key = ?", (key,)).fetchone()
             value = row[0] if row else None
-            
+
             # 更新缓存
             if value is not None:
                 _settings_cache[key] = (value, now + _settings_cache_ttl)
-            
+
             return value
     except (sqlite3.Error, OSError) as e:
         logger.warning(f"读取系统设置失败: {e}")
         return None
 
 
-def _invalidate_settings_cache(key: Optional[str] = None) -> None:
+def _invalidate_settings_cache(key: str | None = None) -> None:
     """清除设置缓存。"""
     if key is None:
         _settings_cache.clear()
@@ -95,14 +95,14 @@ def _set_system_setting(key: str, value: str) -> None:
                 (key, value),
             )
             conn.commit()
-        
+
         # 清除相关缓存，确保下次读取时获取最新值
         _invalidate_settings_cache(key)
     except (sqlite3.Error, OSError) as e:
         raise ConfigError(f"无法保存配置 {key}: {e}") from e
 
 
-def get_runtime_setting(key: str, default: Optional[str] = None) -> str:
+def get_runtime_setting(key: str, default: str | None = None) -> str:
     """读取运行时配置。优先从 SystemSettings 读取，fallback 到默认值。"""
     value = _get_system_setting(key)
     if value is not None:
@@ -131,16 +131,13 @@ def get_runtime_setting_int(key: str, default: int = 0) -> int:
 
 def set_runtime_setting(key: str, value: str | bool | int) -> None:
     """设置运行时配置，写入 SystemSettings 表。"""
-    if isinstance(value, bool):
-        str_value = "true" if value else "false"
-    else:
-        str_value = str(value)
+    str_value = ("true" if value else "false") if isinstance(value, bool) else str(value)
     _set_system_setting(key, str_value)
 
 
 # --- Config.yaml access (read-only for runtime) ---
 
-_CONFIG_MGR: Optional[Any] = None
+_CONFIG_MGR: Any | None = None
 
 
 def _get_config_mgr() -> Any:
@@ -191,6 +188,7 @@ def get_db_path() -> Path:
 
 # --- Environment variable helpers ---
 
+
 def _get_env_bool(key: str, default: bool = False) -> bool:
     """从环境变量读取布尔值。"""
     value = os.environ.get(key, "").strip().lower()
@@ -217,9 +215,10 @@ def _get_env_str(key: str, default: str = "") -> str:
 
 # --- Unified AppConfig ---
 
+
 class AppConfig:
     """统一应用配置接口 — 所有配置项的唯一入口。
-    
+
     配置来源优先级（从高到低）：
     1. 环境变量
     2. SystemSettings 数据库表
@@ -228,7 +227,7 @@ class AppConfig:
     """
 
     # === Runtime settings (SystemSettings) ===
-    
+
     @property
     def concurrency(self) -> int:
         """并发数（同时处理的任务数量）。支持 PIPELINE_CONCURRENCY 环境变量覆盖。"""
@@ -253,7 +252,7 @@ class AppConfig:
         return get_runtime_setting("api_key", "")
 
     # === Static settings (config.yaml) ===
-    
+
     @property
     def cookie(self) -> str:
         """抖音 Cookie（敏感信息）"""
@@ -285,7 +284,7 @@ class AppConfig:
         return get_db_path()
 
     # === Environment settings ===
-    
+
     @property
     def debug_mode(self) -> bool:
         """调试模式"""
@@ -385,14 +384,14 @@ class AppConfig:
         return self.pipeline_account_id
 
     # === Derived properties ===
-    
+
     @property
     def output_path(self) -> Path:
         """Pipeline 输出路径（解析后的绝对路径）"""
         return Path(self.pipeline_output_dir).resolve()
 
     # === Configuration validation ===
-    
+
     def validate(self) -> list[str]:
         """验证所有配置项，返回错误列表"""
         errors = []
@@ -421,7 +420,7 @@ class AppConfig:
         return errors
 
     # === Configuration description ===
-    
+
     def describe(self) -> dict[str, Any]:
         """返回配置项描述字典（不包含敏感信息）"""
         return {
@@ -463,7 +462,7 @@ _config_listeners: list[Callable[[str, Any, Any], None]] = []
 
 def add_config_listener(listener: Callable[[str, Any, Any], None]) -> None:
     """添加配置变更监听器。
-    
+
     Args:
         listener: 回调函数，接收 (key, old_value, new_value) 参数
     """

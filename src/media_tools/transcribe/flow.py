@@ -5,19 +5,22 @@ import json
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 from media_tools.logger import get_logger
-from .errors import TranscribeErrorClassifier, TranscribeError
+
+from .errors import TranscribeError, TranscribeErrorClassifier
+
 logger = get_logger(__name__)
 
 from media_tools.accounts.auth_state import resolve_qwen_cookie_string
-from .config import load_config
-from .export_utils import FlowDebugArtifacts, _get_video_title_from_db, build_export_output_path, save_debug_artifacts
-from media_tools.common.http import RequestsApiContext, api_json, download_file
-from .upload.oss_upload import upload_file_to_oss
 from media_tools.accounts.quota import get_quota_snapshot, record_quota_consumption
+from media_tools.common.http import RequestsApiContext, api_json, download_file
 from media_tools.common.runtime import ExportConfig, ensure_dir, guess_mime_type, now_stamp
+
+from .config import load_config
+from .export_utils import _get_video_title_from_db, build_export_output_path, save_debug_artifacts
+from .upload.oss_upload import upload_file_to_oss
 
 
 @dataclass(frozen=True)
@@ -31,13 +34,13 @@ class FlowResult:
 @dataclass(frozen=True)
 class ResumeState:
     stage: str = "queued"
-    record_id: Optional[str] = None
-    gen_record_id: Optional[str] = None
-    batch_id: Optional[str] = None
-    export_url: Optional[str] = None
+    record_id: str | None = None
+    gen_record_id: str | None = None
+    batch_id: str | None = None
+    export_url: str | None = None
 
 
-def build_upload_tag(file_path: Union[str, Path], mime_type: str) -> dict[str, Any]:
+def build_upload_tag(file_path: str | Path, mime_type: str) -> dict[str, Any]:
     parsed = Path(file_path)
     is_video = 1 if mime_type.startswith("video/") else 0
     return {
@@ -91,16 +94,21 @@ async def poll_until_done(context: Any, gen_record_id: str, timeout_seconds: flo
                         if status == 30:
                             return record
                         if status in (40, 41):
-                            fail_reason = record.get("failReason") or record.get("errorMessage") or f"recordStatus={status}"
+                            fail_reason = (
+                                record.get("failReason") or record.get("errorMessage") or f"recordStatus={status}"
+                            )
                             error_info = TranscribeErrorClassifier.classify(fail_reason)
-                            logger.error(f"转写错误 [{error_info.error_code}]: {error_info.message} - {error_info.suggestion}")
+                            logger.error(
+                                f"转写错误 [{error_info.error_code}]: {error_info.message} - {error_info.suggestion}"
+                            )
                             raise TranscribeError(error_info, detail=fail_reason)
             import random
+
             await asyncio.sleep(5 + random.uniform(0, 2))
 
     try:
         return await asyncio.wait_for(_poll_loop(), timeout=timeout_seconds)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         error_info = TranscribeErrorClassifier.classify("timeout")
         raise TranscribeError(error_info, detail=f"转写轮询超时 ({timeout_seconds}s)")
 
@@ -199,17 +207,17 @@ def record_flow_quota_usage(
 
 async def run_real_flow(
     *,
-    file_path: Union[str, Path],
-    auth_state_path: Union[str, Path],
-    download_dir: Union[str, Path],
+    file_path: str | Path,
+    auth_state_path: str | Path,
+    download_dir: str | Path,
     export_config: ExportConfig,
     should_delete: bool = False,
     account_id: str = "",
     cookie_string: str = "",
     account_upload_lock: asyncio.Lock | None = None,
-    title: Optional[str] = None,
-    shared_api: Optional[Any] = None,
-    run_id: Optional[str] = None,
+    title: str | None = None,
+    shared_api: Any | None = None,
+    run_id: str | None = None,
     resume_state: ResumeState | None = None,
 ) -> FlowResult:
     input_path = Path(file_path).resolve()
@@ -223,16 +231,17 @@ async def run_real_flow(
     )
     log = _make_flow_logger(input_path.name)
 
-    def _checkpoint(stage: str, extra: Optional[dict[str, Any]] = None) -> None:
+    def _checkpoint(stage: str, extra: dict[str, Any] | None = None) -> None:
         if not run_id:
             return
         try:
             from media_tools.transcribe.repository import TranscribeRunRepository
+
             TranscribeRunRepository.update_stage(run_id, stage, extra)
         except (sqlite3.Error, OSError) as exc:
             logger.warning(f"transcribe_runs 打卡失败 (run_id={run_id}, stage={stage}): {exc}")
 
-    async def _safe_cleanup_old_record(api: Any, old_record_id: Optional[str]) -> None:
+    async def _safe_cleanup_old_record(api: Any, old_record_id: str | None) -> None:
         """resume 失败回退时清理云端旧记录，避免后续 _do_flow 覆盖 gen_record_id 后变成孤儿。
         清理失败只记录日志，不让主流程崩溃。"""
         if not old_record_id:
@@ -311,10 +320,13 @@ async def run_real_flow(
             )
             log("upload heartbeat sent")
 
-            _checkpoint("uploaded", {
-                "record_id": token["recordId"],
-                "gen_record_id": token["genRecordId"],
-            })
+            _checkpoint(
+                "uploaded",
+                {
+                    "record_id": token["recordId"],
+                    "gen_record_id": token["genRecordId"],
+                },
+            )
 
             start_json = await api_json(
                 api,
@@ -443,8 +455,7 @@ async def run_real_flow(
         # record_id 缺失时无法回退清理，直接走完整 flow 避免孤儿记录
         if not resume_state.record_id:
             logger.warning(
-                f"resume[export_url] 跳过：record_id 缺失，无法回退清理，"
-                f"gen_record_id={resume_state.gen_record_id}"
+                f"resume[export_url] 跳过：record_id 缺失，无法回退清理，gen_record_id={resume_state.gen_record_id}"
             )
             return None
         try:
@@ -478,8 +489,9 @@ async def run_real_flow(
             if run_id:
                 try:
                     from media_tools.transcribe.repository import TranscribeRunRepository
+
                     TranscribeRunRepository.update_stage(run_id, "queued")
-                except Exception:  # noqa: defensive – stage 重置失败不影响主流程
+                except Exception:  # noqa: BLE001
                     logger.warning("重置 stage 失败，但不影响 fallback 流程", exc_info=True)
             return None
 
@@ -542,8 +554,9 @@ async def run_real_flow(
             if run_id:
                 try:
                     from media_tools.transcribe.repository import TranscribeRunRepository
+
                     TranscribeRunRepository.update_stage(run_id, "queued")
-                except Exception:  # noqa: defensive – stage 重置失败不影响主流程
+                except Exception:  # noqa: BLE001
                     logger.warning("重置 stage 失败，但不影响 fallback 流程", exc_info=True)
             return None
 

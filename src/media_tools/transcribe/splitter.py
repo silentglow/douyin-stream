@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """大文件预切分：千问平台限制单文件 > 6 GB，超出时用 ffmpeg `-c copy`
 按时长均分成多个 part，每个 part 作为独立转写任务（不合并结果）。"""
 
@@ -53,12 +54,19 @@ def _probe_duration(path: Path) -> float:
     try:
         result = subprocess.run(
             [
-                "ffprobe", "-v", "error",
-                "-show_entries", "format=duration",
-                "-of", "default=nw=1:nk=1",
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=nw=1:nk=1",
                 str(path),
             ],
-            capture_output=True, text=True, timeout=_FFPROBE_TIMEOUT, check=True,
+            capture_output=True,
+            text=True,
+            timeout=_FFPROBE_TIMEOUT,
+            check=True,
         )
     except FileNotFoundError as e:
         raise SplitError("ffprobe 未安装") from e
@@ -78,19 +86,29 @@ def _probe_duration(path: Path) -> float:
 
 def _run_ffmpeg_segment(source: Path, start: float, duration: float, output: Path) -> None:
     cmd = [
-        "ffmpeg", "-y",
-        "-ss", f"{start:.3f}",
-        "-i", str(source),
-        "-t", f"{duration:.3f}",
-        "-c", "copy",
-        "-avoid_negative_ts", "make_zero",
-        "-movflags", "+faststart",
+        "ffmpeg",
+        "-y",
+        "-ss",
+        f"{start:.3f}",
+        "-i",
+        str(source),
+        "-t",
+        f"{duration:.3f}",
+        "-c",
+        "copy",
+        "-avoid_negative_ts",
+        "make_zero",
+        "-movflags",
+        "+faststart",
         str(output),
     ]
     try:
         subprocess.run(
-            cmd, capture_output=True, text=True,
-            timeout=_FFMPEG_TIMEOUT_PER_PART, check=True,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=_FFMPEG_TIMEOUT_PER_PART,
+            check=True,
         )
     except FileNotFoundError as e:
         raise SplitError("ffmpeg 未安装") from e

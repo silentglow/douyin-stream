@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """转写模块的统一错误处理。
 
 合并自历史的 3 个文件（REFACTOR 2026-05 任务 2）：
@@ -17,8 +18,6 @@ HTTP 错误响应）——已在 core.exceptions 中重命名为 TranscribeApiEr
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
-
 
 # ═══════════════════════════════════════════════════════════════
 # Section A — 异常类层级（用户面 / 配置面 / 鉴权面错误）
@@ -75,7 +74,10 @@ def classify_error(error: Exception) -> ErrorType:
     if "token-get" in error_msg or "get token" in error_msg:
         return ErrorType.NETWORK
 
-    if any(kw in error_msg for kw in ["auth", "unauthorized", "401", "403", "credential", "permission denied", "账号权限不足", "权限不足"]):
+    if any(
+        kw in error_msg
+        for kw in ["auth", "unauthorized", "401", "403", "credential", "permission denied", "账号权限不足", "权限不足"]
+    ):
         return ErrorType.AUTH
     if "token" in error_msg and any(kw in error_msg for kw in ["expired", "invalid", "unauthorized", "401", "403"]):
         return ErrorType.AUTH
@@ -88,10 +90,16 @@ def classify_error(error: Exception) -> ErrorType:
     if any(kw in error_msg for kw in ["timeout", "timed out", "deadline"]):
         return ErrorType.TIMEOUT
 
-    if any(kw in error_msg for kw in [
-        "service_unavailable", "service unavailable",
-        "服务暂时不可用", "recordstatus=40", "recordstatus =40",
-    ]):
+    if any(
+        kw in error_msg
+        for kw in [
+            "service_unavailable",
+            "service unavailable",
+            "服务暂时不可用",
+            "recordstatus=40",
+            "recordstatus =40",
+        ]
+    ):
         return ErrorType.SERVICE_UNAVAILABLE
 
     if any(kw in error_msg for kw in ["quota", "limit", "rate limit", "429", "exceeded", "too many"]):
@@ -121,7 +129,7 @@ class ErrorInfo:
     message: str
     suggestion: str
     retryable: bool
-    error_code: Optional[str] = None
+    error_code: str | None = None
 
 
 class TranscribeError(RuntimeError):
@@ -142,55 +150,37 @@ class TranscribeErrorClassifier:
             message="转写失败：服务暂时不可用",
             suggestion="请稍后重试，或切换其他账号",
             retryable=True,
-            error_code="SERVICE_UNAVAILABLE"
+            error_code="SERVICE_UNAVAILABLE",
         ),
         "41": ErrorInfo(
             message="转写失败：视频内容无法识别",
             suggestion="请检查视频文件是否损坏或格式不支持",
             retryable=False,
-            error_code="UNSUPPORTED_FORMAT"
+            error_code="UNSUPPORTED_FORMAT",
         ),
         "network": ErrorInfo(
-            message="网络连接失败",
-            suggestion="请检查网络连接后重试",
-            retryable=True,
-            error_code="NETWORK_ERROR"
+            message="网络连接失败", suggestion="请检查网络连接后重试", retryable=True, error_code="NETWORK_ERROR"
         ),
         "timeout": ErrorInfo(
-            message="请求超时",
-            suggestion="网络不稳定，请稍后重试",
-            retryable=True,
-            error_code="TIMEOUT"
+            message="请求超时", suggestion="网络不稳定，请稍后重试", retryable=True, error_code="TIMEOUT"
         ),
         "auth": ErrorInfo(
-            message="账号权限不足",
-            suggestion="请更新 Cookie 或切换账号",
-            retryable=True,
-            error_code="AUTH_ERROR"
+            message="账号权限不足", suggestion="请更新 Cookie 或切换账号", retryable=True, error_code="AUTH_ERROR"
         ),
         "quota": ErrorInfo(
             message="API 配额不足",
             suggestion="账号额度已用完，请添加新账号",
             retryable=False,
-            error_code="QUOTA_EXCEEDED"
+            error_code="QUOTA_EXCEEDED",
         ),
         "rate_limit": ErrorInfo(
-            message="触发频率限制",
-            suggestion="请求太频繁，请稍后重试",
-            retryable=True,
-            error_code="RATE_LIMITED"
+            message="触发频率限制", suggestion="请求太频繁，请稍后重试", retryable=True, error_code="RATE_LIMITED"
         ),
         "file_not_found": ErrorInfo(
-            message="资源不存在",
-            suggestion="视频可能已被删除或链接失效",
-            retryable=False,
-            error_code="NOT_FOUND"
+            message="资源不存在", suggestion="视频可能已被删除或链接失效", retryable=False, error_code="NOT_FOUND"
         ),
         "disk_full": ErrorInfo(
-            message="磁盘空间不足",
-            suggestion="请清理磁盘空间后重试",
-            retryable=False,
-            error_code="DISK_FULL"
+            message="磁盘空间不足", suggestion="请清理磁盘空间后重试", retryable=False, error_code="DISK_FULL"
         ),
     }
 
@@ -221,5 +211,5 @@ class TranscribeErrorClassifier:
             message=f"发生未知错误: {error_message[:50]}",
             suggestion="请联系开发者",
             retryable=False,
-            error_code="UNKNOWN"
+            error_code="UNKNOWN",
         )

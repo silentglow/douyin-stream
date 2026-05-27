@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import shutil
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Literal
+from typing import Literal
 
 from media_tools.transcribe.media_extensions import MEDIA_EXTENSIONS
 
@@ -54,10 +55,7 @@ def _is_under_root(path: Path, root: Path) -> bool:
 
 
 def _is_under_any_root(path: Path, roots: Iterable[Path]) -> bool:
-    for root in roots:
-        if _is_under_root(path, root):
-            return True
-    return False
+    return any(_is_under_root(path, root) for root in roots)
 
 
 def cleanup_paths_allowlist(
@@ -126,4 +124,3 @@ def cleanup_task_cache_dir(cache_dir: Path) -> CleanupOutcome:
         failed_count=len(failed_paths),
         failed_paths=failed_paths,
     )
-

@@ -1,23 +1,21 @@
-from fastapi import APIRouter, Query, Path, HTTPException
-from fastapi.responses import StreamingResponse, FileResponse
+import io
+import logging
+import mimetypes
+import sqlite3
+import zipfile
+
+from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, field_validator
-from media_tools.common.paths import get_download_path, get_transcripts_path
-from media_tools.store.db import get_db_connection, resolve_safe_path, resolve_query_value
+
 from media_tools.assets.file_ops import (
-    delete_asset_files,
     _resolve_asset_video_file,
+    delete_asset_files,
 )
 from media_tools.assets.gc import cleanup_stale_assets
-from media_tools.assets.local import LOCAL_CREATOR_UID
 from media_tools.assets.repository import AssetRepository
-from typing import Optional
-import sqlite3
-import logging
-import io
-import zipfile
-import mimetypes
-import os
-from pathlib import Path as _Path
+from media_tools.common.paths import get_download_path, get_transcripts_path
+from media_tools.store.db import get_db_connection, resolve_query_value, resolve_safe_path
 
 router = APIRouter(prefix="/api/v1/assets", tags=["assets"], redirect_slashes=False)
 transcripts_router = APIRouter(prefix="/api/v1/transcripts", tags=["transcripts"], redirect_slashes=False)
@@ -26,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 @transcripts_router.get("")
 def list_transcripts(
-    status: Optional[str] = Query(default="all", description="all / unread / starred"),
+    status: str | None = Query(default="all", description="all / unread / starred"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ):
@@ -35,32 +33,32 @@ def list_transcripts(
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row
             base_sql = """
-                SELECT 
-                    a.asset_id, a.title, a.creator_uid, a.create_time, 
+                SELECT
+                    a.asset_id, a.title, a.creator_uid, a.create_time,
                     a.is_read, a.is_starred, a.transcript_status, a.transcript_path,
                     c.nickname as creator_name
                 FROM media_assets a
                 LEFT JOIN creators c ON a.creator_uid = c.uid
-                WHERE LOWER(a.transcript_status) = 'completed' 
+                WHERE LOWER(a.transcript_status) = 'completed'
                   AND a.transcript_path IS NOT NULL
                   AND a.transcript_path != ''
             """
             params = []
-            
+
             if status == "unread":
                 base_sql += " AND (a.is_read = 0 OR a.is_read IS NULL)"
             elif status == "starred":
                 base_sql += " AND a.is_starred = 1"
-            
+
             base_sql += " ORDER BY a.create_time DESC LIMIT ? OFFSET ?"
             params.extend([limit, offset])
-            
+
             rows = conn.execute(base_sql, params).fetchall()
 
             # 获取总条数用于分页
             count_base = """
                 SELECT COUNT(*) FROM media_assets a
-                WHERE LOWER(a.transcript_status) = 'completed' 
+                WHERE LOWER(a.transcript_status) = 'completed'
                   AND a.transcript_path IS NOT NULL
                   AND a.transcript_path != ''
             """
@@ -69,15 +67,10 @@ def list_transcripts(
                 count_base += " AND (a.is_read = 0 OR a.is_read IS NULL)"
             elif status == "starred":
                 count_base += " AND a.is_starred = 1"
-            
+
             total = conn.execute(count_base, count_params).fetchone()[0]
-            
-            return {
-                "items": [dict(r) for r in rows],
-                "total": total,
-                "limit": limit,
-                "offset": offset
-            }
+
+            return {"items": [dict(r) for r in rows], "total": total, "limit": limit, "offset": offset}
     except (sqlite3.Error, OSError, RuntimeError) as e:
         logger.exception("list_transcripts failed")
         raise HTTPException(status_code=500, detail=str(e))
@@ -85,14 +78,14 @@ def list_transcripts(
 
 @router.get("")
 def list_assets(
-    creator_uid: Optional[str] = Query(None),
-    transcript_status: Optional[str] = Query(
+    creator_uid: str | None = Query(None),
+    transcript_status: str | None = Query(
         default=None,
         description="按转写状态过滤：completed / pending / none / failed；支持逗号分隔多个",
         max_length=200,
     ),
-    limit: Optional[int] = Query(default=None, ge=1, le=500),
-    offset: Optional[int] = Query(default=None, ge=0),
+    limit: int | None = Query(default=None, ge=1, le=500),
+    offset: int | None = Query(default=None, ge=0),
     silent: bool = Query(default=False, description="返回空列表而非抛错（兼容旧版）"),
 ):
     """
@@ -154,16 +147,16 @@ def export_transcripts(asset_ids: list[str]):
     transcripts_dir = get_transcripts_path()
 
     buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         used_filenames: set[str] = set()
         rows = AssetRepository.find_by_ids_for_export(asset_ids)
         for row in rows:
-            transcript_file = resolve_safe_path(transcripts_dir, row['transcript_path'])
+            transcript_file = resolve_safe_path(transcripts_dir, row["transcript_path"])
             if transcript_file and transcript_file.exists():
                 suffix = transcript_file.suffix or ".md"
                 stem = f"{row['title'] or row['asset_id']}"
                 # 清理文件名
-                stem = ''.join(c for c in stem if c not in '<>:"/\\|?*').strip() or str(row['asset_id'])
+                stem = "".join(c for c in stem if c not in '<>:"/\\|?*').strip() or str(row["asset_id"])
                 filename = f"{stem}{suffix}"
                 if filename in used_filenames:
                     filename = f"{stem}-{row['asset_id']}{suffix}"
@@ -172,9 +165,7 @@ def export_transcripts(asset_ids: list[str]):
 
     buffer.seek(0)
     return StreamingResponse(
-        buffer,
-        media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=transcripts.zip"}
+        buffer, media_type="application/zip", headers={"Content-Disposition": "attachment; filename=transcripts.zip"}
     )
 
 
@@ -195,14 +186,15 @@ def get_transcript(asset_id: str = Path(..., min_length=1, max_length=128)):
         suffix = transcript_file.suffix.lower()
         if suffix == ".docx" or suffix == ".pdf":
             from media_tools.transcribe.preview import extract_transcript_text
+
             content = extract_transcript_text(transcript_file)
         else:
             content = transcript_file.read_text(encoding="utf-8", errors="replace")
-        
+
         return {
             "content": content,
             "format": "markdown" if suffix == ".md" else "text",
-            "file_path": str(transcript_file.relative_to(transcripts_dir)) if transcript_file else None
+            "file_path": str(transcript_file.relative_to(transcripts_dir)) if transcript_file else None,
         }
 
     except HTTPException:
@@ -229,7 +221,11 @@ def get_transcript_file(asset_id: str):
             media_type = "application/octet-stream"
 
         # PDF / 图片类浏览器可直接查看；其他格式触发下载
-        disposition = "inline" if media_type in ("application/pdf", "image/png", "image/jpeg", "image/webp", "text/plain", "text/markdown") else "attachment"
+        disposition = (
+            "inline"
+            if media_type in ("application/pdf", "image/png", "image/jpeg", "image/webp", "text/plain", "text/markdown")
+            else "attachment"
+        )
 
         return FileResponse(
             path=transcript_file,
@@ -264,12 +260,14 @@ def browse_asset_folder(asset_id: str):
         for entry in sorted(target_dir.iterdir(), key=lambda e: e.name):
             if entry.is_file():
                 stat = entry.stat()
-                files.append({
-                    "name": entry.name,
-                    "size": stat.st_size,
-                    "modified": stat.st_mtime,
-                    "suffix": entry.suffix.lower(),
-                })
+                files.append(
+                    {
+                        "name": entry.name,
+                        "size": stat.st_size,
+                        "modified": stat.st_mtime,
+                        "suffix": entry.suffix.lower(),
+                    }
+                )
 
         return {
             "path": str(target_dir.relative_to(transcripts_dir)),
@@ -294,7 +292,7 @@ def delete_asset(asset_id: str = Path(..., min_length=1, max_length=128)):
                     raise HTTPException(status_code=404, detail="Asset not found")
 
                 failed = delete_asset_files(
-                    row['creator_uid'], row['source_url'], row['video_path'], row['transcript_path']
+                    row["creator_uid"], row["source_url"], row["video_path"], row["transcript_path"]
                 )
                 if failed:
                     conn.rollback()
@@ -317,8 +315,8 @@ def delete_asset(asset_id: str = Path(..., min_length=1, max_length=128)):
 
 
 class AssetMarkRequest(BaseModel):
-    is_read: Optional[bool] = None
-    is_starred: Optional[bool] = None
+    is_read: bool | None = None
+    is_starred: bool | None = None
 
 
 @router.patch("/{asset_id}/mark")
@@ -327,9 +325,7 @@ def mark_asset(asset_id: str, req: AssetMarkRequest):
     if req.is_read is None and req.is_starred is None:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    rowcount = AssetRepository.mark_asset(
-        asset_id, is_read=req.is_read, is_starred=req.is_starred
-    )
+    rowcount = AssetRepository.mark_asset(asset_id, is_read=req.is_read, is_starred=req.is_starred)
     if rowcount == 0:
         raise HTTPException(status_code=404, detail="Asset not found")
     return {"status": "success"}
@@ -337,8 +333,8 @@ def mark_asset(asset_id: str, req: AssetMarkRequest):
 
 class BulkAssetMarkRequest(BaseModel):
     ids: list[str]
-    is_read: Optional[bool] = None
-    is_starred: Optional[bool] = None
+    is_read: bool | None = None
+    is_starred: bool | None = None
 
     @field_validator("ids")
     @classmethod
@@ -356,9 +352,7 @@ def bulk_mark_assets(req: BulkAssetMarkRequest):
     if req.is_read is None and req.is_starred is None:
         raise HTTPException(status_code=400, detail="至少指定 is_read 或 is_starred")
 
-    updated = AssetRepository.bulk_mark(
-        req.ids, is_read=req.is_read, is_starred=req.is_starred
-    )
+    updated = AssetRepository.bulk_mark(req.ids, is_read=req.is_read, is_starred=req.is_starred)
     return {"status": "success", "updated": updated}
 
 
@@ -400,8 +394,12 @@ def bulk_delete_assets(req: BulkAssetDeleteRequest):
     failed_deletions: list[str] = []
     for row in rows_to_clean:
         failed = delete_asset_files(
-            row["creator_uid"], row["source_url"], row["video_path"], row["transcript_path"],
-            download_dir=download_dir, transcripts_dir=transcripts_dir,
+            row["creator_uid"],
+            row["source_url"],
+            row["video_path"],
+            row["transcript_path"],
+            download_dir=download_dir,
+            transcripts_dir=transcripts_dir,
         )
         if failed:
             failed_deletions.extend(failed)

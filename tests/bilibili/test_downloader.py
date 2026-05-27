@@ -58,4 +58,3 @@ def test_download_up_adds_cookiefile_when_available(tmp_path: Path, monkeypatch)
     monkeypatch.setattr("media_tools.platform.bilibili.get_download_path", lambda: tmp_path)
 
     download_up_by_url("https://space.bilibili.com/123", max_counts=None, skip_existing=True)
-

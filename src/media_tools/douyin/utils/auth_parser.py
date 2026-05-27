@@ -1,9 +1,9 @@
 import json
 import re
-from pathlib import Path
-from typing import Any, Tuple, Optional
+from typing import Any
 
 import yaml
+
 from media_tools.logger import get_logger
 
 logger = get_logger(__name__)
@@ -21,15 +21,13 @@ class AuthParser:
         if not RULES_PATH.exists():
             return {}
         try:
-            with open(RULES_PATH, "r", encoding="utf-8") as f:
+            with open(RULES_PATH, encoding="utf-8") as f:
                 config = yaml.safe_load(f)
                 return config.get("rules", {})
         except (OSError, yaml.YAMLError):
             return {}
 
-    def parse_cookie(
-        self, raw_data: str, rule_name: str = "douyin"
-    ) -> Tuple[bool, str, dict[str, str]]:
+    def parse_cookie(self, raw_data: str, rule_name: str = "douyin") -> tuple[bool, str, dict[str, str]]:
         """解析 Cookie 字符串并验证"""
         rule = self.rules.get(rule_name, {})
         if not rule or rule.get("type") != "cookie":
@@ -65,9 +63,7 @@ class AuthParser:
                 return None
         return val
 
-    def parse_json(
-        self, raw_data: str, rule_name: str = "custom_json"
-    ) -> Tuple[bool, str, dict[str, str]]:
+    def parse_json(self, raw_data: str, rule_name: str = "custom_json") -> tuple[bool, str, dict[str, str]]:
         """解析 JSON 并提取映射字段"""
         rule = self.rules.get(rule_name, {})
         if not rule or rule.get("type") != "json":
@@ -90,9 +86,7 @@ class AuthParser:
 
         return True, "解析成功", result
 
-    def parse_text(
-        self, raw_data: str, rule_name: str = "custom_text"
-    ) -> Tuple[bool, str, dict[str, str]]:
+    def parse_text(self, raw_data: str, rule_name: str = "custom_text") -> tuple[bool, str, dict[str, str]]:
         """解析纯文本并提取正则字段"""
         rule = self.rules.get(rule_name, {})
         if not rule or rule.get("type") != "text":
@@ -110,9 +104,7 @@ class AuthParser:
 
         return True, "解析成功", result
 
-    def validate_data(
-        self, raw_data: str, data_type: str = "cookie", rule_name: Optional[str] = None
-    ) -> Tuple[bool, str]:
+    def validate_data(self, raw_data: str, data_type: str = "cookie", rule_name: str | None = None) -> tuple[bool, str]:
         """统一入口：验证与解析"""
         if data_type == "cookie":
             return self.parse_cookie(raw_data, rule_name or "douyin")
@@ -127,7 +119,5 @@ class AuthParser:
 # 测试用例
 if __name__ == "__main__":
     parser = AuthParser()
-    success, msg, data = parser.validate_data(
-        "sessionid=12345; passport_csrf_token=abc", "cookie", "douyin"
-    )
+    success, msg, data = parser.validate_data("sessionid=12345; passport_csrf_token=abc", "cookie", "douyin")
     logger.info(f"Cookie 解析: {success}, {msg}, {data}")

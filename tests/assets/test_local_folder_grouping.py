@@ -27,7 +27,6 @@ def test_local_transcribe_request_accepts_directory_root() -> None:
 
 
 def test_register_local_assets_writes_folder_path(tmp_path, monkeypatch) -> None:
-    from media_tools.api.routers import tasks as tasks_router
 
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
@@ -76,6 +75,7 @@ def test_register_local_assets_writes_folder_path(tmp_path, monkeypatch) -> None
     monkeypatch.setattr("media_tools.assets.local.get_db_connection", lambda: conn)
 
     from media_tools.assets.local import _register_local_assets
+
     _register_local_assets([str(f)], delete_after=False, directory_root=str(root))
 
     row = conn.execute("SELECT folder_path FROM media_assets").fetchone()
@@ -156,7 +156,7 @@ def test_get_transcript_deletes_db_row_when_file_missing(tmp_path, monkeypatch) 
 
     try:
         assets_router.get_transcript("a1")
-        assert False
+        raise AssertionError()
     except Exception as e:
         assert getattr(e, "status_code", None) == 404
 

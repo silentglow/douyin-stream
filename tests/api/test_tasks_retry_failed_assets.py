@@ -3,8 +3,10 @@
 覆盖：基本派发、creator 过滤、error_type 过滤、disk 缺失文件 -> 409、
 asset_id 被 mark_transcribe_running 写回。
 """
+
 from __future__ import annotations
 
+import contextlib
 import sqlite3
 from pathlib import Path
 from unittest.mock import patch
@@ -15,10 +17,8 @@ from media_tools.api.app import app
 
 
 def _skip_background_task(_task_id, coro):
-    try:
+    with contextlib.suppress(Exception):
         coro.close()
-    except Exception:
-        pass
     return None
 
 
@@ -86,20 +86,22 @@ def test_retry_failed_assets_dispatches_for_existing_files(tmp_path: Path) -> No
     fp_ok = tmp_path / "ok.mp4"
     fp_ok.write_bytes(b"x")
 
-    conn = _build_db_with_failed_assets([
-        ("ok",      "u1", "failed", "ok.mp4",      "auth"),
-        ("missing", "u1", "failed", "missing.mp4", "auth"),
-    ])
+    conn = _build_db_with_failed_assets(
+        [
+            ("ok", "u1", "failed", "ok.mp4", "auth"),
+            ("missing", "u1", "failed", "missing.mp4", "auth"),
+        ]
+    )
 
-    with patch.object(svc, "get_db_connection", return_value=conn), patch(
-        "media_tools.scheduler.repository.get_db_connection", return_value=conn
-    ), patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
-        "media_tools.scheduler.dispatcher.notify_task_update"
-    ), patch.object(tasks_router, "get_download_path", return_value=tmp_path), patch(
-        "media_tools.scheduler.dispatcher._register_background_task", side_effect=_skip_background_task
-    ), patch(
-        "media_tools.scheduler.dispatcher._register_local_assets"
-    ) as register_local_assets:
+    with (
+        patch.object(svc, "get_db_connection", return_value=conn),
+        patch("media_tools.scheduler.repository.get_db_connection", return_value=conn),
+        patch.object(tasks_router, "get_db_connection", return_value=conn),
+        patch("media_tools.scheduler.dispatcher.notify_task_update"),
+        patch.object(tasks_router, "get_download_path", return_value=tmp_path),
+        patch("media_tools.scheduler.dispatcher._register_background_task", side_effect=_skip_background_task),
+        patch("media_tools.scheduler.dispatcher._register_local_assets") as register_local_assets,
+    ):
         client = TestClient(app)
         resp = client.post("/api/v1/tasks/transcribe/retry-failed-assets", json={})
 
@@ -117,7 +119,9 @@ def test_retry_failed_assets_dispatches_for_existing_files(tmp_path: Path) -> No
     assert row["transcript_status"] == "pending"
 
     # missing 资产保持 failed 不变，last_task_id 不被覆盖
-    row_missing = conn.execute("SELECT last_task_id, transcript_status FROM media_assets WHERE asset_id='missing'").fetchone()
+    row_missing = conn.execute(
+        "SELECT last_task_id, transcript_status FROM media_assets WHERE asset_id='missing'"
+    ).fetchone()
     assert row_missing["transcript_status"] == "failed"
     assert row_missing["last_task_id"] is None
 
@@ -129,20 +133,22 @@ def test_retry_failed_assets_filters_by_creator_and_error_type(tmp_path: Path) -
     for name in ("a.mp4", "b.mp4", "c.mp4"):
         (tmp_path / name).write_bytes(b"x")
 
-    conn = _build_db_with_failed_assets([
-        ("a", "u1", "failed", "a.mp4", "auth"),
-        ("b", "u1", "failed", "b.mp4", "quota"),
-        ("c", "u2", "failed", "c.mp4", "auth"),
-    ])
+    conn = _build_db_with_failed_assets(
+        [
+            ("a", "u1", "failed", "a.mp4", "auth"),
+            ("b", "u1", "failed", "b.mp4", "quota"),
+            ("c", "u2", "failed", "c.mp4", "auth"),
+        ]
+    )
 
-    with patch.object(svc, "get_db_connection", return_value=conn), patch(
-        "media_tools.scheduler.repository.get_db_connection", return_value=conn
-    ), patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
-        "media_tools.scheduler.dispatcher.notify_task_update"
-    ), patch.object(tasks_router, "get_download_path", return_value=tmp_path), patch(
-        "media_tools.scheduler.dispatcher._register_background_task", side_effect=_skip_background_task
-    ), patch(
-        "media_tools.scheduler.dispatcher._register_local_assets"
+    with (
+        patch.object(svc, "get_db_connection", return_value=conn),
+        patch("media_tools.scheduler.repository.get_db_connection", return_value=conn),
+        patch.object(tasks_router, "get_db_connection", return_value=conn),
+        patch("media_tools.scheduler.dispatcher.notify_task_update"),
+        patch.object(tasks_router, "get_download_path", return_value=tmp_path),
+        patch("media_tools.scheduler.dispatcher._register_background_task", side_effect=_skip_background_task),
+        patch("media_tools.scheduler.dispatcher._register_local_assets"),
     ):
         client = TestClient(app)
         resp = client.post(
@@ -158,15 +164,19 @@ def test_retry_failed_assets_returns_409_when_no_files_on_disk(tmp_path: Path) -
     from media_tools.api.routers import tasks as tasks_router
     from media_tools.assets import service as svc
 
-    conn = _build_db_with_failed_assets([
-        ("missing", "u1", "failed", "missing.mp4", "auth"),
-    ])
+    conn = _build_db_with_failed_assets(
+        [
+            ("missing", "u1", "failed", "missing.mp4", "auth"),
+        ]
+    )
 
-    with patch.object(svc, "get_db_connection", return_value=conn), patch(
-        "media_tools.scheduler.repository.get_db_connection", return_value=conn
-    ), patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
-        "media_tools.scheduler.dispatcher.notify_task_update"
-    ), patch.object(tasks_router, "get_download_path", return_value=tmp_path):
+    with (
+        patch.object(svc, "get_db_connection", return_value=conn),
+        patch("media_tools.scheduler.repository.get_db_connection", return_value=conn),
+        patch.object(tasks_router, "get_db_connection", return_value=conn),
+        patch("media_tools.scheduler.dispatcher.notify_task_update"),
+        patch.object(tasks_router, "get_download_path", return_value=tmp_path),
+    ):
         client = TestClient(app)
         resp = client.post("/api/v1/tasks/transcribe/retry-failed-assets", json={})
 
@@ -182,11 +192,13 @@ def test_retry_failed_assets_409_when_no_failed_at_all(tmp_path: Path) -> None:
 
     conn = _build_db_with_failed_assets([])  # nothing failed
 
-    with patch.object(svc, "get_db_connection", return_value=conn), patch(
-        "media_tools.scheduler.repository.get_db_connection", return_value=conn
-    ), patch.object(tasks_router, "get_db_connection", return_value=conn), patch(
-        "media_tools.scheduler.dispatcher.notify_task_update"
-    ), patch.object(tasks_router, "get_download_path", return_value=tmp_path):
+    with (
+        patch.object(svc, "get_db_connection", return_value=conn),
+        patch("media_tools.scheduler.repository.get_db_connection", return_value=conn),
+        patch.object(tasks_router, "get_db_connection", return_value=conn),
+        patch("media_tools.scheduler.dispatcher.notify_task_update"),
+        patch.object(tasks_router, "get_download_path", return_value=tmp_path),
+    ):
         client = TestClient(app)
         resp = client.post("/api/v1/tasks/transcribe/retry-failed-assets", json={})
 

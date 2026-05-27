@@ -6,6 +6,7 @@ mock 掉所有 Qwen API 与 OSS 调用，重点验证：
 2. 失败路径：在某一步 raise 后，stage 停留在最近一次打卡，调用方可据此 mark_failed
 3. run_id=None 时不写表（向后兼容）
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -15,8 +16,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from media_tools.store.db import init_db
-from media_tools.transcribe.repository import TranscribeRunRepository
 from media_tools.transcribe.flow import run_real_flow
+from media_tools.transcribe.repository import TranscribeRunRepository
 from media_tools.transcribe.runtime import ExportConfig
 
 
@@ -56,15 +57,25 @@ def _patches_for_qwen(api_json_side_effect, *, raise_on_export: Exception | None
 
     upload_file_to_oss = AsyncMock(return_value=None)
     download_file = AsyncMock(return_value=None)
-    quota = AsyncMock(return_value=type("Q", (), {
-        "remaining_upload": 100, "total_upload": 100,
-        "remaining_equity": 100, "total_equity": 100,
-    })())
+    quota = AsyncMock(
+        return_value=type(
+            "Q",
+            (),
+            {
+                "remaining_upload": 100,
+                "total_upload": 100,
+                "remaining_equity": 100,
+                "total_equity": 100,
+            },
+        )()
+    )
 
     if raise_on_export is None:
+
         async def export_file(api, gen_record_id, export_config):
             return f"https://example.com/export/{gen_record_id}.docx"
     else:
+
         async def export_file(api, gen_record_id, export_config):
             raise raise_on_export
 
@@ -82,6 +93,7 @@ def _patches_for_qwen(api_json_side_effect, *, raise_on_export: Exception | None
 
 def _make_api_json_router(token_data: dict, batch_id: str = "batch-1"):
     """模拟 api_json：根据 URL 路径返回对应桩数据。"""
+
     async def router(api, url, body, headers=None):
         if "oss/token/get" in url:
             return {"data": token_data}
@@ -95,6 +107,7 @@ def _make_api_json_router(token_data: dict, batch_id: str = "batch-1"):
         if "record/get" in url or "record/list" in url or "batch/get" in url:
             return {"data": {"recordStatus": 30, "records": [{"recordStatus": 30}]}}
         return {"data": {"recordStatus": 30}}
+
     return router
 
 
@@ -103,7 +116,9 @@ async def test_run_real_flow_records_all_checkpoints_on_success(
     db_with_repo: sqlite3.Connection, video_file: Path, tmp_path: Path
 ) -> None:
     run_id = TranscribeRunRepository.create(
-        asset_id="asset-A", video_path=str(video_file), account_id="acc-1",
+        asset_id="asset-A",
+        video_path=str(video_file),
+        account_id="acc-1",
     )
 
     token_data = {
@@ -119,9 +134,7 @@ async def test_run_real_flow_records_all_checkpoints_on_success(
     api_router = _make_api_json_router(token_data, batch_id="batch-A")
 
     # 跳过 poll_until_done 的真实轮询（不依赖 Qwen）
-    with patch("media_tools.transcribe.flow.poll_until_done", AsyncMock(
-        return_value={"recordStatus": 30}
-    )):
+    with patch("media_tools.transcribe.flow.poll_until_done", AsyncMock(return_value={"recordStatus": 30})):
         for p in _patches_for_qwen(api_router):
             p.start()
         try:
@@ -154,19 +167,24 @@ async def test_run_real_flow_stops_at_last_checkpoint_on_failure(
 ) -> None:
     """export 阶段失败 -> stage 应停在 transcribing（最近一次成功打卡）。"""
     run_id = TranscribeRunRepository.create(
-        asset_id="asset-B", video_path=str(video_file), account_id="acc-1",
+        asset_id="asset-B",
+        video_path=str(video_file),
+        account_id="acc-1",
     )
 
     token_data = {
-        "genRecordId": "gen-B", "recordId": "rec-B",
-        "getLink": "x", "ossAccessKeyId": "k", "policy": "p",
-        "signature": "s", "host": "x", "key": "k",
+        "genRecordId": "gen-B",
+        "recordId": "rec-B",
+        "getLink": "x",
+        "ossAccessKeyId": "k",
+        "policy": "p",
+        "signature": "s",
+        "host": "x",
+        "key": "k",
     }
     api_router = _make_api_json_router(token_data, batch_id="batch-B")
 
-    with patch("media_tools.transcribe.flow.poll_until_done", AsyncMock(
-        return_value={"recordStatus": 30}
-    )):
+    with patch("media_tools.transcribe.flow.poll_until_done", AsyncMock(return_value={"recordStatus": 30})):
         for p in _patches_for_qwen(api_router, raise_on_export=RuntimeError("export blew up")):
             p.start()
         try:
@@ -199,15 +217,18 @@ async def test_run_real_flow_without_run_id_does_not_write_table(
 ) -> None:
     """向后兼容：不传 run_id 时 transcribe_runs 表零写入。"""
     token_data = {
-        "genRecordId": "gen-C", "recordId": "rec-C",
-        "getLink": "x", "ossAccessKeyId": "k", "policy": "p",
-        "signature": "s", "host": "x", "key": "k",
+        "genRecordId": "gen-C",
+        "recordId": "rec-C",
+        "getLink": "x",
+        "ossAccessKeyId": "k",
+        "policy": "p",
+        "signature": "s",
+        "host": "x",
+        "key": "k",
     }
     api_router = _make_api_json_router(token_data)
 
-    with patch("media_tools.transcribe.flow.poll_until_done", AsyncMock(
-        return_value={"recordStatus": 30}
-    )):
+    with patch("media_tools.transcribe.flow.poll_until_done", AsyncMock(return_value={"recordStatus": 30})):
         for p in _patches_for_qwen(api_router):
             p.start()
         try:

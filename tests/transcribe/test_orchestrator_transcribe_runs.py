@@ -6,20 +6,21 @@
 - flow 抛错 -> mark_failed 写入正确的 stage / error_type
 - asset_id 解析三段式 fallback 走 DB by video_path
 """
+
 from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from media_tools.store.db import init_db
 from media_tools.transcribe.errors import ErrorType
-from media_tools.transcribe.models import AccountPool
-from media_tools.transcribe.service import OrchestratorV2
-from media_tools.transcribe.repository import TranscribeRunRepository
 from media_tools.transcribe.flow import FlowResult
+from media_tools.transcribe.models import AccountPool
+from media_tools.transcribe.repository import TranscribeRunRepository
+from media_tools.transcribe.service import OrchestratorV2
 
 
 @pytest.fixture
@@ -28,12 +29,15 @@ def db(tmp_path: Path):
     init_db(str(db_file))
     conn = sqlite3.connect(db_file, check_same_thread=False, isolation_level=None)
     conn.row_factory = sqlite3.Row
-    with patch(
-        "media_tools.transcribe.repository.get_db_connection",
-        return_value=conn,
-    ), patch(
-        "media_tools.assets.service.get_db_connection",
-        return_value=conn,
+    with (
+        patch(
+            "media_tools.transcribe.repository.get_db_connection",
+            return_value=conn,
+        ),
+        patch(
+            "media_tools.assets.service.get_db_connection",
+            return_value=conn,
+        ),
     ):
         yield conn
     conn.close()
@@ -52,6 +56,7 @@ def _build_orchestrator(tmp_path: Path) -> OrchestratorV2:
     orch = OrchestratorV2(config=cfg)
     # 注入一个 1 个账号的 pool，跳过 resolve_accounts 的真实查询
     from media_tools.transcribe.models import AccountPool
+
     orch._account_pool_service._account_pool = AccountPool(
         [{"account_id": "acc-1", "auth_state_path": tmp_path / "auth.json"}],
     )
@@ -71,9 +76,7 @@ def _seed_asset(db: sqlite3.Connection, *, asset_id: str, video_path: Path) -> N
 
 
 @pytest.mark.asyncio
-async def test_first_attempt_creates_run_and_marks_saved(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+async def test_first_attempt_creates_run_and_marks_saved(db: sqlite3.Connection, tmp_path: Path) -> None:
     video = tmp_path / "demo.mp4"
     video.write_bytes(b"x")
     _seed_asset(db, asset_id="asset-OK", video_path=video)
@@ -83,16 +86,23 @@ async def test_first_attempt_creates_run_and_marks_saved(
     transcript.write_text("ok")
 
     orch = _build_orchestrator(tmp_path)
-    fake_flow = AsyncMock(return_value=FlowResult(
-        record_id="rec", gen_record_id="gen",
-        export_path=transcript, remote_deleted=False,
-    ))
+    fake_flow = AsyncMock(
+        return_value=FlowResult(
+            record_id="rec",
+            gen_record_id="gen",
+            export_path=transcript,
+            remote_deleted=False,
+        )
+    )
 
     # 让 asset_id 解析命中 DB（aweme 正则不会命中 'asset-OK'）
-    with patch(
-        "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
-        return_value="asset-OK",
-    ), patch("media_tools.transcribe.service.run_real_flow", fake_flow):
+    with (
+        patch(
+            "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
+            return_value="asset-OK",
+        ),
+        patch("media_tools.transcribe.service.run_real_flow", fake_flow),
+    ):
         result = await orch._transcribe_single_video(video)
 
     assert result.success
@@ -118,10 +128,13 @@ async def test_existing_resumable_run_is_reused_not_recreated(
 
     # 预置一个 uploaded 的 run（带 gen_record_id 才会被 find_resumable 命中）
     existing = TranscribeRunRepository.create(
-        asset_id="asset-RESUME", video_path=str(video), account_id="acc-1",
+        asset_id="asset-RESUME",
+        video_path=str(video),
+        account_id="acc-1",
     )
     TranscribeRunRepository.update_stage(
-        existing, "uploaded",
+        existing,
+        "uploaded",
         {"gen_record_id": "gen-X", "record_id": "rec-X"},
     )
 
@@ -130,16 +143,23 @@ async def test_existing_resumable_run_is_reused_not_recreated(
     transcript.write_text("ok")
 
     orch = _build_orchestrator(tmp_path)
-    fake_flow = AsyncMock(return_value=FlowResult(
-        record_id="rec-X", gen_record_id="gen-X",
-        export_path=transcript, remote_deleted=False,
-    ))
+    fake_flow = AsyncMock(
+        return_value=FlowResult(
+            record_id="rec-X",
+            gen_record_id="gen-X",
+            export_path=transcript,
+            remote_deleted=False,
+        )
+    )
 
     caplog.set_level("INFO")
-    with patch(
-        "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
-        return_value="asset-RESUME",
-    ), patch("media_tools.transcribe.service.run_real_flow", fake_flow):
+    with (
+        patch(
+            "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
+            return_value="asset-RESUME",
+        ),
+        patch("media_tools.transcribe.service.run_real_flow", fake_flow),
+    ):
         result = await orch._transcribe_single_video(video)
 
     assert result.success
@@ -158,9 +178,7 @@ async def test_existing_resumable_run_is_reused_not_recreated(
 
 
 @pytest.mark.asyncio
-async def test_failure_marks_run_failed_with_current_stage(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+async def test_failure_marks_run_failed_with_current_stage(db: sqlite3.Connection, tmp_path: Path) -> None:
     video = tmp_path / "demo.mp4"
     video.write_bytes(b"x")
     _seed_asset(db, asset_id="asset-FAIL", video_path=video)
@@ -175,18 +193,19 @@ async def test_failure_marks_run_failed_with_current_stage(
         TranscribeRunRepository.update_stage(run_id, "transcribing", {"batch_id": "b1"})
         raise RuntimeError("network reset")
 
-    with patch(
-        "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
-        return_value="asset-FAIL",
-    ), patch("media_tools.transcribe.service.run_real_flow", side_effect=flow_that_advances_then_fails):
+    with (
+        patch(
+            "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
+            return_value="asset-FAIL",
+        ),
+        patch("media_tools.transcribe.service.run_real_flow", side_effect=flow_that_advances_then_fails),
+    ):
         result = await orch._transcribe_single_video(video)
 
     assert not result.success
     assert result.error_type == ErrorType.NETWORK or "reset" in (result.error or "")
 
-    row = db.execute(
-        "SELECT stage, error_stage, error_type, last_error FROM transcribe_runs"
-    ).fetchone()
+    row = db.execute("SELECT stage, error_stage, error_type, last_error FROM transcribe_runs").fetchone()
     assert row["stage"] == "failed"
     assert row["error_stage"] == "transcribing"
     assert row["error_type"]  # ErrorType.value 写入
@@ -194,9 +213,7 @@ async def test_failure_marks_run_failed_with_current_stage(
 
 
 @pytest.mark.asyncio
-async def test_no_asset_id_skips_run_creation_and_still_runs_flow(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+async def test_no_asset_id_skips_run_creation_and_still_runs_flow(db: sqlite3.Connection, tmp_path: Path) -> None:
     """孤儿文件（无法解析 asset_id）也能跑，只是不写 transcribe_runs。"""
     video = tmp_path / "orphan.mp4"
     video.write_bytes(b"x")
@@ -206,15 +223,22 @@ async def test_no_asset_id_skips_run_creation_and_still_runs_flow(
     transcript.parent.mkdir(parents=True)
     transcript.write_text("ok")
 
-    fake_flow = AsyncMock(return_value=FlowResult(
-        record_id="r", gen_record_id="g",
-        export_path=transcript, remote_deleted=False,
-    ))
+    fake_flow = AsyncMock(
+        return_value=FlowResult(
+            record_id="r",
+            gen_record_id="g",
+            export_path=transcript,
+            remote_deleted=False,
+        )
+    )
 
-    with patch(
-        "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
-        return_value=None,
-    ), patch("media_tools.transcribe.service.run_real_flow", fake_flow):
+    with (
+        patch(
+            "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
+            return_value=None,
+        ),
+        patch("media_tools.transcribe.service.run_real_flow", fake_flow),
+    ):
         result = await orch._transcribe_single_video(video)
 
     assert result.success
@@ -224,9 +248,7 @@ async def test_no_asset_id_skips_run_creation_and_still_runs_flow(
 
 
 @pytest.mark.asyncio
-async def test_failure_then_resume_end_to_end(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+async def test_failure_then_resume_end_to_end(db: sqlite3.Connection, tmp_path: Path) -> None:
     """端到端：第一次跑到 transcribing 阶段失败 -> 第二次复用 gen_record_id 续传成功。
 
     验证 Step 11/12/13b 整条链路在 orchestrator 层正确闭合：
@@ -254,11 +276,14 @@ async def test_failure_then_resume_end_to_end(
             # 第一次：模拟 flow 推到 transcribing 后失败
             assert resume_state is None, "第一次不应有 resume_state"
             TranscribeRunRepository.update_stage(
-                run_id, "uploaded",
+                run_id,
+                "uploaded",
                 {"gen_record_id": "gen-E2E", "record_id": "rec-E2E"},
             )
             TranscribeRunRepository.update_stage(
-                run_id, "transcribing", {"batch_id": "batch-E2E"},
+                run_id,
+                "transcribing",
+                {"batch_id": "batch-E2E"},
             )
             raise RuntimeError("network blip during poll")
 
@@ -268,19 +293,25 @@ async def test_failure_then_resume_end_to_end(
         assert resume_state.record_id == "rec-E2E"
         # 模拟续传分支跑通：直接推到 downloading
         TranscribeRunRepository.update_stage(
-            run_id, "downloading",
+            run_id,
+            "downloading",
             {"export_url": "https://example/exp.docx"},
         )
         transcript.write_text("ok")
         return FlowResult(
-            record_id="rec-E2E", gen_record_id="gen-E2E",
-            export_path=transcript, remote_deleted=False,
+            record_id="rec-E2E",
+            gen_record_id="gen-E2E",
+            export_path=transcript,
+            remote_deleted=False,
         )
 
-    with patch(
-        "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
-        return_value="asset-E2E",
-    ), patch("media_tools.transcribe.service.run_real_flow", side_effect=flaky_flow):
+    with (
+        patch(
+            "media_tools.assets.service.MediaAssetService.find_asset_id_for_video_path",
+            return_value="asset-E2E",
+        ),
+        patch("media_tools.transcribe.service.run_real_flow", side_effect=flaky_flow),
+    ):
         # 第一次：失败
         first = await orch._transcribe_single_video(video)
         assert not first.success

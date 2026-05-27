@@ -2,8 +2,8 @@ from __future__ import annotations
 
 
 def test_qwen_account_status_does_not_mark_invalid_when_snapshot_fails(monkeypatch) -> None:
-    import sqlite3
     import asyncio
+    import sqlite3
 
     from media_tools.accounts import status as qwen_status
 

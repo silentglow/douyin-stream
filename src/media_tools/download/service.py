@@ -3,12 +3,13 @@ from __future__ import annotations
 import asyncio
 import re
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
 class DownloadResult:
     """下载结果标准化容器，统一三个下载器的返回格式"""
+
     success: bool = True
     new_files: list[str] = field(default_factory=list)
     skipped_files: list[str] = field(default_factory=list)
@@ -49,29 +50,41 @@ def resolve_platform(url: str) -> str:
 
 def is_aweme_url(url: str) -> bool:
     """判断是否为抖音单个视频链接（/video/xxx），而非用户主页链接（/user/xxx）"""
-    return bool(re.search(r'douyin\.com/video/\d+', url))
+    return bool(re.search(r"douyin\.com/video/\d+", url))
 
 
-def download_by_url(url: str, max_counts: Optional[int], disable_auto_transcribe: bool, skip_existing: bool, task_id: Optional[str] = None) -> DownloadResult:
+def download_by_url(
+    url: str, max_counts: int | None, disable_auto_transcribe: bool, skip_existing: bool, task_id: str | None = None
+) -> DownloadResult:
     platform = resolve_platform(url)
     raw: dict[str, Any]
     if platform == "bilibili":
         from media_tools.platform.bilibili import download_up_by_url
-        raw = download_up_by_url(url, max_counts=max_counts, skip_existing=skip_existing, task_id=task_id, disable_auto_transcribe=disable_auto_transcribe)
+
+        raw = download_up_by_url(
+            url,
+            max_counts=max_counts,
+            skip_existing=skip_existing,
+            task_id=task_id,
+            disable_auto_transcribe=disable_auto_transcribe,
+        )
     else:
         if is_aweme_url(url):
             from media_tools.platform.douyin import download_aweme_by_url
+
             try:
                 loop = asyncio.get_running_loop()
             except RuntimeError:
                 loop = None
             if loop and loop.is_running():
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     raw = pool.submit(asyncio.run, download_aweme_by_url(url)).result()
             else:
                 raw = asyncio.run(download_aweme_by_url(url))
         else:
             from media_tools.platform.douyin import download_by_url as douyin_download
+
             raw = douyin_download(url, max_counts, disable_auto_transcribe, skip_existing, task_id=task_id)
     return DownloadResult.from_raw(raw)

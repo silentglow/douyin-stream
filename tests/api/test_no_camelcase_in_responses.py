@@ -15,11 +15,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
-import pytest
 from fastapi.testclient import TestClient
 
 from media_tools.api.app import app
-
 
 CAMEL_CASE = re.compile(r"^[a-z]+[A-Z]")
 
@@ -41,11 +39,11 @@ def _is_camel_case(key: Any) -> bool:
 
 # 跳过列表：依赖外部状态或返回非 JSON 的路由
 SKIP_PATHS = {
-    "/api/v1/assets/{asset_id}/file",        # FileResponse 非 JSON
+    "/api/v1/assets/{asset_id}/file",  # FileResponse 非 JSON
     "/api/v1/assets/{asset_id}/transcript",  # 依赖 DB 存在该 asset
-    "/api/v1/assets/{asset_id}/folder",      # 同上
-    "/api/v1/tasks/{task_id}",               # 依赖 task 存在
-    "/api/v1/scheduler/{task_id}",           # 同上
+    "/api/v1/assets/{asset_id}/folder",  # 同上
+    "/api/v1/tasks/{task_id}",  # 依赖 task 存在
+    "/api/v1/scheduler/{task_id}",  # 同上
     "/api/v1/scheduler/{task_id}/toggle",
     "/api/v1/settings/douyin/{account_id}",
     "/api/v1/settings/douyin/{account_id}/remark",
@@ -106,9 +104,8 @@ def test_no_camel_case_in_get_responses():
             if _is_camel_case(key):
                 violations.append(f"{path}  →  {key_path}  (key='{key}')")
 
-    assert not violations, (
-        f"\n发现 {len(violations)} 处 camelCase 字段（应为 snake_case）：\n"
-        + "\n".join(f"  - {v}" for v in violations[:30])
+    assert not violations, f"\n发现 {len(violations)} 处 camelCase 字段（应为 snake_case）：\n" + "\n".join(
+        f"  - {v}" for v in violations[:30]
     )
 
 
@@ -146,7 +143,6 @@ def test_no_deprecated_camelcase_in_frontend_types():
                 continue
             violations.append(f"{rel}: {line.strip()}")
 
-    assert not violations, (
-        "前端类型层仍有 camelCase 业务字段引用（应删 @deprecated 残留）：\n"
-        + "\n".join(f"  - {v}" for v in violations[:20])
+    assert not violations, "前端类型层仍有 camelCase 业务字段引用（应删 @deprecated 残留）：\n" + "\n".join(
+        f"  - {v}" for v in violations[:20]
     )

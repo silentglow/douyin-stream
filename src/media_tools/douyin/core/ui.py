@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 终端美化输出模块 - 提供统一的颜色、进度条、表格等 UI 组件
 """
@@ -38,9 +37,7 @@ class Colors:
 
 def _supports_color():
     """检测终端是否支持颜色"""
-    if hasattr(sys.stdout, "isatty") and sys.stdout.isatty():
-        return True
-    return False
+    return bool(hasattr(sys.stdout, "isatty") and sys.stdout.isatty())
 
 
 _SUPPORTS_COLOR = _supports_color()
@@ -137,9 +134,7 @@ def print_table(headers, rows):
 
     # 打印数据行
     for row in rows:
-        line = "  ".join(
-            str(cell).ljust(col_widths[i]) for i, cell in enumerate(row)
-        )
+        line = "  ".join(str(cell).ljust(col_widths[i]) for i, cell in enumerate(row))
         console.print(line)
 
 
@@ -159,19 +154,14 @@ class ProgressBar:
 
     def _render(self):
         """渲染进度条"""
-        if self.total == 0:
-            percent = 100
-        else:
-            percent = (self.current / self.total) * 100
+        percent = 100 if self.total == 0 else self.current / self.total * 100
 
         filled = int(self.bar_width * self.current / self.total) if self.total > 0 else self.bar_width
         bar = "█" * filled + "░" * (self.bar_width - filled)
 
         # 移动到行首
         sys.stdout.write("\r")
-        sys.stdout.write(
-            f"  {self.desc}: [{bar}] {self.current}/{self.total} ({percent:.1f}%)"
-        )
+        sys.stdout.write(f"  {self.desc}: [{bar}] {self.current}/{self.total} ({percent:.1f}%)")
         sys.stdout.flush()
 
     def finish(self):

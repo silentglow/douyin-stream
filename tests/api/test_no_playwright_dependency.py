@@ -24,4 +24,3 @@ def test_no_playwright_imports_in_src() -> None:
             offenders.append(str(path))
 
     assert offenders == []
-

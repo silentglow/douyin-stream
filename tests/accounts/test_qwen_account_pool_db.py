@@ -22,8 +22,9 @@ def test_build_qwen_auth_state_path_for_account() -> None:
 
 
 def test_add_qwen_account_sets_auth_state_path(monkeypatch) -> None:
-    import sqlite3
     import asyncio
+    import sqlite3
+
     from media_tools.api.routers import settings as settings_router
 
     conn = sqlite3.connect(":memory:")
@@ -55,7 +56,9 @@ def test_add_qwen_account_sets_auth_state_path(monkeypatch) -> None:
 
     monkeypatch.setattr("media_tools.api.routers.settings.get_quota_snapshot", _fake_get_snapshot)
 
-    req = settings_router.QwenAccountRequest(cookie_string="tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", remark="r")
+    req = settings_router.QwenAccountRequest(
+        cookie_string="tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", remark="r"
+    )
     result = asyncio.run(settings_router.add_qwen_account(req))
     account_id = result["account_id"]
     row = conn.execute("SELECT auth_state_path FROM Accounts_Pool WHERE account_id=?", (account_id,)).fetchone()
@@ -66,8 +69,9 @@ def test_add_qwen_account_sets_auth_state_path(monkeypatch) -> None:
 
 
 def test_add_qwen_account_returns_validation_ok_when_snapshot_succeeds(monkeypatch) -> None:
-    import sqlite3
     import asyncio
+    import sqlite3
+
     from media_tools.api.routers import settings as settings_router
 
     conn = sqlite3.connect(":memory:")
@@ -92,7 +96,9 @@ def test_add_qwen_account_returns_validation_ok_when_snapshot_succeeds(monkeypat
 
     monkeypatch.setattr("media_tools.api.routers.settings.get_quota_snapshot", _fake_get_snapshot)
 
-    req = settings_router.QwenAccountRequest(cookie_string="tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", remark="r")
+    req = settings_router.QwenAccountRequest(
+        cookie_string="tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", remark="r"
+    )
     result = asyncio.run(settings_router.add_qwen_account(req))
     assert result["status"] == "success"
     assert result["validation"]["ok"] is True
@@ -100,8 +106,9 @@ def test_add_qwen_account_returns_validation_ok_when_snapshot_succeeds(monkeypat
 
 
 def test_add_qwen_account_sets_status_expired_only_on_auth_error(monkeypatch) -> None:
-    import sqlite3
     import asyncio
+    import sqlite3
+
     from media_tools.api.routers import settings as settings_router
 
     conn = sqlite3.connect(":memory:")
@@ -117,7 +124,9 @@ def test_add_qwen_account_sets_status_expired_only_on_auth_error(monkeypatch) ->
 
     monkeypatch.setattr("media_tools.api.routers.settings.get_quota_snapshot", _auth_fail_snapshot)
 
-    req = settings_router.QwenAccountRequest(cookie_string="tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", remark="r")
+    req = settings_router.QwenAccountRequest(
+        cookie_string="tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", remark="r"
+    )
     result = asyncio.run(settings_router.add_qwen_account(req))
     account_id = result["account_id"]
     assert result["validation"]["ok"] is False
@@ -128,8 +137,9 @@ def test_add_qwen_account_sets_status_expired_only_on_auth_error(monkeypatch) ->
 
 
 def test_add_qwen_account_does_not_set_status_expired_on_network_error(monkeypatch) -> None:
-    import sqlite3
     import asyncio
+    import sqlite3
+
     from media_tools.api.routers import settings as settings_router
 
     conn = sqlite3.connect(":memory:")
@@ -145,7 +155,9 @@ def test_add_qwen_account_does_not_set_status_expired_on_network_error(monkeypat
 
     monkeypatch.setattr("media_tools.api.routers.settings.get_quota_snapshot", _network_fail_snapshot)
 
-    req = settings_router.QwenAccountRequest(cookie_string="tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", remark="r")
+    req = settings_router.QwenAccountRequest(
+        cookie_string="tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", remark="r"
+    )
     result = asyncio.run(settings_router.add_qwen_account(req))
     account_id = result["account_id"]
     assert result["validation"]["ok"] is False
@@ -156,8 +168,9 @@ def test_add_qwen_account_does_not_set_status_expired_on_network_error(monkeypat
 
 
 def test_qwen_status_returns_remaining_hours_from_db(monkeypatch) -> None:
-    import sqlite3
     import asyncio
+    import sqlite3
+
     from media_tools.api.routers import settings as settings_router
 
     conn = sqlite3.connect(":memory:")
@@ -167,7 +180,14 @@ def test_qwen_status_returns_remaining_hours_from_db(monkeypatch) -> None:
     )
     conn.execute(
         "INSERT INTO Accounts_Pool(account_id, platform, cookie_data, remark, status, auth_state_path) VALUES(?,?,?,?,?,?)",
-        ("a1", "qwen", "tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", "r", "active", "data/auth/qwen-storage-state-a1.json"),
+        (
+            "a1",
+            "qwen",
+            "tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890",
+            "r",
+            "active",
+            "data/auth/qwen-storage-state-a1.json",
+        ),
     )
     conn.commit()
     monkeypatch.setattr("media_tools.accounts.repository.get_db_connection", lambda: conn)
@@ -175,9 +195,7 @@ def test_qwen_status_returns_remaining_hours_from_db(monkeypatch) -> None:
     async def _fake_get_qwen_account_status():
         return {
             "status": "success",
-            "accounts": [
-                {"accountId": "a1", "accountLabel": "r", "remaining_hours": 375, "status": "active"}
-            ]
+            "accounts": [{"accountId": "a1", "accountLabel": "r", "remaining_hours": 375, "status": "active"}],
         }
 
     monkeypatch.setattr("media_tools.api.routers.settings.get_qwen_account_status", _fake_get_qwen_account_status)
@@ -188,8 +206,9 @@ def test_qwen_status_returns_remaining_hours_from_db(monkeypatch) -> None:
 
 
 def test_qwen_status_does_not_fail_when_single_account_snapshot_errors(monkeypatch) -> None:
-    import sqlite3
     import asyncio
+    import sqlite3
+
     from media_tools.api.routers import settings as settings_router
 
     conn = sqlite3.connect(":memory:")
@@ -199,7 +218,14 @@ def test_qwen_status_does_not_fail_when_single_account_snapshot_errors(monkeypat
     )
     conn.execute(
         "INSERT INTO Accounts_Pool(account_id, platform, cookie_data, remark, status, auth_state_path) VALUES(?,?,?,?,?,?)",
-        ("a1", "qwen", "tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", "r", "active", "data/auth/qwen-storage-state-a1.json"),
+        (
+            "a1",
+            "qwen",
+            "tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890",
+            "r",
+            "active",
+            "data/auth/qwen-storage-state-a1.json",
+        ),
     )
     conn.commit()
     monkeypatch.setattr("media_tools.accounts.repository.get_db_connection", lambda: conn)
@@ -207,9 +233,7 @@ def test_qwen_status_does_not_fail_when_single_account_snapshot_errors(monkeypat
     async def _fake_get_qwen_account_status():
         return {
             "status": "success",
-            "accounts": [
-                {"accountId": "a1", "accountLabel": "r", "remaining_hours": 0, "status": "active"}
-            ]
+            "accounts": [{"accountId": "a1", "accountLabel": "r", "remaining_hours": 0, "status": "active"}],
         }
 
     monkeypatch.setattr("media_tools.api.routers.settings.get_qwen_account_status", _fake_get_qwen_account_status)
@@ -222,8 +246,9 @@ def test_qwen_status_does_not_fail_when_single_account_snapshot_errors(monkeypat
 
 
 def test_qwen_claim_iterates_db_accounts(monkeypatch) -> None:
-    import sqlite3
     import asyncio
+    import sqlite3
+
     from media_tools.api.routers import settings as settings_router
 
     conn = sqlite3.connect(":memory:")
@@ -233,7 +258,14 @@ def test_qwen_claim_iterates_db_accounts(monkeypatch) -> None:
     )
     conn.execute(
         "INSERT INTO Accounts_Pool(account_id, platform, cookie_data, remark, status, auth_state_path) VALUES(?,?,?,?,?,?)",
-        ("a1", "qwen", "tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890", "r", "active", "data/auth/qwen-storage-state-a1.json"),
+        (
+            "a1",
+            "qwen",
+            "tongyi_sso_ticket=abcdefghijklmnopqrstuvwxyz1234567890",
+            "r",
+            "active",
+            "data/auth/qwen-storage-state-a1.json",
+        ),
     )
     conn.commit()
     monkeypatch.setattr("media_tools.accounts.repository.get_db_connection", lambda: conn)
@@ -254,9 +286,10 @@ def test_qwen_claim_iterates_db_accounts(monkeypatch) -> None:
 def test_orchestrator_tries_multiple_qwen_accounts(monkeypatch, tmp_path) -> None:
     import asyncio
     from pathlib import Path
-    from media_tools.transcribe.service import OrchestratorV2
+
     from media_tools.core.config import AppConfig
     from media_tools.transcribe.models import AccountPool
+    from media_tools.transcribe.service import OrchestratorV2
 
     class _AuthErr(Exception):
         pass
@@ -291,8 +324,10 @@ def test_orchestrator_tries_multiple_qwen_accounts(monkeypatch, tmp_path) -> Non
     # 模拟 _get_shared_api 和 _release_shared_api（避免启动真实 Playwright）
     async def _fake_get_shared_api(auth_state_path):
         return None
+
     async def _fake_release_shared_api():
         pass
+
     orch._get_shared_api = _fake_get_shared_api  # type: ignore[attr-defined]
     orch._release_shared_api = _fake_release_shared_api  # type: ignore[attr-defined]
 

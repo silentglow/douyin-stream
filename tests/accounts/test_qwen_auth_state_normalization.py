@@ -35,4 +35,3 @@ def test_read_qwen_storage_state_file_normalizes(tmp_path) -> None:
     assert loaded is not None
     assert loaded["cookies"][0]["domain"] == QWEN_COOKIE_DOMAIN
     assert loaded["cookies"][0]["path"] == "/"
-

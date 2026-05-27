@@ -1,3 +1,4 @@
+import contextlib
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -8,10 +9,8 @@ client = TestClient(app)
 
 
 def _skip_background_task(_task_id, coro):
-    try:
+    with contextlib.suppress(Exception):
         coro.close()
-    except Exception:
-        pass
     return None
 
 

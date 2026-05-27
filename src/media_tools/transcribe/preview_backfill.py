@@ -4,14 +4,14 @@ New transcripts write both inline (orchestrator / local worker). This module
 handles existing rows that predate those columns, and keeps the FTS5 search
 index up to date.
 """
-from typing import Optional
+
 import os.path
 import sqlite3
 import threading
 from pathlib import Path
 
-from media_tools.store.db import get_db_connection, update_fts_for_asset
 from media_tools.logger import get_logger
+from media_tools.store.db import get_db_connection, update_fts_for_asset
 from media_tools.transcribe.preview import extract_transcript_preview, extract_transcript_text
 
 logger = get_logger("preview_backfill")
@@ -23,10 +23,11 @@ _lock = threading.Lock()
 
 def _transcripts_dir() -> Path:
     from media_tools.common.paths import get_transcripts_path
+
     return get_transcripts_path()
 
 
-def _validate_path(base_dir: Path, transcript_path: str) -> Optional[Path]:
+def _validate_path(base_dir: Path, transcript_path: str) -> Path | None:
     """
     校验并安全拼接 transcript_path
 
@@ -42,10 +43,7 @@ def _validate_path(base_dir: Path, transcript_path: str) -> Optional[Path]:
     # 注：不再检查 ".." 因为文件名可能包含 "...." 这样的合法字符
     # 路径穿越检测由 commonpath 检查（下方的 #2）来完成
     if "\x00" in transcript_path or "\n" in transcript_path or "\r" in transcript_path:
-        logger.warning(
-            f"[SECURITY] Invalid chars in transcript_path: "
-            f"db_value={transcript_path!r}"
-        )
+        logger.warning(f"[SECURITY] Invalid chars in transcript_path: db_value={transcript_path!r}")
         return None
 
     # 2. 安全拼接 + 路径穿越校验

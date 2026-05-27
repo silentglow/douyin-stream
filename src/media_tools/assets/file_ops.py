@@ -1,25 +1,24 @@
 from __future__ import annotations
-"""素材文件操作服务"""
-from typing import Optional
 
+"""素材文件操作服务"""
 import logging
 import sys
 from pathlib import Path
 
+from media_tools.assets.local import LOCAL_CREATOR_UID
 from media_tools.common.paths import get_download_path, get_transcripts_path
 from media_tools.store.db import resolve_safe_path
-from media_tools.assets.local import LOCAL_CREATOR_UID
 
 logger = logging.getLogger(__name__)
 
 
 def _resolve_asset_video_file(
     *,
-    creator_uid: Optional[str],
-    source_url: Optional[str],
-    video_path: Optional[str],
+    creator_uid: str | None,
+    source_url: str | None,
+    video_path: str | None,
     download_dir: Path,
-) -> Optional[Path]:
+) -> Path | None:
     """解析素材视频文件的实际路径（含安全检查）"""
     if creator_uid == LOCAL_CREATOR_UID and source_url:
         try:
@@ -41,17 +40,18 @@ def _resolve_asset_video_file(
 def get_source_url_column(conn) -> str:
     """返回 source_url 列的 SELECT 片段（兼容旧表结构）"""
     from media_tools.store.db import get_table_columns
+
     return "source_url," if "source_url" in get_table_columns(conn, "media_assets") else "'' AS source_url,"
 
 
 def delete_asset_files(
     creator_uid: str,
-    source_url: Optional[str],
-    video_path: Optional[str],
-    transcript_name: Optional[str],
+    source_url: str | None,
+    video_path: str | None,
+    transcript_name: str | None,
     *,
-    download_dir: Optional[Path] = None,
-    transcripts_dir: Optional[Path] = None,
+    download_dir: Path | None = None,
+    transcripts_dir: Path | None = None,
 ) -> list[str]:
     """删除素材关联的文件，返回失败的列表"""
     failed: list[str] = []

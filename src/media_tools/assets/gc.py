@@ -13,6 +13,7 @@ def _try_cleanup_disk_files(conn: sqlite3.Connection, asset_ids: list[str]) -> N
         return
     try:
         from media_tools.assets.file_ops import delete_asset_files
+
         placeholders = ",".join("?" * len(asset_ids))
         rows = conn.execute(
             f"SELECT creator_uid, source_url, video_path, transcript_path FROM media_assets WHERE asset_id IN ({placeholders})",
@@ -61,7 +62,6 @@ def cleanup_stale_assets(conn: sqlite3.Connection) -> dict[str, int]:
 # --- Cloud cleanup (merged from services/cloud_cleanup_service.py) ---
 
 from pathlib import Path
-from typing import Optional
 
 from media_tools.logger import get_logger
 
@@ -72,7 +72,7 @@ class CloudCleanupService:
     """清理云端残留的失败转写记录。"""
 
     @staticmethod
-    async def cleanup(video_path: Path, *, account_id: Optional[str] = None) -> None:
+    async def cleanup(video_path: Path, *, account_id: str | None = None) -> None:
         """清理指定视频的云端失败记录。"""
         from media_tools.assets.service import MediaAssetService
         from media_tools.transcribe.run_service import TranscribeRunService
@@ -89,10 +89,10 @@ class CloudCleanupService:
 
         try:
             from media_tools.accounts.auth_state import resolve_qwen_cookie_string
-            from media_tools.transcribe.flow import delete_record
             from media_tools.common.http import RequestsApiContext
-
             from media_tools.transcribe.config import load_config
+            from media_tools.transcribe.flow import delete_record
+
             auth_state_path = load_config().paths.auth_state_path
             cookie_string = resolve_qwen_cookie_string(
                 auth_state_path=auth_state_path,

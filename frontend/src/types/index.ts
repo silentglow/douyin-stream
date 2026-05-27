@@ -23,6 +23,7 @@ export interface Creator {
 export interface Asset {
   asset_id: string;
   creator_uid: string;
+  creator_name?: string | null;
   title: string;
   video_status: string;
   transcript_status: string;

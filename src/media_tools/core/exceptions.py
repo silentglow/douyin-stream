@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """应用异常定义 - 统一的错误格式
 
 所有业务异常继承 AppError 基类，确保错误响应格式统一：
@@ -9,7 +10,7 @@ from __future__ import annotations
 }
 """
 
-from typing import Any, Optional
+from typing import Any
 
 
 class AppError(Exception):
@@ -24,7 +25,7 @@ class AppError(Exception):
 
     status_code: int = 400
 
-    def __init__(self, code: str, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, code: str, message: str, details: dict[str, Any] | None = None):
         self.code = code
         self.message = message
         self.details = details or {}
@@ -43,14 +44,14 @@ class AppConfigurationError(AppError):
 class DownloadError(AppError):
     """下载错误 - 网络请求失败或文件下载失败"""
 
-    def __init__(self, message: str, url: Optional[str] = None, **kwargs):
+    def __init__(self, message: str, url: str | None = None, **kwargs):
         super().__init__("DOWNLOAD_ERROR", message, {"url": url, **kwargs})
 
 
 class TranscribeApiError(AppError):
     """转写错误 - Qwen API 调用失败"""
 
-    def __init__(self, message: str, file_path: Optional[str] = None, **kwargs):
+    def __init__(self, message: str, file_path: str | None = None, **kwargs):
         super().__init__("TRANSCRIBE_ERROR", message, {"file_path": file_path, **kwargs})
 
 
@@ -75,7 +76,7 @@ class ValidationError(AppError):
 
     status_code = 422
 
-    def __init__(self, message: str, field: Optional[str] = None, **kwargs):
+    def __init__(self, message: str, field: str | None = None, **kwargs):
         super().__init__("VALIDATION_ERROR", message, {"field": field, **kwargs})
 
 
@@ -103,11 +104,7 @@ class ExternalServiceError(AppError):
     status_code = 503
 
     def __init__(self, service: str, message: str, **kwargs):
-        super().__init__(
-            "EXTERNAL_SERVICE_ERROR",
-            f"{service} 服务调用失败: {message}",
-            {"service": service, **kwargs}
-        )
+        super().__init__("EXTERNAL_SERVICE_ERROR", f"{service} 服务调用失败: {message}", {"service": service, **kwargs})
 
 
 class DatabaseError(AppError):
@@ -138,6 +135,7 @@ class ConflictError(AppError):
 
 
 # --- 错误响应工具函数 ---
+
 
 def error_response(exc: AppError) -> dict[str, Any]:
     """生成标准错误响应字典"""

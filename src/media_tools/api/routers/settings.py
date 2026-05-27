@@ -1,49 +1,63 @@
-from typing import Optional
 import logging
 import sqlite3
 import uuid
 from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from media_tools.transcribe.errors import ErrorType, classify_error
-from media_tools.accounts.auth_state import has_qwen_auth_state, save_qwen_cookie_string, default_qwen_auth_state_path
+
+from media_tools.accounts.auth_state import default_qwen_auth_state_path, has_qwen_auth_state, save_qwen_cookie_string
 from media_tools.accounts.db_account_pool import build_qwen_auth_state_path_for_account
 from media_tools.accounts.quota import get_quota_snapshot, remaining_hours_from_snapshot
-from media_tools.douyin.core.config_mgr import get_config
-from media_tools.core.config import get_runtime_setting, get_runtime_setting_int, get_runtime_setting_bool, set_runtime_setting
-from media_tools.accounts.status import get_qwen_account_status, claim_qwen_quota
 from media_tools.accounts.repository import AccountRepository
+from media_tools.accounts.status import claim_qwen_quota, get_qwen_account_status
+from media_tools.core.config import (
+    get_runtime_setting,
+    get_runtime_setting_bool,
+    get_runtime_setting_int,
+    set_runtime_setting,
+)
+from media_tools.douyin.core.config_mgr import get_config
+from media_tools.transcribe.errors import ErrorType, classify_error
 
 router = APIRouter(prefix="/api/v1/settings", tags=["settings"], redirect_slashes=False)
 logger = logging.getLogger(__name__)
 
+
 class QwenConfigRequest(BaseModel):
     cookie_string: str
+
 
 class QwenAccountRequest(BaseModel):
     cookie_string: str
     remark: str = ""
 
+
 class QwenCookieUpdateRequest(BaseModel):
     cookie_string: str
+
 
 class DouyinAccountRequest(BaseModel):
     cookie_string: str
     remark: str = ""
 
+
 class BilibiliAccountRequest(BaseModel):
     cookie_string: str
     remark: str = ""
 
+
 class GlobalSettingsRequest(BaseModel):
-    concurrency: Optional[int] = None
-    auto_delete: Optional[bool] = None
-    auto_transcribe: Optional[bool] = None
-    export_format: Optional[str] = None
-    transcript_output_dir: Optional[str] = None
+    concurrency: int | None = None
+    auto_delete: bool | None = None
+    auto_transcribe: bool | None = None
+    export_format: str | None = None
+    transcript_output_dir: str | None = None
+
 
 class RemarkRequest(BaseModel):
     remark: str
+
 
 @router.get("")
 def get_settings():
@@ -88,8 +102,9 @@ def get_settings():
             "can_download": can_download,
             "can_transcribe": can_transcribe,
             "can_run_pipeline": can_download and can_transcribe,
-        }
+        },
     }
+
 
 _MIN_COOKIE_LENGTH = 20
 
@@ -117,6 +132,7 @@ def add_douyin_account(req: DouyinAccountRequest):
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @router.delete("/douyin/{account_id}")
 def delete_douyin_account(account_id: str):
     try:
@@ -128,6 +144,7 @@ def delete_douyin_account(account_id: str):
         raise
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.put("/douyin/{account_id}/remark")
 def update_douyin_account_remark(account_id: str, req: RemarkRequest):
@@ -141,6 +158,7 @@ def update_douyin_account_remark(account_id: str, req: RemarkRequest):
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @router.post("/bilibili/accounts")
 def add_bilibili_account(req: BilibiliAccountRequest):
     try:
@@ -152,6 +170,7 @@ def add_bilibili_account(req: BilibiliAccountRequest):
         raise
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.delete("/bilibili/accounts/{account_id}")
 def delete_bilibili_account(account_id: str):
@@ -165,6 +184,7 @@ def delete_bilibili_account(account_id: str):
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @router.put("/bilibili/accounts/{account_id}/remark")
 def update_bilibili_account_remark(account_id: str, req: RemarkRequest):
     try:
@@ -177,9 +197,11 @@ def update_bilibili_account_remark(account_id: str, req: RemarkRequest):
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @router.get("/qwen/status")
 async def get_qwen_status():
     return await get_qwen_account_status()
+
 
 @router.post("/qwen/claim")
 async def claim_qwen_quota_endpoint():
@@ -189,10 +211,17 @@ async def claim_qwen_quota_endpoint():
     except (RuntimeError, OSError, ValueError) as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/global")
 def update_global_settings(req: GlobalSettingsRequest):
     try:
-        if req.concurrency is None and req.auto_delete is None and req.auto_transcribe is None and req.export_format is None and req.transcript_output_dir is None:
+        if (
+            req.concurrency is None
+            and req.auto_delete is None
+            and req.auto_transcribe is None
+            and req.export_format is None
+            and req.transcript_output_dir is None
+        ):
             raise HTTPException(status_code=400, detail="No fields to update")
         if req.concurrency is not None:
             if req.concurrency < 1 or req.concurrency > 100:
@@ -207,9 +236,11 @@ def update_global_settings(req: GlobalSettingsRequest):
                 raise HTTPException(status_code=400, detail="export_format must be one of: md, docx, pdf, srt, txt")
             set_runtime_setting("export_format", req.export_format)
         if req.transcript_output_dir is not None:
-            from pathlib import Path
             import os
+            from pathlib import Path
+
             from media_tools.common.paths import get_project_root
+
             target = Path(req.transcript_output_dir).resolve()
             project_root = get_project_root().resolve()
             if not target.is_relative_to(project_root):
@@ -225,6 +256,7 @@ def update_global_settings(req: GlobalSettingsRequest):
     except (sqlite3.Error, OSError) as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/qwen")
 def update_qwen_key(req: QwenConfigRequest):
     try:
@@ -237,6 +269,7 @@ def update_qwen_key(req: QwenConfigRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except (sqlite3.Error, OSError) as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/qwen/accounts")
 async def add_qwen_account(req: QwenAccountRequest):
@@ -269,12 +302,17 @@ async def add_qwen_account(req: QwenAccountRequest):
                 status = "expired"
 
         AccountRepository.create(
-            account_id, "qwen", req.cookie_string, req.remark,
-            auth_state_path=str(auth_state_path), status=status,
+            account_id,
+            "qwen",
+            req.cookie_string,
+            req.remark,
+            auth_state_path=str(auth_state_path),
+            status=status,
         )
         return {"status": "success", "account_id": account_id, "validation": validation}
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.put("/qwen/accounts/{account_id}/cookie")
 def update_qwen_account_cookie(account_id: str, req: QwenCookieUpdateRequest):
@@ -286,7 +324,11 @@ def update_qwen_account_cookie(account_id: str, req: QwenCookieUpdateRequest):
         save_qwen_cookie_string(cookie, auth_state_path, sync_db=False)
 
         AccountRepository.update_cookie_and_status(
-            account_id, "qwen", cookie, auth_state_path=str(auth_state_path), status="active",
+            account_id,
+            "qwen",
+            cookie,
+            auth_state_path=str(auth_state_path),
+            status="active",
         )
 
         return {"status": "success", "account_id": account_id}
@@ -294,6 +336,7 @@ def update_qwen_account_cookie(account_id: str, req: QwenCookieUpdateRequest):
         raise
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.delete("/qwen/accounts/{account_id}")
 def delete_qwen_account(account_id: str):
@@ -309,6 +352,7 @@ def delete_qwen_account(account_id: str):
     except (sqlite3.Error, OSError) as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/qwen/accounts/rehydrate")
 def rehydrate_qwen_accounts():
     try:
@@ -323,7 +367,9 @@ def rehydrate_qwen_accounts():
             account_id = str(row.get("account_id") or "").strip()
             cookie_data = str(row.get("cookie_data") or "").strip()
             existing_path = str(row.get("auth_state_path") or "").strip()
-            auth_state_path = Path(existing_path) if existing_path else build_qwen_auth_state_path_for_account(account_id)
+            auth_state_path = (
+                Path(existing_path) if existing_path else build_qwen_auth_state_path_for_account(account_id)
+            )
 
             if not cookie_data:
                 skipped += 1
@@ -363,7 +409,10 @@ def rehydrate_qwen_accounts():
 
             if not existing_path:
                 AccountRepository.update_auth_state_path(
-                    account_id, "qwen", str(auth_state_path), status="active",
+                    account_id,
+                    "qwen",
+                    str(auth_state_path),
+                    status="active",
                 )
 
         return {
@@ -377,6 +426,7 @@ def rehydrate_qwen_accounts():
         raise
     except (sqlite3.Error, OSError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.put("/qwen/accounts/{account_id}/remark")
 def update_qwen_account_remark(account_id: str, req: RemarkRequest):

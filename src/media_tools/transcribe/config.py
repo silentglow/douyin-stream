@@ -1,12 +1,12 @@
 from __future__ import annotations
-from typing import Optional
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
-import os
+
+from media_tools.common.runtime import as_absolute, env_flag
 
 from .errors import ConfigurationError
-from media_tools.common.runtime import as_absolute, env_flag
 
 
 @dataclass(frozen=True)
@@ -40,11 +40,11 @@ class TranscribeConfig:
     paths: AppPaths
 
 
-def _strip(value: Optional[str], default: str) -> str:
+def _strip(value: str | None, default: str) -> str:
     return str(value or default).strip()
 
 
-def parse_int_setting(name: str, default: int, *, minimum: Optional[int] = None) -> int:
+def parse_int_setting(name: str, default: int, *, minimum: int | None = None) -> int:
     raw = os.environ.get(name)
     if raw is None or not raw.strip():
         value = default
@@ -58,7 +58,7 @@ def parse_int_setting(name: str, default: int, *, minimum: Optional[int] = None)
     return value
 
 
-def parse_float_setting(name: str, default: float, *, minimum: Optional[float] = None) -> float:
+def parse_float_setting(name: str, default: float, *, minimum: float | None = None) -> float:
     raw = os.environ.get(name)
     if raw is None or not raw.strip():
         value = default

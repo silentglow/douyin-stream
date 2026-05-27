@@ -1,15 +1,15 @@
 from __future__ import annotations
+
 """Pipeline 数据模型"""
 
 import asyncio
 import json
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from media_tools.transcribe.errors import ErrorType
-from media_tools.common.runtime import ensure_dir
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class AccountPool:
         lock = self._upload_locks_view.get(account_id)
         return lock is None or not lock.locked()
 
-    async def acquire(self, preferred_account_id: Optional[str] = None) -> Optional[dict[str, Any]]:
+    async def acquire(self, preferred_account_id: str | None = None) -> dict[str, Any] | None:
         """选一个可用账号。preferred 命中直接返回；否则空闲 + 用过次数最少（LRU）优先。
 
         acquire 后调用方还要 await upload_lock，hint 是空闲不保证拿到——但减少
@@ -61,9 +61,7 @@ class AccountPool:
         if preferred_account_id and preferred_account_id not in self._excluded:
             for account in self._accounts:
                 if str(account.get("account_id", "")) == preferred_account_id:
-                    self._use_count[preferred_account_id] = (
-                        self._use_count.get(preferred_account_id, 0) + 1
-                    )
+                    self._use_count[preferred_account_id] = self._use_count.get(preferred_account_id, 0) + 1
                     return account
 
         available = [a for a in self._accounts if str(a.get("account_id", "")) not in self._excluded]
@@ -104,9 +102,9 @@ class AccountPool:
 
     def get_stats(self) -> dict[str, Any]:
         active = sum(
-            1 for a in self._accounts
-            if str(a.get("account_id", "")) not in self._excluded
-            and not self._is_idle(str(a.get("account_id", "")))
+            1
+            for a in self._accounts
+            if str(a.get("account_id", "")) not in self._excluded and not self._is_idle(str(a.get("account_id", "")))
         )
         return {
             "total_accounts": len(self._accounts),
@@ -120,29 +118,33 @@ class AccountPool:
 @dataclass
 class RetryConfig:
     """重试配置"""
+
     max_retries: int = 3
     base_delay: float = 1.0
     max_delay: float = 60.0
-    retryable_errors: list[ErrorType] = field(default_factory=lambda: [
-        ErrorType.NETWORK,
-        ErrorType.TIMEOUT,
-        ErrorType.QUOTA,
-        ErrorType.SERVICE_UNAVAILABLE,
-        ErrorType.UNKNOWN,
-    ])
+    retryable_errors: list[ErrorType] = field(
+        default_factory=lambda: [
+            ErrorType.NETWORK,
+            ErrorType.TIMEOUT,
+            ErrorType.QUOTA,
+            ErrorType.SERVICE_UNAVAILABLE,
+            ErrorType.UNKNOWN,
+        ]
+    )
 
 
 @dataclass
 class PipelineResultV2:
     """Pipeline 执行结果 V2"""
+
     success: bool
     video_path: Path
-    transcript_path: Optional[Path] = None
-    error: Optional[str] = None
+    transcript_path: Path | None = None
+    error: str | None = None
     error_type: ErrorType = ErrorType.UNKNOWN
     attempts: int = 1
     duration: float = 0.0
-    account_id: Optional[str] = None
+    account_id: str | None = None
     video_deleted: bool = False
 
     def __str__(self) -> str:
@@ -154,6 +156,7 @@ class PipelineResultV2:
 @dataclass
 class BatchReport:
     """批量执行汇总报告"""
+
     total: int = 0
     success: int = 0
     failed: int = 0
@@ -188,9 +191,3 @@ class BatchReport:
 # ---------------------------------------------------------------------------
 # 任务进度模型 — 从 core/task_progress.py 重新导出（兼容层）
 # ---------------------------------------------------------------------------
-from media_tools.core.task_progress import (
-    Stage,
-    DownloadProgress,
-    TranscribeProgress,
-    TaskProgress,
-)

@@ -82,12 +82,8 @@ def test_cleanup_stale_tasks_upload_stage_uses_30m(monkeypatch) -> None:
     monkeypatch.setenv("MEDIA_TOOLS_TASK_STALE_MINUTES", "20")
     cleanup_stale_tasks(conn)
 
-    by_id = {
-        row["task_id"]: dict(row)
-        for row in conn.execute("SELECT task_id, status FROM task_queue").fetchall()
-    }
+    by_id = {row["task_id"]: dict(row) for row in conn.execute("SELECT task_id, status FROM task_queue").fetchall()}
 
     assert by_id["t-upload-25m"]["status"] == "RUNNING"
     assert by_id["t-upload-35m"]["status"] == "FAILED"
     assert by_id["t-other-25m"]["status"] == "FAILED"
-

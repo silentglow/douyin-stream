@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """轻量 metrics 端点：暴露任务队列、WebSocket、后台任务、DB 连接等关键指标。
 
 不引入 Prometheus 依赖；返回 JSON 格式，方便 ops 用 curl 或简单脚本采集。
@@ -7,15 +8,14 @@ from __future__ import annotations
 import logging
 import sqlite3
 import time
-
 from typing import Any
 
 from fastapi import APIRouter
 
 from media_tools.api.websocket_manager import manager as ws_manager
 from media_tools.core import background
-from media_tools.store.db import DBConnection, get_db_connection, get_table_columns
 from media_tools.scheduler.health import run_health_check
+from media_tools.store.db import DBConnection, get_db_connection, get_table_columns
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,7 @@ def _collect_account_pool_stats() -> dict:
     try:
         from media_tools.accounts.service import get_account_pool_service
         from media_tools.core.config import load_pipeline_config
+
         config = load_pipeline_config()
         # 走单例,和 orchestrator 共享 _upload_locks/use_count 状态,observability 才能反映真实情况
         service = get_account_pool_service(
@@ -102,6 +103,7 @@ def get_failure_summary(days: int = 7):
     数据源是 transcribe_runs 表（每次转写尝试一行）。每次返回最近 N 天的统计。
     """
     from media_tools.transcribe.repository import TranscribeRunRepository
+
     days = max(1, min(days, 90))
     try:
         buckets = TranscribeRunRepository.aggregate_failures(days=days)
@@ -123,9 +125,7 @@ def _collect_creator_sync_status() -> dict[str, Any]:
             total = conn.execute("SELECT COUNT(*) AS c FROM creators").fetchone()["c"]
             creator_columns = get_table_columns(conn, "creators")
             if "auto_sync" in creator_columns:
-                auto_sync = conn.execute(
-                    "SELECT COUNT(*) AS c FROM creators WHERE auto_sync = 1"
-                ).fetchone()["c"]
+                auto_sync = conn.execute("SELECT COUNT(*) AS c FROM creators WHERE auto_sync = 1").fetchone()["c"]
                 stale = conn.execute(
                     """SELECT COUNT(*) AS c FROM creators
                        WHERE auto_sync = 1
@@ -159,6 +159,7 @@ async def get_dashboard():
 
     # failure summary (7 days)
     from media_tools.transcribe.repository import TranscribeRunRepository
+
     try:
         buckets = TranscribeRunRepository.aggregate_failures(days=7)
         failure_summary = {
@@ -172,6 +173,7 @@ async def get_dashboard():
 
     # quota status
     from media_tools.accounts.status import get_qwen_account_status
+
     try:
         quota_status = await get_qwen_account_status()
     except (RuntimeError, OSError, ValueError) as e:

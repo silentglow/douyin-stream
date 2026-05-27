@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """后台任务工作者基类。
 
 提供统一的 heartbeat、进度上报、三态终态决策和异常处理模板，
@@ -6,15 +7,16 @@ from __future__ import annotations
 """
 
 import asyncio
+import contextlib
 import logging
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 from media_tools.core.logging_context import task_context
 from media_tools.scheduler.ops import (
-    update_task_progress,
     _complete_task,
     _fail_task,
     _mark_task_cancelled,
+    update_task_progress,
 )
 from media_tools.scheduler.state import _task_heartbeat
 
@@ -54,8 +56,8 @@ class BaseWorker:
     task_type: str = ""
 
     def __init__(self) -> None:
-        self._task_id: Optional[str] = None
-        self._heartbeat: Optional[asyncio.Task[Any]] = None
+        self._task_id: str | None = None
+        self._heartbeat: asyncio.Task[Any] | None = None
 
     # ------------------------------------------------------------------
     # 模板方法
@@ -97,7 +99,7 @@ class BaseWorker:
         message: str,
         *,
         stage: str = "",
-        pipeline_progress: Optional[dict] = None,
+        pipeline_progress: dict | None = None,
     ) -> None:
         await update_task_progress(
             self._task_id,
@@ -115,8 +117,8 @@ class BaseWorker:
         self,
         message: str,
         *,
-        result_summary: Optional[dict] = None,
-        subtasks: Optional[list] = None,
+        result_summary: dict | None = None,
+        subtasks: list | None = None,
     ) -> None:
         await _complete_task(
             self._task_id,
@@ -131,9 +133,9 @@ class BaseWorker:
         self,
         message: str,
         *,
-        error_msg: Optional[str] = None,
-        result_summary: Optional[dict] = None,
-        subtasks: Optional[list] = None,
+        error_msg: str | None = None,
+        result_summary: dict | None = None,
+        subtasks: list | None = None,
     ) -> None:
         await _complete_task(
             self._task_id,
@@ -149,9 +151,9 @@ class BaseWorker:
         self,
         message: str,
         *,
-        error_msg: Optional[str] = None,
-        result_summary: Optional[dict] = None,
-        subtasks: Optional[list] = None,
+        error_msg: str | None = None,
+        result_summary: dict | None = None,
+        subtasks: list | None = None,
     ) -> None:
         await _complete_task(
             self._task_id,
@@ -176,8 +178,5 @@ class BaseWorker:
     async def _cleanup_heartbeat(self) -> None:
         if self._heartbeat is not None:
             self._heartbeat.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._heartbeat
-            except asyncio.CancelledError:
-                pass
-

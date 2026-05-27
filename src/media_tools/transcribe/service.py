@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Pipeline 流程编排器 V2 - 增强版
 
 在原有基础上提供：
@@ -12,17 +13,17 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Optional, Callable, Any
+from typing import Any
 
-from media_tools.transcribe.flow import run_real_flow
 from media_tools.common.runtime import get_export_config
+from media_tools.core.config import AppConfig, load_pipeline_config
 from media_tools.transcribe.config import load_config as load_transcribe_config
-from media_tools.core.config import load_pipeline_config
-from media_tools.core.config import AppConfig
-from media_tools.transcribe.helpers import _lookup_video_title, _lookup_creator_folder
 from media_tools.transcribe.errors import ErrorType, classify_error
-from media_tools.transcribe.models import RetryConfig, PipelineResultV2, BatchReport
+from media_tools.transcribe.flow import run_real_flow
+from media_tools.transcribe.helpers import _lookup_creator_folder, _lookup_video_title
+from media_tools.transcribe.models import BatchReport, PipelineResultV2, RetryConfig
 
 # 配置日志记录器
 logger = logging.getLogger(__name__)
@@ -44,11 +45,11 @@ class OrchestratorV2:
 
     def __init__(
         self,
-        config: Optional[AppConfig] = None,
-        auth_state_path: Optional[Path] = None,
-        retry_config: Optional[RetryConfig] = None,
-        on_progress: Optional[ProgressCallback] = None,
-        creator_folder_override: Optional[str] = None,
+        config: AppConfig | None = None,
+        auth_state_path: Path | None = None,
+        retry_config: RetryConfig | None = None,
+        on_progress: ProgressCallback | None = None,
+        creator_folder_override: str | None = None,
     ):
         self.config = config or load_pipeline_config()
         self.auth_state_path = auth_state_path
@@ -56,6 +57,7 @@ class OrchestratorV2:
         self.on_progress = on_progress
         self._creator_folder_override = creator_folder_override
         from media_tools.accounts.service import get_account_pool_service
+
         # 进程内单例:所有 orchestrator 共享同一个 _upload_locks dict,
         # 避免同账号多文件并发上传(平台只允许 1)。详见 accounts/service.py 末尾说明。
         self._account_pool_service = get_account_pool_service(
@@ -77,7 +79,7 @@ class OrchestratorV2:
         total: int,
         video_path: Path,
         status: str,
-        account_id: Optional[str] = None,
+        account_id: str | None = None,
     ) -> None:
         """触发进度回调
 
@@ -97,7 +99,7 @@ class OrchestratorV2:
     async def _transcribe_single_video(
         self,
         video_path: Path,
-        account_id: Optional[str] = None,
+        account_id: str | None = None,
     ) -> PipelineResultV2:
         """对单个视频执行转写（内部方法，不含重试）
 
@@ -135,7 +137,7 @@ class OrchestratorV2:
             output_dir = str(target_dir)
             Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-            last_error: Optional[Exception] = None
+            last_error: Exception | None = None
             last_error_type: ErrorType = ErrorType.UNKNOWN
 
             # 初始化账号池（如果尚未初始化）
@@ -148,10 +150,11 @@ class OrchestratorV2:
             accounts_tried = set()
             max_attempts = pool.available_count if pool else 1
             preferred_account_id = account_id
-            current_account_id: Optional[str] = None
+            current_account_id: str | None = None
 
             # 第三阶段：解析 asset_id，三段式 fallback；找不到也允许继续跑（只是没续传能力）
             from media_tools.assets.service import MediaAssetService
+
             asset_id_for_run = MediaAssetService.find_asset_id_for_video_path(video_path)
 
             # 将 asset_id 嵌入输出标题，防止不同视频因标题截断后互相覆盖
@@ -161,8 +164,9 @@ class OrchestratorV2:
 
             # DB 级断点续传：检查该 asset 是否已有成功的 run（跨账号去重）
             if asset_id_for_run:
-                from media_tools.transcribe.run_service import TranscribeRunService
                 from media_tools.assets.service import AssetUpdateService
+                from media_tools.transcribe.run_service import TranscribeRunService
+
                 saved = TranscribeRunService.check_saved(asset_id_for_run)
                 if saved:
                     saved_path, saved_account_id = saved
@@ -198,8 +202,8 @@ class OrchestratorV2:
                     break
 
                 # 第三阶段：为这次尝试创建 run。失败时即便 mark_failed 也不影响主流程。
-                run_id: Optional[str] = None
-                resumable_run: Optional[dict[str, Any]] = None
+                run_id: str | None = None
+                resumable_run: dict[str, Any] | None = None
                 if asset_id_for_run:
                     run_id, resumable_run = TranscribeRunService.find_or_create_run(
                         asset_id=asset_id_for_run,
@@ -210,6 +214,7 @@ class OrchestratorV2:
                 try:
                     # 把 find_resumable 的字典转成 ResumeState 给 flow
                     from media_tools.transcribe.flow import ResumeState
+
                     resume_state = None
                     if resumable_run:
                         resume_state = ResumeState(
@@ -270,7 +275,9 @@ class OrchestratorV2:
                             msg += f": {suggestion}"
                         logger.warning(msg)
                         continue
-                    logger.warning(f"转写失败 [{last_error_type.value}]，保留在账号 {current_account_id} 的重试链路: {e}")
+                    logger.warning(
+                        f"转写失败 [{last_error_type.value}]，保留在账号 {current_account_id} 的重试链路: {e}"
+                    )
                     break
                 finally:
                     pool = self._account_pool_service.account_pool
@@ -314,6 +321,7 @@ class OrchestratorV2:
         if error_type not in (ErrorType.AUTH, ErrorType.QUOTA):
             return False
         from media_tools.transcribe.errors import TranscribeError
+
         if isinstance(exc, TranscribeError):
             return exc.error_info.retryable
         return error_type == ErrorType.AUTH
@@ -331,7 +339,7 @@ class OrchestratorV2:
             PipelineResultV2: 最终执行结果
         """
         max_attempts = self.retry_config.max_retries + 1  # 首次 + 重试次数
-        execution_account_id: Optional[str] = None
+        execution_account_id: str | None = None
 
         for attempt in range(1, max_attempts + 1):
             # 外层重试前重置账号排除状态，给所有账号新的尝试机会
@@ -342,7 +350,9 @@ class OrchestratorV2:
                     pool.reset_excluded()
 
             self._fire_progress(
-                0, 1, video_path,
+                0,
+                1,
+                video_path,
                 f"处理中 (尝试 {attempt}/{max_attempts})",
                 account_id=execution_account_id,
             )
@@ -354,6 +364,7 @@ class OrchestratorV2:
             if result.success:
                 # 同步更新数据库
                 from media_tools.assets.service import AssetUpdateService
+
                 AssetUpdateService.mark_transcribe_completed(
                     video_path, result.transcript_path, Path(self.config.output_dir)
                 )
@@ -374,7 +385,9 @@ class OrchestratorV2:
                     f"[{result.error_type.value}] {result.error}"
                 )
                 self._fire_progress(
-                    0, 1, video_path,
+                    0,
+                    1,
+                    video_path,
                     f"失败，{delay:.0f}s 后重试 ({attempt}/{max_attempts})",
                     account_id=result.account_id,
                 )
@@ -382,32 +395,27 @@ class OrchestratorV2:
             else:
                 # 不可重试或已达最大次数
                 # 同步把失败信息写回 media_assets，让 UI/查询能基于 DB 真相源
-                from media_tools.assets.service import AssetUpdateService
                 from media_tools.assets.gc import CloudCleanupService
+                from media_tools.assets.service import AssetUpdateService
+
                 AssetUpdateService.mark_transcribe_failed(
                     video_path,
                     result.error_type.value,
                     result.error or "",
                 )
                 # 清理云端残留的失败转写记录
-                await CloudCleanupService.cleanup(
-                    video_path, account_id=result.account_id
-                )
+                await CloudCleanupService.cleanup(video_path, account_id=result.account_id)
                 self._fire_progress(
-                    0, 1, video_path,
+                    0,
+                    1,
+                    video_path,
                     f"失败 [{result.error_type.value}] (已达最大尝试次数)",
                     account_id=result.account_id,
                 )
                 if attempt < max_attempts:
-                    logger.error(
-                        f"视频处理失败且不可重试 [{result.error_type.value}]: "
-                        f"{video_path} - {result.error}"
-                    )
+                    logger.error(f"视频处理失败且不可重试 [{result.error_type.value}]: {video_path} - {result.error}")
                 else:
-                    logger.error(
-                        f"视频处理失败，已达最大尝试次数 ({max_attempts}): "
-                        f"{video_path} - {result.error}"
-                    )
+                    logger.error(f"视频处理失败，已达最大尝试次数 ({max_attempts}): {video_path} - {result.error}")
                 return result
 
         # 理论上不会到这里，但加上保险
@@ -462,7 +470,7 @@ class OrchestratorV2:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # 汇总结果 - 使用 zip 保持结果与原始路径的一一对应
-        for video_path, result in zip(pending_paths, results):
+        for video_path, result in zip(pending_paths, results, strict=False):
             pipeline_result: PipelineResultV2
 
             # Python 3.11+ 中 asyncio.gather(return_exceptions=True) 不会收集 CancelledError，
@@ -482,6 +490,7 @@ class OrchestratorV2:
                 )
                 # transcribe_with_retry 抛出异常时（理论上不会，但兜底）也要写回 DB
                 from media_tools.assets.service import AssetUpdateService
+
                 AssetUpdateService.mark_transcribe_failed(
                     video_path,
                     error_type.value,
@@ -491,10 +500,7 @@ class OrchestratorV2:
             else:
                 # 结果校验：确保返回的 path 属于当前任务
                 if result.video_path != video_path:
-                    logger.warning(
-                        f"结果路径不匹配: expected={video_path}, got={result.video_path}, "
-                        "使用原始路径"
-                    )
+                    logger.warning(f"结果路径不匹配: expected={video_path}, got={result.video_path}, 使用原始路径")
                     # 使用原始路径，保持一致性
                     result.video_path = video_path
                 pipeline_result = result
@@ -536,11 +542,11 @@ class OrchestratorV2:
 
 
 def create_orchestrator(
-    config: Optional[AppConfig] = None,
-    auth_state_path: Optional[Path] = None,
-    retry_config: Optional[RetryConfig] = None,
-    on_progress: Optional[ProgressCallback] = None,
-    creator_folder_override: Optional[str] = None,
+    config: AppConfig | None = None,
+    auth_state_path: Path | None = None,
+    retry_config: RetryConfig | None = None,
+    on_progress: ProgressCallback | None = None,
+    creator_folder_override: str | None = None,
 ) -> OrchestratorV2:
     return OrchestratorV2(
         config=config,

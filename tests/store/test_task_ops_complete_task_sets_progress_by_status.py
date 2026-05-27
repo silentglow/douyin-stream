@@ -37,8 +37,9 @@ async def test_complete_task_failed_sets_progress_zero() -> None:
     conn.commit()
 
     notify = AsyncMock()
-    with patch.object(task_ops, "get_db_connection", return_value=conn), patch.object(
-        task_ops, "notify_task_update", new=notify
+    with (
+        patch.object(task_ops, "get_db_connection", return_value=conn),
+        patch.object(task_ops, "notify_task_update", new=notify),
     ):
         await task_ops._complete_task("t1", "pipeline", "fail", status="FAILED", error_msg="boom")
 
@@ -88,12 +89,17 @@ async def test_complete_task_sends_pipeline_progress_and_updates_update_time() -
         def now(cls):  # noqa: N805
             return datetime(2026, 4, 29, 12, 0, 0)
 
-    with patch.object(task_ops, "get_db_connection", return_value=conn), patch.object(
-        task_ops, "notify_task_update", new=notify
-    ), patch.object(task_ops, "datetime", FakeDateTime):
+    with (
+        patch.object(task_ops, "get_db_connection", return_value=conn),
+        patch.object(task_ops, "notify_task_update", new=notify),
+        patch.object(task_ops, "datetime", FakeDateTime),
+    ):
         await task_ops._complete_task("t1", "creator_sync_full", "ok", status="COMPLETED")
 
     row = conn.execute("SELECT update_time FROM task_queue WHERE task_id='t1'").fetchone()
     assert row is not None
     assert (row["update_time"] if isinstance(row, sqlite3.Row) else row[0]) == "2026-04-29T12:00:00"
-    assert notify.await_args.kwargs.get("pipeline_progress") == {"stage": "download", "download": {"done": 3, "total": 3}}
+    assert notify.await_args.kwargs.get("pipeline_progress") == {
+        "stage": "download",
+        "download": {"done": 3, "total": 3},
+    }

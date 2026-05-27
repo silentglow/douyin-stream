@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """任务状态机 — 定义合法的状态转移。"""
 
 from enum import Enum, auto
@@ -6,6 +7,7 @@ from enum import Enum, auto
 
 class TaskStatus(Enum):
     """任务状态"""
+
     PENDING = auto()
     RUNNING = auto()
     PAUSED = auto()
@@ -18,7 +20,13 @@ class TaskStatus(Enum):
 # 合法状态转移图
 VALID_TRANSITIONS: dict[TaskStatus, list[TaskStatus]] = {
     TaskStatus.PENDING: [TaskStatus.RUNNING, TaskStatus.FAILED, TaskStatus.CANCELLED],
-    TaskStatus.RUNNING: [TaskStatus.PAUSED, TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.PARTIAL_FAILED, TaskStatus.CANCELLED],
+    TaskStatus.RUNNING: [
+        TaskStatus.PAUSED,
+        TaskStatus.COMPLETED,
+        TaskStatus.FAILED,
+        TaskStatus.PARTIAL_FAILED,
+        TaskStatus.CANCELLED,
+    ],
     TaskStatus.PAUSED: [TaskStatus.RUNNING, TaskStatus.CANCELLED],
     TaskStatus.COMPLETED: [],
     TaskStatus.FAILED: [TaskStatus.RUNNING],
@@ -29,6 +37,7 @@ VALID_TRANSITIONS: dict[TaskStatus, list[TaskStatus]] = {
 
 class InvalidTransitionError(ValueError):
     """非法状态转移异常"""
+
     pass
 
 
@@ -46,6 +55,4 @@ def validate_transition(from_status: TaskStatus, to_status: TaskStatus) -> None:
     """验证状态转移是否合法。"""
     allowed = VALID_TRANSITIONS.get(from_status, [])
     if to_status not in allowed:
-        raise InvalidTransitionError(
-            f"Invalid transition: {from_status.name} -> {to_status.name}"
-        )
+        raise InvalidTransitionError(f"Invalid transition: {from_status.name} -> {to_status.name}")

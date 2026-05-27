@@ -1,11 +1,10 @@
 from __future__ import annotations
-from typing import Optional
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class BilibiliUrlKind(str, Enum):
+class BilibiliUrlKind(StrEnum):
     SPACE = "space"
     VIDEO = "video"
     SHORT = "short"
@@ -16,6 +15,5 @@ class BilibiliUrlKind(str, Enum):
 class NormalizedBilibiliUrl:
     kind: BilibiliUrlKind
     original_url: str
-    mid: Optional[str] = None
-    bvid: Optional[str] = None
-
+    mid: str | None = None
+    bvid: str | None = None

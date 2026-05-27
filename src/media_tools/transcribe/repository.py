@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """转写运行记录仓库 - transcribe_runs 表的所有操作
 
 每个 run 代表一次对某个视频、在某个通义账号上的完整转写尝试。
@@ -9,10 +10,10 @@ stage 字段记录当前进行到哪一阶段，record_id / gen_record_id 在上
 import sqlite3
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
-from media_tools.store.db import get_db_connection
 from media_tools.logger import get_logger
+from media_tools.store.db import get_db_connection
 
 logger = get_logger(__name__)
 
@@ -34,7 +35,7 @@ class TranscribeRunRepository:
         asset_id: str,
         video_path: str,
         account_id: str,
-        task_id: Optional[str] = None,
+        task_id: str | None = None,
     ) -> str:
         run_id = str(uuid.uuid4())
         now = datetime.now().isoformat()
@@ -50,7 +51,7 @@ class TranscribeRunRepository:
         return run_id
 
     @staticmethod
-    def find_resumable(asset_id: str, account_id: str) -> Optional[dict[str, Any]]:
+    def find_resumable(asset_id: str, account_id: str) -> dict[str, Any] | None:
         """查找该 asset 在该 account 上可以续做的 run。
 
         命中条件：gen_record_id 已持久化，且：
@@ -88,7 +89,7 @@ class TranscribeRunRepository:
     def update_stage(
         run_id: str,
         stage: str,
-        extra: Optional[dict[str, Any]] = None,
+        extra: dict[str, Any] | None = None,
     ) -> None:
         """推进 stage，并可选地写入 record_id / gen_record_id / batch_id 等附加字段。"""
         extra = extra or {}
@@ -136,16 +137,14 @@ class TranscribeRunRepository:
             )
 
     @staticmethod
-    def get(run_id: str) -> Optional[dict[str, Any]]:
+    def get(run_id: str) -> dict[str, Any] | None:
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row
-            row = conn.execute(
-                "SELECT * FROM transcribe_runs WHERE run_id = ?", (run_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM transcribe_runs WHERE run_id = ?", (run_id,)).fetchone()
         return dict(row) if row else None
 
     @staticmethod
-    def find_saved_for_asset(asset_id: str) -> Optional[dict[str, Any]]:
+    def find_saved_for_asset(asset_id: str) -> dict[str, Any] | None:
         """查询某个 asset 是否已经有成功落盘的 run。用于跨任务去重。
 
         仅返回 transcript_path 非空的有效记录，避免空文件/损坏文件被判定为成功。
@@ -181,6 +180,7 @@ class TranscribeRunRepository:
         失败聚合表格里直接看到"长这样"的错误样本。
         """
         from datetime import timedelta
+
         cutoff = (datetime.now() - timedelta(days=max(1, days))).isoformat()
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row
@@ -215,13 +215,15 @@ class TranscribeRunRepository:
                     (r["error_type"], r["error_stage"], cutoff),
                 ).fetchone()
                 sample_error = (sample["last_error"] if sample else None) or ""
-                buckets.append({
-                    "error_type": r["error_type"],
-                    "error_stage": r["error_stage"],
-                    "count": int(r["count"]),
-                    "last_seen": r["last_seen"],
-                    "sample_error": sample_error[:200],
-                })
+                buckets.append(
+                    {
+                        "error_type": r["error_type"],
+                        "error_stage": r["error_stage"],
+                        "count": int(r["count"]),
+                        "last_seen": r["last_seen"],
+                        "sample_error": sample_error[:200],
+                    }
+                )
         return buckets
 
     @staticmethod

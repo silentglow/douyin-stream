@@ -1,18 +1,18 @@
-from typing import Optional
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
+import asyncio
+import logging
+import sqlite3
+from contextlib import asynccontextmanager, suppress
+
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.middleware.base import RequestResponseEndpoint
-from media_tools.api.routers import creators, assets, tasks, settings, douyin, scheduler, metrics, search
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+
+from media_tools.api.routers import assets, creators, douyin, metrics, scheduler, search, settings, tasks
 from media_tools.api.websocket_manager import stale_connection_sweeper
 from media_tools.core import background
 from media_tools.core.exceptions import AppError
-import asyncio
-import sqlite3
-import uvicorn
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +22,11 @@ async def lifespan(app: FastAPI):
     # Startup: ensure DB schema is up to date (adds new columns to existing tables)
     from media_tools.common.paths import get_db_path
     from media_tools.store.db import init_db
+
     init_db(get_db_path())
 
     from media_tools.store.db import ensure_fts_populated
+
     ensure_fts_populated()
 
     scheduler.startup_scheduler()
@@ -34,14 +36,16 @@ async def lifespan(app: FastAPI):
 
     # Kick off the transcript preview backfill in the background
     from media_tools.transcribe.preview_backfill import start_backfill_once
+
     start_backfill_once()
 
     # 启动时清理孤儿任务：服务重启后内存中的后台任务全部丢失，
     # 数据库里残留的 RUNNING/PENDING 任务实际上已经无人执行。
     try:
-        from media_tools.store.db import get_db_connection
-        from media_tools.scheduler.ops import cleanup_stale_tasks
         import sqlite3
+
+        from media_tools.scheduler.ops import cleanup_stale_tasks
+        from media_tools.store.db import get_db_connection
 
         with get_db_connection() as conn:
             cleanup_stale_tasks(conn, is_startup=True)
@@ -52,13 +56,12 @@ async def lifespan(app: FastAPI):
     # 启动时归档 30 天前的日志文件（只 mv 不删，保留事故回溯能力）
     try:
         from pathlib import Path
+
         from media_tools.services.log_rotation import archive_old_logs
 
         outcome = archive_old_logs(Path("logs"), days=30)
         if outcome.archived_count:
-            logger.info(
-                f"startup: archived {outcome.archived_count} old log file(s) to {outcome.archive_dir}"
-            )
+            logger.info(f"startup: archived {outcome.archived_count} old log file(s) to {outcome.archive_dir}")
     except OSError as e:
         logger.warning(f"startup log archive failed: {e}")
 
@@ -68,10 +71,8 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     sweeper_task.cancel()
-    try:
+    with suppress(asyncio.CancelledError):
         await sweeper_task
-    except asyncio.CancelledError:
-        pass
     # 取消 registry 中所有 in-flight 后台任务（worker / heartbeat / auto_retry / ...）
     cancelled = await background.cancel_all(timeout=5.0)
     if cancelled:
@@ -86,6 +87,7 @@ async def lifespan(app: FastAPI):
 
     # 关闭主线程缓存的 DB 连接
     from media_tools.store.db import close_all_cached_connections
+
     closed = close_all_cached_connections()
     if closed:
         logger.info(f"shutdown: closed {closed} cached DB connection(s)")
@@ -102,7 +104,7 @@ class UnhandledApiErrorsMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
         try:
             return await call_next(request)
-        except (sqlite3.Error, OSError, RuntimeError) as exc:
+        except (sqlite3.Error, OSError, RuntimeError):
             # 不重复处理已声明 HTTPException 的路径（中间件在外层，
             # HTTPException 会被 FastAPI 捕获，不会走到这里；能到这里
             # 说明是真正的未处理异常）
@@ -139,7 +141,7 @@ async def request_context_middleware(request: Request, call_next):
         clear_logging_context()
 
 
-_api_key_cache: Optional[str] = None
+_api_key_cache: str | None = None
 _api_key_cache_time: float = 0.0
 
 
@@ -149,9 +151,11 @@ async def api_key_auth(request: Request, call_next):
     global _api_key_cache, _api_key_cache_time
 
     import time
+
     now = time.monotonic()
     if now - _api_key_cache_time > 10.0:
         from media_tools.core.config import get_runtime_setting
+
         _api_key_cache = get_runtime_setting("api_key", "")
         _api_key_cache_time = now
     api_key = _api_key_cache
@@ -172,6 +176,7 @@ async def api_key_auth(request: Request, call_next):
     token = auth_header[7:]  # Remove "Bearer " prefix
     # 用 compare_digest 做常量时间比较，避免本地/同机时序侧信道泄漏 API key
     import hmac
+
     if not hmac.compare_digest(token, api_key):
         raise HTTPException(status_code=403, detail="Invalid API key")
 
@@ -185,6 +190,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError):
@@ -239,8 +245,8 @@ app.include_router(search.router)
 
 import shutil
 
-from media_tools.store.db import get_db_connection
 from media_tools.scheduler.repository import TaskRepository
+from media_tools.store.db import get_db_connection
 
 
 @app.get("/api/health")
@@ -275,6 +281,7 @@ def health_check():
         result["active_tasks"] = f"error: {e}"
 
     return result
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

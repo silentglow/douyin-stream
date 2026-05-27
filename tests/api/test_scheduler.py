@@ -1,4 +1,5 @@
 """Scheduler API 测试"""
+
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -33,10 +34,13 @@ class TestSchedulerAPI:
 
     def test_add_schedule_success(self):
         """添加有效的 cron 调度任务"""
-        response = client.post("/api/v1/scheduler", json={
-            "cron_expr": "0 2 * * *",
-            "enabled": True,
-        })
+        response = client.post(
+            "/api/v1/scheduler",
+            json={
+                "cron_expr": "0 2 * * *",
+                "enabled": True,
+            },
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
@@ -56,20 +60,26 @@ class TestSchedulerAPI:
 
     def test_add_schedule_invalid_cron(self):
         """无效的 cron 表达式返回 400"""
-        response = client.post("/api/v1/scheduler", json={
-            "cron_expr": "invalid",
-            "enabled": True,
-        })
+        response = client.post(
+            "/api/v1/scheduler",
+            json={
+                "cron_expr": "invalid",
+                "enabled": True,
+            },
+        )
         assert response.status_code == 400
         assert "Invalid cron" in response.json()["message"]
 
     def test_toggle_schedule(self):
         """切换调度任务启用状态"""
         # 先创建
-        create_resp = client.post("/api/v1/scheduler", json={
-            "cron_expr": "0 3 * * *",
-            "enabled": True,
-        })
+        create_resp = client.post(
+            "/api/v1/scheduler",
+            json={
+                "cron_expr": "0 3 * * *",
+                "enabled": True,
+            },
+        )
         task_id = create_resp.json()["task_id"]
 
         # 禁用
@@ -102,10 +112,13 @@ class TestSchedulerAPI:
 
     def test_delete_schedule(self):
         """删除调度任务"""
-        create_resp = client.post("/api/v1/scheduler", json={
-            "cron_expr": "0 4 * * *",
-            "enabled": True,
-        })
+        create_resp = client.post(
+            "/api/v1/scheduler",
+            json={
+                "cron_expr": "0 4 * * *",
+                "enabled": True,
+            },
+        )
         task_id = create_resp.json()["task_id"]
 
         delete_resp = client.delete(f"/api/v1/scheduler/{task_id}")

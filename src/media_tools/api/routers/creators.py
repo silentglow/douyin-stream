@@ -1,19 +1,18 @@
 import asyncio
-from typing import Optional
-from fastapi import APIRouter, HTTPException, Query, Path
-from media_tools.common.paths import get_download_path, get_transcripts_path
-from media_tools.store.db import get_db_connection, resolve_safe_path, resolve_query_value
-from media_tools.creators.repository import CreatorRepository
-from media_tools.assets.repository import AssetRepository
-from media_tools.bilibili.nickname import fetch_bilibili_nickname
-import os
-import re
-import sqlite3
-import shutil
 import logging
+import re
+import shutil
+import sqlite3
 import threading
 import time
+
+from fastapi import APIRouter, HTTPException, Path, Query
 from pydantic import BaseModel
+
+from media_tools.bilibili.nickname import fetch_bilibili_nickname
+from media_tools.common.paths import get_download_path, get_transcripts_path
+from media_tools.creators.repository import CreatorRepository
+from media_tools.store.db import get_db_connection, resolve_query_value, resolve_safe_path
 
 router = APIRouter(prefix="/api/v1/creators", tags=["creators"], redirect_slashes=False)
 logger = logging.getLogger(__name__)
@@ -34,6 +33,7 @@ def _scan_creator_disk_counts(folder_name: str) -> dict[str, int]:
     suffix_re = re.compile(r"_\d+$")
     try:
         from media_tools.transcribe.media_extensions import MEDIA_EXTENSIONS
+
         exts = set(MEDIA_EXTENSIONS)
     except ImportError:
         exts = {".mp4"}
@@ -132,8 +132,8 @@ class ToggleAutoSyncRequest(BaseModel):
 
 @router.get("")
 def list_creators(
-    limit: Optional[int] = Query(default=None, ge=1, le=500),
-    offset: Optional[int] = Query(default=None, ge=0),
+    limit: int | None = Query(default=None, ge=1, le=500),
+    offset: int | None = Query(default=None, ge=0),
 ):
     limit = resolve_query_value(limit, 100)
     offset = resolve_query_value(offset, 0)
@@ -152,8 +152,8 @@ def list_creators(
 async def create_creator(req: CreatorCreateRequest):
     try:
         if "bilibili.com" in req.url or "b23.tv" in req.url:
-            from media_tools.bilibili.url_parser import BilibiliUrlKind, normalize_bilibili_url
             from media_tools.bilibili.naming import build_bilibili_creator_uid
+            from media_tools.bilibili.url_parser import BilibiliUrlKind, normalize_bilibili_url
 
             parsed = normalize_bilibili_url(req.url)
             if parsed.kind is not BilibiliUrlKind.SPACE or not parsed.mid:
@@ -202,6 +202,7 @@ async def create_creator(req: CreatorCreateRequest):
     except (RuntimeError, OSError, ValueError) as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.patch("/{uid}/auto-sync")
 def toggle_creator_auto_sync(*, uid: str = Path(..., min_length=1, max_length=128), req: ToggleAutoSyncRequest):
     """切换创作者自动同步状态"""
@@ -225,8 +226,8 @@ def delete_creator(uid: str = Path(..., min_length=1, max_length=128)):
 
         # Phase 2: Delete files after DB commit (outside transaction)
         for asset in assets:
-            video_path = asset.get('video_path')
-            transcript_name = asset.get('transcript_path')
+            video_path = asset.get("video_path")
+            transcript_name = asset.get("transcript_path")
 
             # Delete video file
             if video_path:

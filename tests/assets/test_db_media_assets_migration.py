@@ -3,13 +3,13 @@
 老库（缺新列）启动一次 init_db 后，新增的 6 列必须全部到位，且老数据保留、
 默认值生效（transcript_retry_count = 0）。
 """
+
 from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
 
 from media_tools.store.db import init_db
-
 
 _NEW_COLUMNS = {
     "transcript_last_error",
@@ -54,9 +54,7 @@ def test_legacy_db_upgrades_in_place_and_preserves_data(tmp_path: Path) -> None:
     db = tmp_path / "legacy.db"
     with sqlite3.connect(db) as conn:
         _legacy_schema(conn)
-        conn.execute(
-            "INSERT INTO media_assets(asset_id, creator_uid, title) VALUES ('old1','u1','existing')"
-        )
+        conn.execute("INSERT INTO media_assets(asset_id, creator_uid, title) VALUES ('old1','u1','existing')")
         conn.commit()
 
     init_db(str(db))

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """后台 asyncio.Task 统一 registry。
 
 历史上 `_background_tasks: set[asyncio.Task]` 在 task_state、auto_retry、
@@ -13,7 +14,8 @@ websocket_manager、task_helpers 各有一份，shutdown 时无统一入口取�
 
 import asyncio
 import logging
-from typing import Any, Coroutine, Optional
+from collections.abc import Coroutine
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,7 @@ _tasks: set[asyncio.Task[Any]] = set()
 # 主 FastAPI 事件循环引用，供 APScheduler 线程等"非主 loop 上下文"通过
 # `asyncio.run_coroutine_threadsafe(coro, get_main_loop())` 把协程派发回主 loop，
 # 这样产生的 Task 才能被 `_active_tasks` 注册的 cancel 路径正确取消。
-_main_loop: Optional[asyncio.AbstractEventLoop] = None
+_main_loop: asyncio.AbstractEventLoop | None = None
 
 
 def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
@@ -31,7 +33,7 @@ def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
     _main_loop = loop
 
 
-def get_main_loop() -> Optional[asyncio.AbstractEventLoop]:
+def get_main_loop() -> asyncio.AbstractEventLoop | None:
     """获取主事件循环；尚未初始化时返回 None，由调用方决定如何降级。"""
     return _main_loop
 
@@ -43,7 +45,7 @@ def register(task: asyncio.Task[Any]) -> asyncio.Task[Any]:
     return task
 
 
-def create(coro: Coroutine[Any, Any, Any], *, name: Optional[str] = None) -> asyncio.Task[Any]:
+def create(coro: Coroutine[Any, Any, Any], *, name: str | None = None) -> asyncio.Task[Any]:
     """`asyncio.create_task` 的快捷封装，自动 register。"""
     task = asyncio.create_task(coro, name=name) if name else asyncio.create_task(coro)
     return register(task)
@@ -81,7 +83,7 @@ async def cancel_all(timeout: float = 5.0) -> int:
             asyncio.gather(*pending, return_exceptions=True),
             timeout=timeout,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         still_running = sum(1 for t in pending if not t.done())
         logger.warning(f"cancel_all timed out after {timeout}s; {still_running} task(s) still running")
     return len(pending)

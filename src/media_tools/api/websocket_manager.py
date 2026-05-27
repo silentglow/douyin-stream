@@ -1,6 +1,8 @@
 import asyncio
+import contextlib
 import logging
 import time
+
 from fastapi import WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
@@ -54,10 +56,7 @@ class ConnectionManager:
         return len(stale)
 
     def get_stats(self) -> dict:
-        return {
-            "active_connections": len(self.active_connections),
-            **self._stats
-        }
+        return {"active_connections": len(self.active_connections), **self._stats}
 
     async def broadcast(self, message: dict):
         # 先清理标记为 DISCONNECTED 的连接
@@ -81,7 +80,7 @@ class ConnectionManager:
             *(c.send_json(message) for c in live),
             return_exceptions=True,
         )
-        for conn, result in zip(live, results):
+        for conn, result in zip(live, results, strict=False):
             if isinstance(result, BaseException):
                 if isinstance(result, (ConnectionResetError, OSError, BrokenPipeError, RuntimeError)):
                     logger.info(f"WebSocket 连接已关闭，移除连接: {id(conn)}")
@@ -154,7 +153,5 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         manager.disconnect(websocket)
         heartbeat_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await heartbeat_task
-        except asyncio.CancelledError:
-            pass

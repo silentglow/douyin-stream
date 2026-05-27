@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from typing import Optional
 
-from media_tools.store.db import get_db_connection
 from media_tools.logger import get_logger
+from media_tools.store.db import get_db_connection
 
 logger = get_logger(__name__)
 
@@ -20,7 +19,7 @@ class CookieAccount:
     status: str
     remark: str
     auth_state_path: str
-    last_used: Optional[str]
+    last_used: str | None
 
 
 class CookieManager:
@@ -33,7 +32,7 @@ class CookieManager:
             return self._get_qwen_cookie(account_id=account_id)
         return self._get_pool_cookie(platform, account_id=account_id)
 
-    def get_active_account(self, platform: str) -> Optional[CookieAccount]:
+    def get_active_account(self, platform: str) -> CookieAccount | None:
         if platform not in SUPPORTED_PLATFORMS:
             raise ValueError(f"不支持的平台: {platform}")
         with get_db_connection() as conn:
@@ -142,14 +141,15 @@ class CookieManager:
         return ""
 
     def _get_qwen_cookie(self, *, account_id: str = "") -> str:
-        from media_tools.accounts.auth_state import resolve_qwen_cookie_string, default_qwen_auth_state_path
+        from media_tools.accounts.auth_state import default_qwen_auth_state_path, resolve_qwen_cookie_string
+
         return resolve_qwen_cookie_string(
             auth_state_path=default_qwen_auth_state_path(),
             account_id=account_id,
         )
 
 
-_cookie_manager: Optional[CookieManager] = None
+_cookie_manager: CookieManager | None = None
 
 
 def get_cookie_manager() -> CookieManager:

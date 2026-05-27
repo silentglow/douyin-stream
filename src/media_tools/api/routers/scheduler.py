@@ -1,11 +1,12 @@
+import logging
 import sqlite3
 import uuid
-import logging
-from datetime import datetime
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel
+from datetime import UTC, datetime
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel
 
 from media_tools.store.db import get_db_connection, get_table_columns
 
@@ -16,18 +17,22 @@ logger = logging.getLogger(__name__)
 scheduler = BackgroundScheduler()
 SYSTEM_JOB_IDS = {"__stale_task_cleanup__", "__auto_claim_qwen_quota__"}
 
+
 class ScheduleRequest(BaseModel):
     cron_expr: str  # e.g., "0 2 * * *" for 02:00 daily
     enabled: bool = True
 
+
 class ToggleRequest(BaseModel):
     enabled: bool
+
 
 def _run_scan_all_following():
     """The actual job executed by the scheduler"""
     logger.info("Running scheduled task: full sync all following")
     try:
         from media_tools.platform.douyin import download_all
+
         download_all(auto_confirm=True)
         logger.info("Scheduled task 'full sync all following' completed successfully.")
     except (OSError, RuntimeError, ImportError) as e:
@@ -60,11 +65,12 @@ def _register_system_jobs() -> None:
         try:
             import asyncio
             from pathlib import Path
-            from media_tools.accounts.quota import claim_equity_quota, has_claimed_equity_today
+
             from media_tools.accounts.db_account_pool import (
                 build_qwen_auth_state_path_for_account,
                 load_qwen_accounts_from_db,
             )
+            from media_tools.accounts.quota import claim_equity_quota, has_claimed_equity_today
 
             targets = load_qwen_accounts_from_db()
             logger.info(f"[定时额度领取] 开始，共 {len(targets)} 个账号")
@@ -74,7 +80,7 @@ def _register_system_jobs() -> None:
                 asyncio.set_event_loop(loop)
                 for target in targets:
                     account_id = target.account_id
-                    remark = getattr(target, 'remark', '') or account_id[:8]
+                    remark = getattr(target, "remark", "") or account_id[:8]
                     if target.status != "active":
                         logger.info(f"[定时额度领取] {remark}: 跳过（账号状态 {target.status}）")
                         continue
@@ -94,20 +100,23 @@ def _register_system_jobs() -> None:
                         after = result.after_snapshot.remaining_upload if result.after_snapshot else "?"
                         delta = (
                             result.after_snapshot.remaining_upload - result.before_snapshot.remaining_upload
-                            if result.before_snapshot and result.after_snapshot else "?"
+                            if result.before_snapshot and result.after_snapshot
+                            else "?"
                         )
                         logger.info(f"[定时额度领取] {remark}: 领取成功（额度 {before} → {after}, +{delta} 分钟）")
                     elif result.reason == "quota-unchanged":
                         before = result.before_snapshot.remaining_upload if result.before_snapshot else "?"
                         after = result.after_snapshot.remaining_upload if result.after_snapshot else "?"
-                        logger.warning(f"[定时额度领取] {remark}: 未领到（额度未变化 {before} → {after}，可能 cookie 失效或 API 已变更）")
+                        logger.warning(
+                            f"[定时额度领取] {remark}: 未领到（额度未变化 {before} → {after}，可能 cookie 失效或 API 已变更）"
+                        )
                     else:
                         logger.info(f"[定时额度领取] {remark}: 跳过（{result.reason}）")
             finally:
                 asyncio.set_event_loop(None)
                 try:
                     loop.close()
-                except Exception:  # noqa: defensive
+                except Exception:  # noqa: BLE001
                     pass
             logger.info("[定时额度领取] 完成")
         except (RuntimeError, OSError, ValueError) as e:
@@ -124,10 +133,11 @@ def _register_system_jobs() -> None:
     # 创作者自动同步（每 30 分钟扫描一次）
     def _auto_creator_sync():
         import asyncio
-        from datetime import timezone, timedelta
-        from media_tools.scheduler.repository import TaskRepository
-        from media_tools.creators.sync import CreatorSyncWorker
+        from datetime import timedelta
+
         from media_tools.core import background as _bg
+        from media_tools.creators.sync import CreatorSyncWorker
+        from media_tools.scheduler.repository import TaskRepository
 
         # 派发到主 loop 上跑 worker，避免在 APScheduler 线程起子 loop 让
         # `_active_tasks` 注册的 Task 对象绑定在已关闭的 loop 上（用户点 cancel 时
@@ -142,11 +152,9 @@ def _register_system_jobs() -> None:
             creator_columns = get_table_columns(conn, "creators")
             if "auto_sync" not in creator_columns:
                 return
-            rows = conn.execute(
-                "SELECT uid, last_fetch_time FROM creators WHERE auto_sync = 1"
-            ).fetchall()
+            rows = conn.execute("SELECT uid, last_fetch_time FROM creators WHERE auto_sync = 1").fetchall()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sync_threshold = timedelta(hours=6)
         synced_count = 0
 
@@ -159,7 +167,7 @@ def _register_system_jobs() -> None:
                 try:
                     fetch_dt = datetime.fromisoformat(str(last_fetch).replace("Z", "+00:00"))
                     if fetch_dt.tzinfo is None:
-                        fetch_dt = fetch_dt.replace(tzinfo=timezone.utc)
+                        fetch_dt = fetch_dt.replace(tzinfo=UTC)
                     if now - fetch_dt < sync_threshold:
                         needs_sync = False
                 except (ValueError, OSError):
@@ -170,9 +178,7 @@ def _register_system_jobs() -> None:
 
             task_id = str(uuid.uuid4())
             try:
-                TaskRepository.create_running(
-                    task_id, "creator_sync_incremental", {"uid": uid, "mode": "incremental"}
-                )
+                TaskRepository.create_running(task_id, "creator_sync_incremental", {"uid": uid, "mode": "incremental"})
             except (sqlite3.Error, OSError, ValueError) as e:
                 logger.error(f"[自动同步] 创建任务失败 {uid}: {e}")
                 continue
@@ -210,6 +216,7 @@ def _register_system_jobs() -> None:
         max_instances=1,
     )
 
+
 def _sync_scheduler():
     """Sync jobs in DB with APScheduler"""
     for job in scheduler.get_jobs():
@@ -225,14 +232,10 @@ def _sync_scheduler():
         if task_type == "scan_all_following":
             try:
                 trigger = CronTrigger.from_crontab(cron_expr)
-                scheduler.add_job(
-                    _run_scan_all_following,
-                    trigger=trigger,
-                    id=task_id,
-                    replace_existing=True
-                )
+                scheduler.add_job(_run_scan_all_following, trigger=trigger, id=task_id, replace_existing=True)
             except (ValueError, TypeError) as e:
                 logger.error(f"Failed to schedule task {task_id} with cron '{cron_expr}': {e}")
+
 
 def startup_scheduler():
     """Called from app lifespan to sync scheduled tasks on startup."""
@@ -241,10 +244,12 @@ def startup_scheduler():
     _register_system_jobs()
     _sync_scheduler()
 
+
 def shutdown_scheduler():
     """Called from app lifespan to shut down APScheduler."""
     if scheduler.running:
         scheduler.shutdown()
+
 
 @router.get("")
 def list_schedules():
@@ -253,14 +258,17 @@ def list_schedules():
         cursor.execute("SELECT task_id, task_type, cron_expr, enabled, update_time FROM scheduled_tasks")
         tasks = []
         for row in cursor.fetchall():
-            tasks.append({
-                "task_id": row[0],
-                "task_type": row[1],
-                "cron_expr": row[2],
-                "enabled": bool(row[3]),
-                "update_time": row[4]
-            })
+            tasks.append(
+                {
+                    "task_id": row[0],
+                    "task_type": row[1],
+                    "cron_expr": row[2],
+                    "enabled": bool(row[3]),
+                    "update_time": row[4],
+                }
+            )
     return tasks
+
 
 @router.post("")
 def add_schedule(req: ScheduleRequest):
@@ -273,13 +281,14 @@ def add_schedule(req: ScheduleRequest):
         try:
             conn.execute(
                 "INSERT INTO scheduled_tasks (task_id, task_type, cron_expr, enabled) VALUES (?, ?, ?, ?)",
-                (task_id, "scan_all_following", req.cron_expr, req.enabled)
+                (task_id, "scan_all_following", req.cron_expr, req.enabled),
             )
             conn.commit()
         except (sqlite3.Error, OSError, ValueError) as e:
             raise HTTPException(status_code=400, detail=str(e))
     _sync_scheduler()
     return {"status": "success", "task_id": task_id}
+
 
 @router.put("/{task_id}/toggle")
 def toggle_schedule(task_id: str, req: ToggleRequest):
@@ -293,7 +302,7 @@ def toggle_schedule(task_id: str, req: ToggleRequest):
                 CronTrigger.from_crontab(row[0])
             cursor = conn.execute(
                 "UPDATE scheduled_tasks SET enabled = ?, update_time = CURRENT_TIMESTAMP WHERE task_id = ?",
-                (req.enabled, task_id)
+                (req.enabled, task_id),
             )
             if cursor.rowcount == 0:
                 raise HTTPException(status_code=404, detail="Schedule not found")
@@ -304,6 +313,7 @@ def toggle_schedule(task_id: str, req: ToggleRequest):
             raise HTTPException(status_code=400, detail=str(e))
     _sync_scheduler()
     return {"status": "success"}
+
 
 @router.delete("/{task_id}")
 def delete_schedule(task_id: str):
@@ -319,6 +329,7 @@ def delete_schedule(task_id: str):
             raise HTTPException(status_code=400, detail=str(e))
     _sync_scheduler()
     return {"status": "success"}
+
 
 @router.post("/run_now")
 def run_now(background_tasks: BackgroundTasks):

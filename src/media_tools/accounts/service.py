@@ -1,11 +1,12 @@
 from __future__ import annotations
+
 """Qwen 账号池服务 - 封装账号加载、上传锁管理与状态标记。"""
 
 import asyncio
 import sqlite3
 import threading
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from media_tools.logger import get_logger
 from media_tools.transcribe.models import AccountPool
@@ -25,7 +26,7 @@ class AccountPoolService:
 
     def __init__(
         self,
-        auth_state_path: Optional[Path] = None,
+        auth_state_path: Path | None = None,
         default_account_id: str = "",
     ):
         self._auth_state_path = auth_state_path
@@ -52,7 +53,6 @@ class AccountPoolService:
         DB 里增删账号时才真正重建。
         """
         try:
-            from media_tools.store.db import get_db_connection
             from media_tools.accounts.db_account_pool import (
                 build_qwen_auth_state_path_for_account,
                 load_qwen_accounts_from_db,
@@ -72,10 +72,7 @@ class AccountPoolService:
             if resolved:
                 new_ids = {a["account_id"] for a in resolved}
                 if self._account_pool is not None:
-                    old_ids = {
-                        str(a.get("account_id", ""))
-                        for a in self._account_pool._accounts
-                    }
+                    old_ids = {str(a.get("account_id", "")) for a in self._account_pool._accounts}
                     if new_ids == old_ids:
                         # 账号集合未变,沿用现有 AccountPool (保留 _use_count LRU 历史)
                         return resolved
@@ -90,9 +87,7 @@ class AccountPoolService:
         if self._auth_state_path is None:
             return []
 
-        single_account = [
-            {"account_id": self._default_account_id, "auth_state_path": Path(self._auth_state_path)}
-        ]
+        single_account = [{"account_id": self._default_account_id, "auth_state_path": Path(self._auth_state_path)}]
         if self._account_pool is not None:
             old_ids = {str(a.get("account_id", "")) for a in self._account_pool._accounts}
             if old_ids == {self._default_account_id}:
@@ -131,6 +126,7 @@ class AccountPoolService:
             return
         try:
             from media_tools.core.cookie_manager import get_cookie_manager
+
             get_cookie_manager().mark_account_status("qwen", account_id, status)
             if status == "expired" and self._account_pool:
                 self._account_pool.exclude(account_id)
@@ -143,6 +139,7 @@ class AccountPoolService:
             return
         try:
             from media_tools.core.cookie_manager import get_cookie_manager
+
             get_cookie_manager().mark_account_used("qwen", account_id)
         except (RuntimeError, OSError, ValueError) as e:
             logger.warning(f"标记Qwen账号使用失败: {e}")
@@ -159,12 +156,12 @@ class AccountPoolService:
 # 第一次调用 get_account_pool_service() 时用传入参数初始化,之后忽略新参数。
 # 单元测试需要重置时用 reset_account_pool_service()。
 
-_singleton: Optional[AccountPoolService] = None
+_singleton: AccountPoolService | None = None
 _singleton_init_lock = threading.Lock()
 
 
 def get_account_pool_service(
-    auth_state_path: Optional[Path] = None,
+    auth_state_path: Path | None = None,
     default_account_id: str = "",
 ) -> AccountPoolService:
     """返回进程内唯一的 AccountPoolService 实例(线程安全的 lazy init)。"""

@@ -2,7 +2,6 @@ from fastapi.testclient import TestClient
 
 from media_tools.api.app import app
 
-
 client = TestClient(app)
 
 
@@ -15,4 +14,3 @@ def test_add_bilibili_creator_space_url() -> None:
     payload = response.json()
     assert payload["status"] in {"created", "exists"}
     assert payload["creator"]["uid"].startswith("bilibili:")
-

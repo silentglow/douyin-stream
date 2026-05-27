@@ -1,11 +1,12 @@
 from __future__ import annotations
+
 """素材数据访问层 - 所有 media_assets 表的操作集中在这里"""
 
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
-from media_tools.store.db import get_db_connection, get_table_columns
 from media_tools.assets.file_ops import get_source_url_column
+from media_tools.store.db import get_db_connection
 
 
 class AssetRepository:
@@ -22,7 +23,7 @@ class AssetRepository:
             return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
-    def find_by_id(asset_id: str) -> Optional[dict[str, Any]]:
+    def find_by_id(asset_id: str) -> dict[str, Any] | None:
         """按 ID 查询素材"""
         with get_db_connection() as conn:
             cursor = conn.execute(
@@ -33,7 +34,7 @@ class AssetRepository:
             return dict(row) if row else None
 
     @staticmethod
-    def get_transcript_path(asset_id: str) -> Optional[str]:
+    def get_transcript_path(asset_id: str) -> str | None:
         """获取素材转写路径"""
         with get_db_connection() as conn:
             cursor = conn.execute(
@@ -87,8 +88,8 @@ class AssetRepository:
     @staticmethod
     def list_with_filters(
         *,
-        creator_uid: Optional[str] = None,
-        status_filter: Optional[list[str]] = None,
+        creator_uid: str | None = None,
+        status_filter: list[str] | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
@@ -193,7 +194,7 @@ class AssetRepository:
     # ---------- delete helpers ----------
 
     @staticmethod
-    def find_for_deletion(asset_id: str) -> Optional[dict[str, Any]]:
+    def find_for_deletion(asset_id: str) -> dict[str, Any] | None:
         """查询单条素材用于删除（含 source_url 兼容性处理）。"""
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row
@@ -206,7 +207,7 @@ class AssetRepository:
             return dict(row) if row else None
 
     @staticmethod
-    def delete_with_fts(asset_id: str, *, conn: Optional[sqlite3.Connection] = None) -> None:
+    def delete_with_fts(asset_id: str, *, conn: sqlite3.Connection | None = None) -> None:
         """从 media_assets 和 assets_fts 中删除素材。可传入已有连接以参与外部事务。"""
         if conn is not None:
             conn.execute("DELETE FROM assets_fts WHERE asset_id = ?", (asset_id,))
@@ -232,7 +233,7 @@ class AssetRepository:
             return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
-    def bulk_delete_with_fts(asset_ids: list[str], *, conn: Optional[sqlite3.Connection] = None) -> int:
+    def bulk_delete_with_fts(asset_ids: list[str], *, conn: sqlite3.Connection | None = None) -> int:
         """批量删除素材（含 FTS），返回删除行数。可传入已有连接以参与外部事务。"""
         if not asset_ids:
             return 0
@@ -255,7 +256,7 @@ class AssetRepository:
     # ---------- mark ----------
 
     @staticmethod
-    def mark_asset(asset_id: str, *, is_read: Optional[bool] = None, is_starred: Optional[bool] = None) -> int:
+    def mark_asset(asset_id: str, *, is_read: bool | None = None, is_starred: bool | None = None) -> int:
         """标记素材，返回受影响的行数。"""
         if is_read is None and is_starred is None:
             return 0
@@ -278,8 +279,8 @@ class AssetRepository:
     def bulk_mark(
         asset_ids: list[str],
         *,
-        is_read: Optional[bool] = None,
-        is_starred: Optional[bool] = None,
+        is_read: bool | None = None,
+        is_starred: bool | None = None,
     ) -> int:
         """批量标记素材，返回更新的行数。"""
         if is_read is None and is_starred is None:
@@ -300,7 +301,7 @@ class AssetRepository:
         updated = 0
         with get_db_connection() as conn:
             for start in range(0, len(asset_ids), 500):
-                chunk = asset_ids[start:start + 500]
+                chunk = asset_ids[start : start + 500]
                 placeholders = ",".join("?" * len(chunk))
                 sql = f"UPDATE media_assets SET {', '.join(set_clauses)} WHERE asset_id IN ({placeholders})"
                 cursor = conn.execute(sql, (*set_params, *chunk))

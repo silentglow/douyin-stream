@@ -1,21 +1,19 @@
 """Tests for the unified AppConfig system."""
+
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from unittest.mock import patch, MagicMock
 import unittest
+from unittest.mock import MagicMock, patch
 
 from media_tools.core.config import (
-    AppConfig,
+    _get_env_bool,
+    _get_env_int,
+    _get_env_str,
     get_app_config,
     get_runtime_setting,
     get_runtime_setting_bool,
     get_runtime_setting_int,
-    set_runtime_setting,
-    _get_env_bool,
-    _get_env_int,
-    _get_env_str,
 )
 
 
@@ -24,6 +22,7 @@ class AppConfigTests(unittest.TestCase):
 
     def setUp(self) -> None:
         from media_tools.core.config import _invalidate_settings_cache
+
         _invalidate_settings_cache()
 
     def test_app_config_is_singleton(self) -> None:
@@ -68,17 +67,17 @@ class AppConfigTests(unittest.TestCase):
         """Test describe method returns expected structure."""
         config = get_app_config()
         desc = config.describe()
-        
+
         self.assertIn("runtime", desc)
         self.assertIn("static", desc)
         self.assertIn("environment", desc)
-        
+
         # Verify runtime config
         self.assertIn("concurrency", desc["runtime"])
         self.assertIn("auto_transcribe", desc["runtime"])
         self.assertIn("auto_delete", desc["runtime"])
         self.assertIn("api_key_set", desc["runtime"])
-        
+
         # Verify no sensitive data exposed
         self.assertNotIn("api_key", desc["runtime"])
         self.assertNotIn("cookie", desc["static"])
@@ -98,13 +97,13 @@ class EnvVarHelperTests(unittest.TestCase):
         """Test _get_env_bool with various true values."""
         with patch.dict(os.environ, {"TEST_TRUE": "true"}):
             self.assertTrue(_get_env_bool("TEST_TRUE"))
-        
+
         with patch.dict(os.environ, {"TEST_TRUE": "1"}):
             self.assertTrue(_get_env_bool("TEST_TRUE"))
-        
+
         with patch.dict(os.environ, {"TEST_TRUE": "yes"}):
             self.assertTrue(_get_env_bool("TEST_TRUE"))
-        
+
         with patch.dict(os.environ, {"TEST_TRUE": "on"}):
             self.assertTrue(_get_env_bool("TEST_TRUE"))
 
@@ -112,13 +111,13 @@ class EnvVarHelperTests(unittest.TestCase):
         """Test _get_env_bool with various false values."""
         with patch.dict(os.environ, {"TEST_FALSE": "false"}):
             self.assertFalse(_get_env_bool("TEST_FALSE"))
-        
+
         with patch.dict(os.environ, {"TEST_FALSE": "0"}):
             self.assertFalse(_get_env_bool("TEST_FALSE"))
-        
+
         with patch.dict(os.environ, {"TEST_FALSE": "no"}):
             self.assertFalse(_get_env_bool("TEST_FALSE"))
-        
+
         with patch.dict(os.environ, {"TEST_FALSE": "off"}):
             self.assertFalse(_get_env_bool("TEST_FALSE"))
 
@@ -147,7 +146,7 @@ class EnvVarHelperTests(unittest.TestCase):
         """Test _get_env_str."""
         with patch.dict(os.environ, {"TEST_STR": "  hello  "}):
             self.assertEqual(_get_env_str("TEST_STR"), "hello")
-        
+
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(_get_env_str("MISSING_VAR", "default"), "default")
 
@@ -174,7 +173,7 @@ class RuntimeSettingTests(unittest.TestCase):
         """Test get_runtime_setting_bool."""
         mock_get.return_value = "true"
         self.assertTrue(get_runtime_setting_bool("test_key"))
-        
+
         mock_get.return_value = "false"
         self.assertFalse(get_runtime_setting_bool("test_key"))
 

@@ -1,3 +1,4 @@
+import contextlib
 import http.server
 import json
 import socketserver
@@ -114,9 +115,7 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
                 data_type = req.get("data_type", "cookie")
                 rule_name = req.get("rule_name", "douyin")
 
-                success, msg, data = parser.validate_data(
-                    raw_data, data_type, rule_name
-                )
+                success, msg, data = parser.validate_data(raw_data, data_type, rule_name)
 
                 res = {"success": success, "message": msg, "data": data}
                 self.send_response(200)
@@ -135,7 +134,5 @@ if __name__ == "__main__":
     with socketserver.TCPServer(("127.0.0.1", PORT), AuthHandler) as httpd:
         logger.info(f"认证可视化服务器已启动: http://localhost:{PORT}")
         logger.info("按 Ctrl+C 停止服务")
-        try:
+        with contextlib.suppress(KeyboardInterrupt):
             httpd.serve_forever()
-        except KeyboardInterrupt:
-            pass

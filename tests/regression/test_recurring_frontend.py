@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+
 def _find_repo_root(start: Path) -> Path:
     cur = start
     for _ in range(12):
@@ -50,9 +51,7 @@ class TestWebSocketLifecycle:
         """
         app_file = FRONTEND_ROOT / "App.tsx"
         content = app_file.read_text()
-        assert "disconnectWebSocket" in content, (
-            "App.tsx 未在 cleanup 中调用 disconnectWebSocket (FRONTEND-001)"
-        )
+        assert "disconnectWebSocket" in content, "App.tsx 未在 cleanup 中调用 disconnectWebSocket (FRONTEND-001)"
 
     def test_no_unreferenced_settimeout_in_ws(self):
         """
@@ -77,11 +76,7 @@ class TestStaleClosure:
         content = settings_file.read_text()
         # 检查是否使用函数式更新或最新 state
         # 这是一个软性检查
-        has_latest_pattern = (
-            "fetchSettings" in content or
-            "useRef" in content or
-            "getState" in content
-        )
+        has_latest_pattern = "fetchSettings" in content or "useRef" in content or "getState" in content
         if not has_latest_pattern:
             pytest.skip("无法自动验证闭包模式 (FRONTEND-002 需人工审查)")
 
@@ -93,10 +88,7 @@ class TestStaleClosure:
         content = settings_file.read_text()
         count = content.count("fetchSettings()")
         if count > 10:
-            pytest.fail(
-                f"Settings.tsx 中 fetchSettings() 被调用 {count} 次，"
-                f"建议添加去重机制 (FRONTEND-002)"
-            )
+            pytest.fail(f"Settings.tsx 中 fetchSettings() 被调用 {count} 次，建议添加去重机制 (FRONTEND-002)")
 
 
 # FRONTEND-003: 乐观更新回滚
@@ -115,14 +107,10 @@ class TestOptimisticUpdate:
         # 检查 catch 块中是否有恢复 state 的逻辑
         # 这是一个启发式检查
         has_rollback = (
-            "setAssets(prev" in content or
-            "setAssets(original" in content or
-            "queryClient.setQueryData" in content
+            "setAssets(prev" in content or "setAssets(original" in content or "queryClient.setQueryData" in content
         )
         if not has_rollback:
-            pytest.fail(
-                "Inbox.tsx 的删除操作可能缺少失败回滚 (FRONTEND-003)"
-            )
+            pytest.fail("Inbox.tsx 的删除操作可能缺少失败回滚 (FRONTEND-003)")
 
     def test_bulk_delete_has_rollback(self):
         """
@@ -136,9 +124,7 @@ class TestOptimisticUpdate:
             pytest.skip("未找到 handleBulkDelete 函数")
         has_rollback = "setAssets(prev" in content or "originalAssets" in content
         if not has_rollback:
-            pytest.fail(
-                "Inbox.tsx 的批量删除可能缺少失败回滚 (FRONTEND-003)"
-            )
+            pytest.fail("Inbox.tsx 的批量删除可能缺少失败回滚 (FRONTEND-003)")
 
 
 # FRONTEND-004: 共享编辑状态
@@ -150,15 +136,9 @@ class TestSharedEditState:
         settings_file = FRONTEND_ROOT / "pages" / "Settings.tsx"
         content = settings_file.read_text()
         # 如果三类账号共享同一个 editingRemarkId，测试失败
-        editing_ids = [
-            line for line in content.split("\n")
-            if "editingRemark" in line and "useState" in line
-        ]
+        editing_ids = [line for line in content.split("\n") if "editingRemark" in line and "useState" in line]
         if len(editing_ids) < 2:
-            pytest.fail(
-                "Settings.tsx 可能只使用一个 editingRemarkId 状态，"
-                "不同平台账号编辑状态会冲突 (FRONTEND-004)"
-            )
+            pytest.fail("Settings.tsx 可能只使用一个 editingRemarkId 状态，不同平台账号编辑状态会冲突 (FRONTEND-004)")
 
 
 # FRONTEND-005: 硬编码魔法数字
@@ -167,25 +147,17 @@ class TestMagicNumbers:
         """
         验证不存在 calc(100vh - 固定像素) 的硬编码。
         """
-        result = subprocess.run(
-            ["grep", "-rn", "calc(100vh", str(FRONTEND_ROOT)],
-            capture_output=True, text=True
-        )
-        lines = [l for l in result.stdout.strip().split("\n") if l]
-        assert len(lines) == 0, (
-            f"发现硬编码 vh 计算 (FRONTEND-005):\n" + "\n".join(lines[:10])
-        )
+        result = subprocess.run(["grep", "-rn", "calc(100vh", str(FRONTEND_ROOT)], capture_output=True, text=True)
+        lines = [line for line in result.stdout.strip().split("\n") if line]
+        assert len(lines) == 0, "发现硬编码 vh 计算 (FRONTEND-005):\n" + "\n".join(lines[:10])
 
     def test_scrollable_flex_has_min_h_0(self):
         """
         启发式检查：包含 overflow-auto 的 flex 子元素是否也有 min-h-0。
         注意：这是一个建议性检查，可能产生误报。
         """
-        result = subprocess.run(
-            ["grep", "-rln", "overflow-auto", str(FRONTEND_ROOT)],
-            capture_output=True, text=True
-        )
-        files = [l.strip() for l in result.stdout.strip().split("\n") if l.strip()]
+        result = subprocess.run(["grep", "-rln", "overflow-auto", str(FRONTEND_ROOT)], capture_output=True, text=True)
+        files = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
         violations = []
         for f in files:
             content = Path(f).read_text()
@@ -193,9 +165,7 @@ class TestMagicNumbers:
             if "overflow-auto" in content and "min-h-0" not in content and "scrollable-flex" not in content:
                 violations.append(f)
         if violations:
-            pytest.skip(
-                f"以下文件有 overflow-auto 但无 min-h-0（需人工确认）: {violations[:5]}"
-            )
+            pytest.skip(f"以下文件有 overflow-auto 但无 min-h-0（需人工确认）: {violations[:5]}")
 
 
 # CROSS-001: 错误处理
@@ -204,14 +174,9 @@ class TestErrorHandling:
         """
         验证不存在 .catch(() => {}) 静默吞错。
         """
-        result = subprocess.run(
-            ["grep", "-rn", ".catch(() => {})", str(FRONTEND_ROOT)],
-            capture_output=True, text=True
-        )
-        lines = [l for l in result.stdout.strip().split("\n") if l]
-        assert len(lines) == 0, (
-            f"发现静默吞错 (CROSS-001):\n" + "\n".join(lines[:10])
-        )
+        result = subprocess.run(["grep", "-rn", ".catch(() => {})", str(FRONTEND_ROOT)], capture_output=True, text=True)
+        lines = [line for line in result.stdout.strip().split("\n") if line]
+        assert len(lines) == 0, "发现静默吞错 (CROSS-001):\n" + "\n".join(lines[:10])
 
     def test_api_has_interceptor(self):
         """
@@ -219,9 +184,7 @@ class TestErrorHandling:
         """
         api_file = FRONTEND_ROOT / "lib" / "api.ts"
         content = api_file.read_text()
-        assert "interceptors.response" in content, (
-            "api.ts 缺少全局响应拦截器 (CROSS-001)"
-        )
+        assert "interceptors.response" in content, "api.ts 缺少全局响应拦截器 (CROSS-001)"
 
 
 # 组件大小检查
@@ -238,6 +201,4 @@ def test_page_components_not_too_large():
         if lines > threshold:
             violations.append(f"{f.name}: {lines} lines")
     if violations:
-        pytest.fail(
-            "以下页面组件超过 300 行，建议拆分:\n" + "\n".join(violations)
-        )
+        pytest.fail("以下页面组件超过 300 行，建议拆分:\n" + "\n".join(violations))

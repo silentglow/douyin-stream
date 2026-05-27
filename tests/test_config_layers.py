@@ -11,8 +11,6 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-import pytest
-
 from media_tools.core.config import (
     _get_system_setting,
     _invalidate_settings_cache,
@@ -21,7 +19,6 @@ from media_tools.core.config import (
     _settings_cache_ttl,
 )
 from media_tools.store.db import get_db_connection
-
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -96,12 +93,12 @@ def test_settings_change_in_db_visible_within_ttl_plus_buffer():
 
 # 允许直接读 os.environ 的文件——bootstrap / config loader / OS 系统级
 ENV_ALLOWED_FILES = {
-    "src/media_tools/core/config.py",            # 主 config loader
-    "src/media_tools/transcribe/config.py",      # transcribe config loader
-    "src/media_tools/transcribe/runtime.py",     # env_flag helper（被 transcribe/config 调用）
-    "src/media_tools/logger.py",                 # 日志 bootstrap（早于 AppConfig）
+    "src/media_tools/core/config.py",  # 主 config loader
+    "src/media_tools/transcribe/config.py",  # transcribe config loader
+    "src/media_tools/transcribe/runtime.py",  # env_flag helper（被 transcribe/config 调用）
+    "src/media_tools/logger.py",  # 日志 bootstrap（早于 AppConfig）
     "src/media_tools/douyin/core/f2_helper.py",  # OS-level TMPDIR/TEMP（非项目配置）
-    "src/media_tools/douyin/core/config_mgr.py", # MEDIA_TOOLS_PROJECT_ROOT 启动 override
+    "src/media_tools/douyin/core/config_mgr.py",  # MEDIA_TOOLS_PROJECT_ROOT 启动 override
 }
 
 
@@ -119,7 +116,7 @@ def test_no_scattered_os_environ_get():
 
     violations = found_files - ENV_ALLOWED_FILES
     assert not violations, (
-        f"以下文件不允许直接读环境变量（应走 AppConfig）：\n"
+        "以下文件不允许直接读环境变量（应走 AppConfig）：\n"
         + "\n".join(f"  - {v}" for v in sorted(violations))
         + f"\n\n如确认是合法的 bootstrap 文件，请加到 {__file__} 的 ENV_ALLOWED_FILES 白名单。"
     )

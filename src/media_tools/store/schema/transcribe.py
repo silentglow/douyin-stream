@@ -27,14 +27,7 @@ def create_table(conn: sqlite3.Connection) -> None:
 
 def create_indexes(conn: sqlite3.Connection) -> None:
     conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_transcribe_runs_asset_account "
-        "ON transcribe_runs(asset_id, account_id, stage)"
+        "CREATE INDEX IF NOT EXISTS idx_transcribe_runs_asset_account ON transcribe_runs(asset_id, account_id, stage)"
     )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_transcribe_runs_asset_stage "
-        "ON transcribe_runs(asset_id, stage)"
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_transcribe_runs_stage_updated "
-        "ON transcribe_runs(stage, updated_at)"
-    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_transcribe_runs_asset_stage ON transcribe_runs(asset_id, stage)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_transcribe_runs_stage_updated ON transcribe_runs(stage, updated_at)")

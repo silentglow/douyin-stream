@@ -1,4 +1,5 @@
 """健康检查服务 —— 供 Dashboard API 和 CLI 脚本共用。"""
+
 from __future__ import annotations
 
 import sqlite3
@@ -22,9 +23,7 @@ class CheckResult:
     samples: list[dict[str, Any]] = field(default_factory=list)
 
 
-def _check_completed_but_missing_file(
-    conn: sqlite3.Connection, sample_size: int
-) -> CheckResult:
+def _check_completed_but_missing_file(conn: sqlite3.Connection, sample_size: int) -> CheckResult:
     result = CheckResult(
         name="completed_transcript_file_missing",
         description="media_assets.transcript_status='completed' 但 transcript 文件不存在（疑似被误删）",
@@ -52,19 +51,19 @@ def _check_completed_but_missing_file(
             if not full.exists():
                 result.anomaly_count += 1
                 if len(result.samples) < sample_size:
-                    result.samples.append({
-                        "asset_id": row["asset_id"],
-                        "transcript_path": path,
-                        "title": row["title"][:60] if row["title"] else None,
-                    })
+                    result.samples.append(
+                        {
+                            "asset_id": row["asset_id"],
+                            "transcript_path": path,
+                            "title": row["title"][:60] if row["title"] else None,
+                        }
+                    )
         except OSError:
             continue
     return result
 
 
-def _check_run_saved_but_asset_not_completed(
-    conn: sqlite3.Connection, sample_size: int
-) -> CheckResult:
+def _check_run_saved_but_asset_not_completed(conn: sqlite3.Connection, sample_size: int) -> CheckResult:
     result = CheckResult(
         name="run_saved_but_asset_status_mismatch",
         description="transcribe_runs.stage='saved' 但 media_assets.transcript_status≠'completed'（状态机断裂）",
@@ -91,18 +90,18 @@ def _check_run_saved_but_asset_not_completed(
         (sample_size,),
     ).fetchall()
     for row in rows:
-        result.samples.append({
-            "run_id": row["run_id"],
-            "asset_id": row["asset_id"],
-            "transcript_path": row["transcript_path"],
-            "asset_transcript_status": row["transcript_status"],
-        })
+        result.samples.append(
+            {
+                "run_id": row["run_id"],
+                "asset_id": row["asset_id"],
+                "transcript_path": row["transcript_path"],
+                "asset_transcript_status": row["transcript_status"],
+            }
+        )
     return result
 
 
-def _check_long_running_tasks(
-    conn: sqlite3.Connection, sample_size: int
-) -> CheckResult:
+def _check_long_running_tasks(conn: sqlite3.Connection, sample_size: int) -> CheckResult:
     result = CheckResult(
         name="task_running_too_long",
         description=f"task_queue.status='RUNNING' 持续 > {RUNNING_STALE_HOURS} 小时（孤儿任务）",
@@ -124,17 +123,17 @@ def _check_long_running_tasks(
         (cutoff, sample_size),
     ).fetchall()
     for row in rows:
-        result.samples.append({
-            "task_id": row["task_id"],
-            "task_type": row["task_type"],
-            "update_time": row["update_time"],
-        })
+        result.samples.append(
+            {
+                "task_id": row["task_id"],
+                "task_type": row["task_type"],
+                "update_time": row["update_time"],
+            }
+        )
     return result
 
 
-def _check_qwen_stuck_runs(
-    conn: sqlite3.Connection, sample_size: int
-) -> CheckResult:
+def _check_qwen_stuck_runs(conn: sqlite3.Connection, sample_size: int) -> CheckResult:
     result = CheckResult(
         name="qwen_run_stuck",
         description=f"transcribe_runs.gen_record_id 已记录但 > {RUN_STALE_HOURS} 小时未推进 stage（Qwen 侧静默卡死）",
@@ -163,14 +162,16 @@ def _check_qwen_stuck_runs(
         (cutoff, sample_size),
     ).fetchall()
     for row in rows:
-        result.samples.append({
-            "run_id": row["run_id"],
-            "asset_id": row["asset_id"],
-            "account_id": row["account_id"],
-            "stage": row["stage"],
-            "updated_at": row["updated_at"],
-            "gen_record_id": row["gen_record_id"],
-        })
+        result.samples.append(
+            {
+                "run_id": row["run_id"],
+                "asset_id": row["asset_id"],
+                "account_id": row["account_id"],
+                "stage": row["stage"],
+                "updated_at": row["updated_at"],
+                "gen_record_id": row["gen_record_id"],
+            }
+        )
     return result
 
 
@@ -181,9 +182,7 @@ def run_health_check(sample_size: int = DEFAULT_SAMPLE_SIZE) -> dict[str, Any]:
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row
             has_runs_table = (
-                conn.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='transcribe_runs'"
-                ).fetchone()
+                conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='transcribe_runs'").fetchone()
                 is not None
             )
             checks.append(_check_completed_but_missing_file(conn, sample_size))

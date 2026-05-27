@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, patch
 
 class TaskPayloadRetryTests(unittest.IsolatedAsyncioTestCase):
     async def test_update_task_progress_preserves_original_payload_params(self) -> None:
-        from media_tools.api.routers import tasks as tasks_router
 
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
@@ -44,9 +43,12 @@ class TaskPayloadRetryTests(unittest.IsolatedAsyncioTestCase):
 
         from media_tools.scheduler import ops as task_ops
 
-        with patch("media_tools.scheduler.ops.get_db_connection", return_value=conn), patch(
-            "media_tools.scheduler.ops.notify_task_update",
-            new=AsyncMock(),
+        with (
+            patch("media_tools.scheduler.ops.get_db_connection", return_value=conn),
+            patch(
+                "media_tools.scheduler.ops.notify_task_update",
+                new=AsyncMock(),
+            ),
         ):
             await task_ops.update_task_progress(task_id, 0.2, "正在转写 /tmp/a.mp3 (1/1)", "local_transcribe")
 
@@ -60,4 +62,3 @@ class TaskPayloadRetryTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

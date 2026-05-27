@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 关注列表管理模块 - 增删查取关清理
 """
@@ -7,15 +6,15 @@
 import sqlite3
 from datetime import datetime
 
-from media_tools.store.db import get_db_connection
 from media_tools.logger import get_logger
+from media_tools.store.db import get_db_connection
 
 from .ui import (
     info,
     print_header,
     success,
 )
-from .utils import _run_async_coro, _resolve_sec_user_id, _clean_nickname
+from .utils import _clean_nickname, _resolve_sec_user_id, _run_async_coro
 
 logger = get_logger(__name__)
 
@@ -32,18 +31,22 @@ def list_users():
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute("SELECT uid, sec_user_id, nickname, platform, sync_status, last_fetch_time FROM creators ORDER BY last_fetch_time DESC")
+            cursor.execute(
+                "SELECT uid, sec_user_id, nickname, platform, sync_status, last_fetch_time FROM creators ORDER BY last_fetch_time DESC"
+            )
 
             for row in cursor.fetchall():
-                users.append({
-                    "uid": row["uid"],
-                    "sec_user_id": row["sec_user_id"],
-                    "nickname": row["nickname"] or row["uid"],
-                    "name": row["nickname"] or row["uid"],
-                    "platform": row["platform"],
-                    "sync_status": row["sync_status"],
-                    "last_fetch_time": row["last_fetch_time"]
-                })
+                users.append(
+                    {
+                        "uid": row["uid"],
+                        "sec_user_id": row["sec_user_id"],
+                        "nickname": row["nickname"] or row["uid"],
+                        "name": row["nickname"] or row["uid"],
+                        "platform": row["platform"],
+                        "sync_status": row["sync_status"],
+                        "last_fetch_time": row["last_fetch_time"],
+                    }
+                )
     except (sqlite3.Error, OSError) as e:
         logger.error(f"读取关注列表失败: {e}")
 
@@ -53,6 +56,7 @@ def list_users():
 def get_user(uid: str):
     try:
         from media_tools.store.db import get_db_connection
+
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
@@ -119,22 +123,25 @@ def add_user(url):
 
     uid = user_info.get("uid")
     nickname = user_info.get("nickname", "")
-    
+
     # 写入数据库 (代替旧版的 following.json)
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             now = datetime.now().isoformat()
-            
+
             avatar = user_info.get("avatar_url", "")
             bio = user_info.get("signature", "")
-            
+
             homepage_url = f"https://www.douyin.com/user/{sec_user_id}"
-            cursor.execute("""
-                INSERT OR REPLACE INTO creators 
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO creators
                 (uid, sec_user_id, nickname, avatar, bio, homepage_url, platform, sync_status, last_fetch_time)
                 VALUES (?, ?, ?, ?, ?, ?, 'douyin', 'active', ?)
-            """, (uid, sec_user_id, nickname, avatar, bio, homepage_url, now))
+            """,
+                (uid, sec_user_id, nickname, avatar, bio, homepage_url, now),
+            )
             conn.commit()
     except (sqlite3.Error, OSError) as e:
         logger.error(f"保存用户到数据库失败: {e}")
@@ -154,8 +161,9 @@ def _fetch_user_info_via_f2(url, sec_user_id):
     """
 
     async def _fetch_profile():
-        from media_tools.platform.douyin import _get_f2_kwargs
         from f2.apps.douyin.handler import DouyinHandler
+
+        from media_tools.platform.douyin import _get_f2_kwargs
 
         kwargs = _get_f2_kwargs()
         handler = DouyinHandler(kwargs)

@@ -25,8 +25,9 @@ async def test_ws_disconnect_cleanup_on_runtime_error() -> None:
     async def _fast_sleep(_seconds: float) -> None:
         return None
 
-    with patch.object(ws, "manager", manager), patch.object(
-        ws.asyncio, "sleep", new=AsyncMock(side_effect=_fast_sleep)
+    with (
+        patch.object(ws, "manager", manager),
+        patch.object(ws.asyncio, "sleep", new=AsyncMock(side_effect=_fast_sleep)),
     ):
         await ws.websocket_endpoint(fake_ws)  # should swallow errors and exit
 
@@ -34,4 +35,3 @@ async def test_ws_disconnect_cleanup_on_runtime_error() -> None:
     assert stats["connected"] == 1
     assert stats["disconnected"] == 1
     assert stats["active_connections"] == 0
-

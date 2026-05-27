@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 统一日志系统 - 为整个项目提供日志记录功能
 
@@ -22,9 +21,9 @@ import logging
 import os
 import re
 import sys
-from pathlib import Path
 from datetime import datetime
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -73,13 +72,33 @@ class JsonFormatter(logging.Formatter):
     """JSON 结构化日志 formatter，便于日志采集系统解析。"""
 
     # LogRecord 内部字段集合，用于过滤 extra 字段
-    _RESERVED_ATTRS: frozenset[str] = frozenset({
-        "name", "msg", "args", "levelname", "levelno", "pathname",
-        "filename", "module", "exc_info", "exc_text", "stack_info",
-        "lineno", "funcName", "created", "msecs", "relativeCreated",
-        "thread", "threadName", "processName", "process", "message",
-        "asctime", "taskName",
-    })
+    _RESERVED_ATTRS: frozenset[str] = frozenset(
+        {
+            "name",
+            "msg",
+            "args",
+            "levelname",
+            "levelno",
+            "pathname",
+            "filename",
+            "module",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "lineno",
+            "funcName",
+            "created",
+            "msecs",
+            "relativeCreated",
+            "thread",
+            "threadName",
+            "processName",
+            "process",
+            "message",
+            "asctime",
+            "taskName",
+        }
+    )
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
@@ -146,29 +165,23 @@ class MediaLogger:
             markup=False,
         )
         rich_handler.setLevel(logging.INFO)
-        rich_handler.setFormatter(StripAnsiFormatter(
-            "%(message)s",
-            datefmt="[%X]"
-        ))
+        rich_handler.setFormatter(StripAnsiFormatter("%(message)s", datefmt="[%X]"))
         self.logger.addHandler(rich_handler)
 
         # 2. 文件输出（过滤 ANSI 颜色代码）
         log_file = self.log_dir / f"media_tools_{datetime.now().strftime('%Y%m%d')}.log"
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(StripAnsiFormatter(
-            "%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S"
-        ))
+        file_handler.setFormatter(
+            StripAnsiFormatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+        )
         self.logger.addHandler(file_handler)
 
         # 3. 错误文件输出（过滤 ANSI 颜色代码）
         error_file = self.log_dir / f"error_{datetime.now().strftime('%Y%m%d')}.log"
         error_handler = logging.FileHandler(error_file, encoding="utf-8")
         error_handler.setLevel(logging.ERROR)
-        error_handler.setFormatter(StripAnsiFormatter(
-            "%(asctime)s [ERROR] %(name)s\n%(message)s\n%(exc_info)s\n"
-        ))
+        error_handler.setFormatter(StripAnsiFormatter("%(asctime)s [ERROR] %(name)s\n%(message)s\n%(exc_info)s\n"))
         self.logger.addHandler(error_handler)
 
         # 4. JSON 结构化日志（可选，通过环境变量 MEDIA_TOOLS_JSON_LOGS=1 启用）
@@ -248,7 +261,7 @@ class MediaLogger:
 
 
 # 全局日志实例
-_logger: Optional[MediaLogger] = None
+_logger: MediaLogger | None = None
 
 
 def get_logger(name: str = "media_tools") -> logging.Logger:
@@ -267,8 +280,8 @@ def get_logger(name: str = "media_tools") -> logging.Logger:
 
 
 def init_logging(
-    level: Optional[str] = None,
-    log_dir: Optional[Path] = None,
+    level: str | None = None,
+    log_dir: Path | None = None,
 ) -> MediaLogger:
     global _logger
 
@@ -276,6 +289,7 @@ def init_logging(
 
     try:
         from media_tools.core.config import get_app_config
+
         config = get_app_config()
 
         if level is None:
@@ -353,6 +367,7 @@ def _should_use_structured_logging(level: str = "INFO") -> bool:
     # 优先从配置系统读取
     try:
         from media_tools.core.config import get_app_config
+
         config = get_app_config()
         return config.log_json_format
     except ImportError:
@@ -362,7 +377,6 @@ def _should_use_structured_logging(level: str = "INFO") -> bool:
 
 def main():
     """测试日志系统"""
-    import time
 
     # 初始化
     logger = init_logging(level="DEBUG")
@@ -381,7 +395,7 @@ def main():
     # 测试异常日志
     try:
         raise ValueError("测试异常")
-    except ValueError as e:
+    except ValueError:
         logger.exception("捕获到异常")
 
     logger.info("日志系统测试完成")

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """B站用户昵称获取服务"""
 
 import asyncio
@@ -71,12 +72,12 @@ async def fetch_bilibili_nickname(mid: str, retries: int = 3) -> str:
                 else:
                     logger.warning(f"B站API返回非200: {resp.status_code}, body={resp.text[:200]}, mid={mid}")
         except httpx.TimeoutException:
-            wait = 2 ** attempt
+            wait = 2**attempt
             logger.warning(f"B站API超时 (attempt {attempt + 1}/{retries}), 重试等待 {wait}s: mid={mid}")
             if attempt < retries - 1:
                 await asyncio.sleep(wait)
         except httpx.HTTPError as e:
-            wait = 2 ** attempt
+            wait = 2**attempt
             logger.warning(f"B站API错误 (attempt {attempt + 1}/{retries}): {e}")
             if attempt < retries - 1:
                 await asyncio.sleep(wait)

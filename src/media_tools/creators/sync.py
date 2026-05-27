@@ -1,24 +1,26 @@
 from __future__ import annotations
+
 """创作者同步工作者"""
 
 import asyncio
+import contextlib
 import json
 import logging
 import sqlite3
-from datetime import datetime, timezone, timedelta
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from media_tools.core.config import get_runtime_setting_bool
-from media_tools.store.db import get_db_connection, get_table_columns
 from media_tools.douyin.core.cancel_registry import clear_download_progress, get_download_progress
-from media_tools.scheduler.ops import update_task_progress
 from media_tools.scheduler.base import BaseWorker, register_worker
+from media_tools.scheduler.ops import update_task_progress
+from media_tools.store.db import get_db_connection, get_table_columns
 from media_tools.workers.transcribe import transcribe_files
 
 logger = logging.getLogger(__name__)
 
 
-def _build_interval_from_last_fetch(last_fetch_time: Optional[str]) -> Optional[str]:
+def _build_interval_from_last_fetch(last_fetch_time: str | None) -> str | None:
     """根据 last_fetch_time 构建 F2 interval 参数
 
     F2 interval 格式: "2026-01-15|2026-04-26"
@@ -33,8 +35,8 @@ def _build_interval_from_last_fetch(last_fetch_time: Optional[str]) -> Optional[
         # 兼容多种日期格式
         fetch_dt = datetime.fromisoformat(last_fetch_time.replace("Z", "+00:00"))
         if fetch_dt.tzinfo is None:
-            fetch_dt = fetch_dt.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
+            fetch_dt = fetch_dt.replace(tzinfo=UTC)
+        now = datetime.now(UTC)
 
         if (now - fetch_dt) > timedelta(days=180):
             logger.info("last_fetch_time 距今超过 180 天，退化为全量模式")
@@ -72,9 +74,9 @@ class CreatorSyncWorker(BaseWorker):
         message: str,
         *,
         stage: str = "",
-        pipeline_progress: Optional[dict] = None,
-        result_summary: Optional[dict] = None,
-        subtasks: Optional[list] = None,
+        pipeline_progress: dict | None = None,
+        result_summary: dict | None = None,
+        subtasks: list | None = None,
     ) -> None:
         """覆盖基类方法，支持 result_summary/subtasks 透传（与 transcribe_files 兼容）。"""
         await update_task_progress(
@@ -94,8 +96,8 @@ class CreatorSyncWorker(BaseWorker):
         *,
         uid: str,
         mode: str = "incremental",
-        batch_size: Optional[int] = None,
-        original_params: Optional[dict] = None,
+        batch_size: int | None = None,
+        original_params: dict | None = None,
     ) -> None:
         self._mode = mode
 
@@ -111,19 +113,13 @@ class CreatorSyncWorker(BaseWorker):
             raise RuntimeError(f"Creator not found: {uid}")
 
         platform = (
-            creator_row.get("platform")
-            if isinstance(creator_row, dict)
-            else creator_row["platform"]
+            creator_row.get("platform") if isinstance(creator_row, dict) else creator_row["platform"]
         ) or "douyin"
         sec_user_id = (
-            creator_row.get("sec_user_id")
-            if isinstance(creator_row, dict)
-            else creator_row["sec_user_id"]
+            creator_row.get("sec_user_id") if isinstance(creator_row, dict) else creator_row["sec_user_id"]
         ) or ""
         display_name = (
-            creator_row.get("nickname")
-            if isinstance(creator_row, dict)
-            else creator_row["nickname"]
+            creator_row.get("nickname") if isinstance(creator_row, dict) else creator_row["nickname"]
         ) or uid
 
         # 查询 last_fetch_time（增量模式需要）
@@ -136,9 +132,7 @@ class CreatorSyncWorker(BaseWorker):
                 )
                 row = cursor.fetchone()
                 if row:
-                    last_fetch_time = (
-                        row["last_fetch_time"] if isinstance(row, dict) else row[0]
-                    )
+                    last_fetch_time = row["last_fetch_time"] if isinstance(row, dict) else row[0]
 
         # 确定下载参数
         max_counts = None
@@ -152,14 +146,9 @@ class CreatorSyncWorker(BaseWorker):
             mode_label = "全部"
         else:
             interval = _build_interval_from_last_fetch(last_fetch_time)
-            if interval:
-                mode_label = f"增量（{interval}）"
-            else:
-                mode_label = "增量（退化全量）"
+            mode_label = f"增量（{interval}）" if interval else "增量（退化全量）"
 
-        await self.report_progress(
-            0.05, f"开始同步 {display_name} 的视频（{mode_label}）...", stage="fetching"
-        )
+        await self.report_progress(0.05, f"开始同步 {display_name} 的视频（{mode_label}）...", stage="fetching")
 
         skip_existing = self._mode != "full"
         total_downloaded = 0
@@ -173,9 +162,7 @@ class CreatorSyncWorker(BaseWorker):
 
         if platform == "bilibili":
             logger.info(f"[创作者同步] 使用 yt-dlp 下载 B 站 UP 主 {display_name} (mid={sec_user_id or uid})")
-            new_files = await self._download_bilibili(
-                task_id, uid, sec_user_id, max_counts, skip_existing, last_result
-            )
+            new_files = await self._download_bilibili(task_id, uid, sec_user_id, max_counts, skip_existing, last_result)
         else:
             logger.info(f"[创作者同步] 使用 F2 下载抖音用户 {display_name} (sec_user_id={sec_user_id})")
             new_files = await self._download_douyin(
@@ -189,17 +176,13 @@ class CreatorSyncWorker(BaseWorker):
         if missing_items:
             all_subtasks.extend(missing_subtasks)
         if reconcile_total > 0:
-            await self.report_progress(
-                0.72, f"对账完成：缺失 {reconcile_missing} 条", stage="auditing"
-            )
+            await self.report_progress(0.72, f"对账完成：缺失 {reconcile_missing} 条", stage="auditing")
 
         # 自动转写
         auto_transcribe = get_runtime_setting_bool("auto_transcribe")
         auto_delete = get_runtime_setting_bool("auto_delete", True)
         if auto_transcribe and new_files:
-            tr = await transcribe_files(
-                task_id, self._progress_fn, new_files, display_name, auto_delete
-            )
+            tr = await transcribe_files(task_id, self._progress_fn, new_files, display_name, auto_delete)
             transcribe_stats["success_count"] += tr.get("success_count", 0)
             transcribe_stats["failed_count"] += tr.get("failed_count", 0)
             transcribe_stats["total"] += tr.get("total", 0)
@@ -212,9 +195,7 @@ class CreatorSyncWorker(BaseWorker):
         await self._update_creator_info(last_result, uid)
 
         # 构建结果摘要
-        result_summary = self._build_result_summary(
-            transcribe_stats, reconcile_total, reconcile_missing
-        )
+        result_summary = self._build_result_summary(transcribe_stats, reconcile_total, reconcile_missing)
         msg = self._build_message(
             display_name, total_downloaded, transcribe_stats, reconcile_total, reconcile_missing, mode
         )
@@ -231,9 +212,7 @@ class CreatorSyncWorker(BaseWorker):
         rs_success = int(result_summary.get("success") or 0)
         rs_failed = int(result_summary.get("failed") or 0)
         if rs_failed == 0:
-            await self.finalize_success(
-                msg, result_summary=result_summary, subtasks=all_subtasks or None
-            )
+            await self.finalize_success(msg, result_summary=result_summary, subtasks=all_subtasks or None)
         elif rs_success > 0:
             error_msg = None
             if transcribe_stats["failed_count"] > 0:
@@ -267,7 +246,7 @@ class CreatorSyncWorker(BaseWorker):
         task_id: str,
         uid: str,
         sec_user_id: str,
-        max_counts: Optional[int],
+        max_counts: int | None,
         skip_existing: bool,
         last_result: dict[str, Any],
     ) -> list[str]:
@@ -289,9 +268,7 @@ class CreatorSyncWorker(BaseWorker):
                     "B站请求被拦截(412)，请更换IP或稍后重试",
                     stage="downloading",
                 )
-                raise RuntimeError(
-                    f"B站请求被拦截(412)，请更换IP或稍后重试: {error_msg}"
-                )
+                raise RuntimeError(f"B站请求被拦截(412)，请更换IP或稍后重试: {error_msg}")
             raise
         if isinstance(result, dict):
             last_result.update(result)
@@ -310,9 +287,9 @@ class CreatorSyncWorker(BaseWorker):
         task_id: str,
         uid: str,
         sec_user_id: str,
-        max_counts: Optional[int],
+        max_counts: int | None,
         skip_existing: bool,
-        interval: Optional[str],
+        interval: str | None,
         last_result: dict[str, Any],
     ) -> list[str]:
         from media_tools.platform.douyin import download_by_url
@@ -341,10 +318,8 @@ class CreatorSyncWorker(BaseWorker):
             result = await dl_task
         finally:
             poll_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await poll_task
-            except asyncio.CancelledError:
-                pass
             clear_download_progress(task_id)
 
         if isinstance(result, dict):
@@ -369,8 +344,7 @@ class CreatorSyncWorker(BaseWorker):
             s = info.get("download_progress", {}).get("skipped", 0)
             errors = info.get("errors", [])
             subtasks = [
-                {"title": d_.get("title", "未知")[:60], "status": d_.get("status", "unknown")}
-                for d_ in errors[-50:]
+                {"title": d_.get("title", "未知")[:60], "status": d_.get("status", "unknown")} for d_ in errors[-50:]
             ]
             dl_info = info.get("download_progress") or {}
             total = dl_info.get("total", 0)
@@ -404,9 +378,7 @@ class CreatorSyncWorker(BaseWorker):
         reconcile_missing = 0
         try:
             with get_db_connection() as conn:
-                cursor = conn.execute(
-                    "SELECT aweme_id, desc FROM video_metadata WHERE uid = ?", (uid,)
-                )
+                cursor = conn.execute("SELECT aweme_id, desc FROM video_metadata WHERE uid = ?", (uid,))
                 rows = cursor.fetchall()
                 if rows:
                     videos: list[tuple[str, str]] = []
@@ -441,9 +413,7 @@ class CreatorSyncWorker(BaseWorker):
                                     "attempts": 0,
                                 }
                             )
-                            missing_subtasks.append(
-                                {"title": title, "status": "manual_required", "error": reason}
-                            )
+                            missing_subtasks.append({"title": title, "status": "manual_required", "error": reason})
 
                     if missing_items:
                         try:
@@ -452,9 +422,7 @@ class CreatorSyncWorker(BaseWorker):
                                 (self._task_id,),
                             ).fetchone()
                             existing_raw = (
-                                row["payload"]
-                                if row and isinstance(row, sqlite3.Row)
-                                else (row[0] if row else None)
+                                row["payload"] if row and isinstance(row, sqlite3.Row) else (row[0] if row else None)
                             )
                             base: dict[str, Any] = {}
                             if existing_raw:
@@ -539,21 +507,26 @@ class CreatorSyncWorker(BaseWorker):
                 f"失败 {transcribe_stats['failed_count']} 个"
             )
         elif reconcile_total > 0 and reconcile_missing > 0:
-            return f"{display_name} 同步完成：入库 {reconcile_total} 条，缺失 {reconcile_missing} 条，可在任务详情中补齐"
+            return (
+                f"{display_name} 同步完成：入库 {reconcile_total} 条，缺失 {reconcile_missing} 条，可在任务详情中补齐"
+            )
         return f"{display_name} 同步完成：共 {total_downloaded} 个新视频（{mode}）"
 
     async def _progress_fn(
         self,
         p: float,
         m: str,
-        result_summary: Optional[dict] = None,
-        subtasks: Optional[list] = None,
+        result_summary: dict | None = None,
+        subtasks: list | None = None,
         stage: str = "",
-        pipeline_progress: Optional[dict] = None,
+        pipeline_progress: dict | None = None,
     ) -> None:
         """透传给 transcribe_files 的进度回调。"""
         await self.report_progress(
-            p, m, stage=stage, pipeline_progress=pipeline_progress,
-            result_summary=result_summary, subtasks=subtasks,
+            p,
+            m,
+            stage=stage,
+            pipeline_progress=pipeline_progress,
+            result_summary=result_summary,
+            subtasks=subtasks,
         )
-

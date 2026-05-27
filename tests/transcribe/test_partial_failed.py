@@ -5,23 +5,23 @@
 - 子任务三态决策：全成功 -> COMPLETED；混合 -> PARTIAL_FAILED；全失败 -> FAILED
 - _complete_task(PARTIAL_FAILED) 不触发 schedule_auto_retry（避免重跑成功子任务）
 """
+
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock
 
 import pytest
 
 from media_tools.core.workflow import (
-    TaskStatus,
     VALID_TRANSITIONS,
+    InvalidTransitionError,
+    TaskStatus,
     validate_transition,
     validate_transition_by_str,
-    InvalidTransitionError,
 )
 
-
 # ---------- workflow enum / transitions ----------
+
 
 def test_partial_failed_enum_exists():
     assert TaskStatus.PARTIAL_FAILED in TaskStatus
@@ -55,6 +55,7 @@ def test_partial_failed_string_transitions():
 
 # ---------- 三态决策（worker 内的 status 选择逻辑） ----------
 
+
 def _three_state_decision(s_count: int, f_count: int) -> str:
     """复刻 local_transcribe_worker / creator_transcribe_worker 的三态判定，
     保持单元测试不需要拉起整个 worker 路径。"""
@@ -66,19 +67,23 @@ def _three_state_decision(s_count: int, f_count: int) -> str:
         return "FAILED"
 
 
-@pytest.mark.parametrize("s_count,f_count,expected", [
-    (10, 0, "COMPLETED"),    # 全成功
-    (0, 10, "FAILED"),        # 全失败
-    (7, 3, "PARTIAL_FAILED"), # 混合
-    (1, 9, "PARTIAL_FAILED"), # 只成功 1 个也是部分失败
-    (9, 1, "PARTIAL_FAILED"), # 只失败 1 个也是部分失败
-    (0, 0, "COMPLETED"),      # 0 文件输入也算成功（worker 上层会拦截 total=0 走"没有有效文件"分支）
-])
+@pytest.mark.parametrize(
+    "s_count,f_count,expected",
+    [
+        (10, 0, "COMPLETED"),  # 全成功
+        (0, 10, "FAILED"),  # 全失败
+        (7, 3, "PARTIAL_FAILED"),  # 混合
+        (1, 9, "PARTIAL_FAILED"),  # 只成功 1 个也是部分失败
+        (9, 1, "PARTIAL_FAILED"),  # 只失败 1 个也是部分失败
+        (0, 0, "COMPLETED"),  # 0 文件输入也算成功（worker 上层会拦截 total=0 走"没有有效文件"分支）
+    ],
+)
 def test_three_state_decision(s_count, f_count, expected):
     assert _three_state_decision(s_count, f_count) == expected
 
 
 # ---------- _complete_task: PARTIAL_FAILED 不触发 auto_retry ----------
+
 
 @pytest.mark.asyncio
 async def test_complete_task_partial_failed_does_not_trigger_auto_retry(monkeypatch, tmp_path):
@@ -94,6 +99,7 @@ async def test_complete_task_partial_failed_does_not_trigger_auto_retry(monkeypa
 
     # 重置 db core 的连接缓存，让它用我们 monkey 后的路径
     from media_tools.store import db as db_core
+
     db_core.reset_db_cache()
     db_core._db_path = None
     db_core.init_db(db_path)
@@ -110,7 +116,8 @@ async def test_complete_task_partial_failed_does_not_trigger_auto_retry(monkeypa
     # patch schedule_auto_retry 和 notify_task_update，确保其被/不被调用
     auto_retry_calls = []
     monkeypatch.setattr(
-        task_ops, "schedule_auto_retry",
+        task_ops,
+        "schedule_auto_retry",
         lambda task_id: auto_retry_calls.append(task_id),
     )
     monkeypatch.setattr(task_ops, "notify_task_update", AsyncMock())
@@ -124,9 +131,7 @@ async def test_complete_task_partial_failed_does_not_trigger_auto_retry(monkeypa
     )
 
     # 关键断言：PARTIAL_FAILED 不进 auto_retry
-    assert auto_retry_calls == [], (
-        f"PARTIAL_FAILED 不应触发 schedule_auto_retry，实际调用了: {auto_retry_calls}"
-    )
+    assert auto_retry_calls == [], f"PARTIAL_FAILED 不应触发 schedule_auto_retry，实际调用了: {auto_retry_calls}"
 
     # 但 notify_task_update 必须被调用，前端要看到状态更新
     task_ops.notify_task_update.assert_awaited_once()
@@ -152,6 +157,7 @@ async def test_complete_task_failed_still_triggers_auto_retry(monkeypatch, tmp_p
     monkeypatch.setattr("media_tools.common.paths.get_db_path", lambda: db_path)
 
     from media_tools.store import db as db_core
+
     db_core.reset_db_cache()
     db_core._db_path = None
     db_core.init_db(db_path)
@@ -166,7 +172,8 @@ async def test_complete_task_failed_still_triggers_auto_retry(monkeypatch, tmp_p
 
     auto_retry_calls = []
     monkeypatch.setattr(
-        task_ops, "schedule_auto_retry",
+        task_ops,
+        "schedule_auto_retry",
         lambda task_id: auto_retry_calls.append(task_id),
     )
     monkeypatch.setattr(task_ops, "notify_task_update", AsyncMock())

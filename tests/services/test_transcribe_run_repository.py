@@ -4,6 +4,7 @@
 mark_failed（按阶段记录错误）/ find_resumable（仅返回上传后 + 同账号）/
 find_saved_for_asset（跨账号去重），以及 init_db 建出来的表/索引齐全。
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -42,10 +43,23 @@ def test_table_and_indexes_exist(tmp_path: Path) -> None:
         idx_names = {r[1] for r in conn.execute("PRAGMA index_list(transcribe_runs)").fetchall()}
 
     expected_cols = {
-        "run_id", "asset_id", "video_path", "account_id", "task_id", "stage",
-        "record_id", "gen_record_id", "batch_id", "export_task_id", "export_url",
-        "transcript_path", "last_error", "error_stage", "error_type",
-        "created_at", "updated_at",
+        "run_id",
+        "asset_id",
+        "video_path",
+        "account_id",
+        "task_id",
+        "stage",
+        "record_id",
+        "gen_record_id",
+        "batch_id",
+        "export_task_id",
+        "export_url",
+        "transcript_path",
+        "last_error",
+        "error_stage",
+        "error_type",
+        "created_at",
+        "updated_at",
     }
     assert expected_cols.issubset(cols), f"missing: {expected_cols - cols}"
     assert "idx_transcribe_runs_asset_account" in idx_names
@@ -68,7 +82,8 @@ def test_create_then_update_stage_then_mark_saved(db: sqlite3.Connection) -> Non
     assert row["created_at"] == row["updated_at"]
 
     TranscribeRunRepository.update_stage(
-        run_id, "uploaded",
+        run_id,
+        "uploaded",
         {"record_id": "rec-1", "gen_record_id": "gen-1"},
     )
     row = TranscribeRunRepository.get(run_id)
@@ -95,7 +110,9 @@ def test_create_then_update_stage_then_mark_saved(db: sqlite3.Connection) -> Non
 
 def test_mark_failed_records_stage_and_truncates_long_error(db: sqlite3.Connection) -> None:
     run_id = TranscribeRunRepository.create(
-        asset_id="asset-2", video_path="/tmp/y.mp4", account_id="acc-1",
+        asset_id="asset-2",
+        video_path="/tmp/y.mp4",
+        account_id="acc-1",
     )
     TranscribeRunRepository.update_stage(run_id, "exporting", {"gen_record_id": "gen-2"})
 
@@ -116,35 +133,43 @@ def test_mark_failed_records_stage_and_truncates_long_error(db: sqlite3.Connecti
 def test_find_resumable_filters_by_stage_and_account(db: sqlite3.Connection) -> None:
     # acc-1 上一条 uploaded 但没 gen_record_id（不应被返回，因为 SQL 强制 gen_record_id NOT NULL/!=''）
     no_gen = TranscribeRunRepository.create(
-        asset_id="asset-X", video_path="/tmp/x.mp4", account_id="acc-1",
+        asset_id="asset-X",
+        video_path="/tmp/x.mp4",
+        account_id="acc-1",
     )
     TranscribeRunRepository.update_stage(no_gen, "uploaded", {"record_id": "r-X"})
 
     # acc-1 上一条 transcribing 且 gen_record_id 已写 -> 应当被返回
     resumable = TranscribeRunRepository.create(
-        asset_id="asset-X", video_path="/tmp/x.mp4", account_id="acc-1",
+        asset_id="asset-X",
+        video_path="/tmp/x.mp4",
+        account_id="acc-1",
     )
     TranscribeRunRepository.update_stage(
-        resumable, "transcribing",
+        resumable,
+        "transcribing",
         {"gen_record_id": "gen-resume", "record_id": "r-resume"},
     )
 
     # acc-2 的 run（不同账号）—— 不应命中 acc-1 的查询
     other_acc = TranscribeRunRepository.create(
-        asset_id="asset-X", video_path="/tmp/x.mp4", account_id="acc-2",
+        asset_id="asset-X",
+        video_path="/tmp/x.mp4",
+        account_id="acc-2",
     )
     TranscribeRunRepository.update_stage(
-        other_acc, "uploaded",
+        other_acc,
+        "uploaded",
         {"gen_record_id": "gen-other", "record_id": "r-other"},
     )
 
     # 已 saved 的 run（终态）—— 不应命中
     saved = TranscribeRunRepository.create(
-        asset_id="asset-X", video_path="/tmp/x.mp4", account_id="acc-1",
+        asset_id="asset-X",
+        video_path="/tmp/x.mp4",
+        account_id="acc-1",
     )
-    TranscribeRunRepository.update_stage(
-        saved, "uploaded", {"gen_record_id": "gen-saved"}
-    )
+    TranscribeRunRepository.update_stage(saved, "uploaded", {"gen_record_id": "gen-saved"})
     TranscribeRunRepository.mark_saved(saved, "/out.docx")
 
     found = TranscribeRunRepository.find_resumable("asset-X", "acc-1")
@@ -168,14 +193,18 @@ def test_find_saved_for_asset_returns_latest_saved_run(db: sqlite3.Connection) -
 
     # 一个失败的 run 不算
     failed = TranscribeRunRepository.create(
-        asset_id="asset-S", video_path="/tmp/s.mp4", account_id="acc-1",
+        asset_id="asset-S",
+        video_path="/tmp/s.mp4",
+        account_id="acc-1",
     )
     TranscribeRunRepository.mark_failed(failed, "uploading", "network", "boom")
     assert TranscribeRunRepository.find_saved_for_asset("asset-S") is None
 
     # acc-1 上 save 一次 —— 跨账号也能查到
     saved_a = TranscribeRunRepository.create(
-        asset_id="asset-S", video_path="/tmp/s.mp4", account_id="acc-1",
+        asset_id="asset-S",
+        video_path="/tmp/s.mp4",
+        account_id="acc-1",
     )
     TranscribeRunRepository.mark_saved(saved_a, "/out/v1.docx")
     found = TranscribeRunRepository.find_saved_for_asset("asset-S")
@@ -192,15 +221,21 @@ def test_find_resumable_includes_failed_runs_with_uploaded_gen_record_id(
     这个分支让 orchestrator 在重试时不浪费 Qwen 已经处理过的上传。
     """
     run_id = TranscribeRunRepository.create(
-        asset_id="asset-FAIL-RESUME", video_path="/tmp/x.mp4", account_id="acc-1",
+        asset_id="asset-FAIL-RESUME",
+        video_path="/tmp/x.mp4",
+        account_id="acc-1",
     )
     # 模拟：先推进到 transcribing 拿到 gen_record_id，再标记失败
     TranscribeRunRepository.update_stage(
-        run_id, "transcribing",
+        run_id,
+        "transcribing",
         {"gen_record_id": "gen-RESUME", "record_id": "rec-RESUME"},
     )
     TranscribeRunRepository.mark_failed(
-        run_id, error_stage="transcribing", error_type="network", last_error="poll timeout",
+        run_id,
+        error_stage="transcribing",
+        error_type="network",
+        last_error="poll timeout",
     )
 
     found = TranscribeRunRepository.find_resumable("asset-FAIL-RESUME", "acc-1")
@@ -215,12 +250,17 @@ def test_find_resumable_excludes_failed_runs_without_resumable_error_stage(
 ) -> None:
     """error_stage 在 'queued'（上传前就挂了）的失败 run 不应被复用——上传根本没成功。"""
     run_id = TranscribeRunRepository.create(
-        asset_id="asset-PRE", video_path="/tmp/x.mp4", account_id="acc-1",
+        asset_id="asset-PRE",
+        video_path="/tmp/x.mp4",
+        account_id="acc-1",
     )
     # 模拟：尚未上传就挂了（gen_record_id 是 None），人为塞个 fake gen_record_id 触发其他过滤
     TranscribeRunRepository.update_stage(run_id, "queued", {"gen_record_id": "gen-fake"})
     TranscribeRunRepository.mark_failed(
-        run_id, error_stage="queued", error_type="auth", last_error="cookie",
+        run_id,
+        error_stage="queued",
+        error_type="auth",
+        last_error="cookie",
     )
 
     found = TranscribeRunRepository.find_resumable("asset-PRE", "acc-1")

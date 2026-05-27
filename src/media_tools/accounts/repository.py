@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 """账号池数据访问层 - 所有 Accounts_Pool 表的操作集中在这里"""
 
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from media_tools.store.db import get_db_connection
 
@@ -32,7 +33,7 @@ class AccountRepository:
             ]
 
     @staticmethod
-    def find_by_id(account_id: str, platform: str) -> Optional[tuple]:
+    def find_by_id(account_id: str, platform: str) -> tuple | None:
         """按 ID 和平台查询账号。"""
         with get_db_connection() as conn:
             cursor = conn.execute(
@@ -45,7 +46,7 @@ class AccountRepository:
             return None
 
     @staticmethod
-    def get_auth_state_path(account_id: str, platform: str) -> Optional[str]:
+    def get_auth_state_path(account_id: str, platform: str) -> str | None:
         """获取账号的 auth_state_path。"""
         with get_db_connection() as conn:
             cursor = conn.execute(
@@ -73,7 +74,7 @@ class AccountRepository:
         platform: str,
         cookie_data: str,
         remark: str = "",
-        auth_state_path: Optional[str] = None,
+        auth_state_path: str | None = None,
         status: str = "active",
     ) -> None:
         """创建账号记录。"""
@@ -102,7 +103,7 @@ class AccountRepository:
         account_id: str,
         platform: str,
         cookie_data: str,
-        auth_state_path: Optional[str] = None,
+        auth_state_path: str | None = None,
         status: str = "active",
     ) -> int:
         """更新账号 Cookie 和状态，返回受影响的行数。"""

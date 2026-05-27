@@ -5,6 +5,7 @@
 
 新实现：use_count LRU，多次 acquire 后所有账号被派发次数尽量平均。
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -41,9 +42,7 @@ async def test_acquire_lru_prefers_least_used_account() -> None:
     # 第二次 acquire — 不应该再是 first_id(它已经 use_count=1,其他还是 0)
     second = await pool.acquire()
     assert second is not None
-    assert str(second["account_id"]) != first_id, (
-        f"LRU 应该挑没用过的账号,但又选了 {first_id}"
-    )
+    assert str(second["account_id"]) != first_id, f"LRU 应该挑没用过的账号,但又选了 {first_id}"
 
 
 @pytest.mark.asyncio
@@ -98,8 +97,6 @@ async def test_idle_preference_overrides_lru() -> None:
         # 即使 a 的 use_count 还是 0(理论上 LRU 应优先选 a),但 a 忙了应该跳过
         first = await pool.acquire()
         assert first is not None
-        assert str(first["account_id"]) != "a", (
-            "a 的 upload lock 被持有,acquire 不应返回它"
-        )
+        assert str(first["account_id"]) != "a", "a 的 upload lock 被持有,acquire 不应返回它"
     finally:
         locks["a"].release()

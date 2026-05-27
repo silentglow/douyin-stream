@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """转写工作者 - 视频转写逻辑"""
 
 import logging
@@ -49,11 +50,19 @@ async def transcribe_files(task_id: str, _progress_fn, new_files: list, display_
         else:
             error_msg = r.get("error", "转写失败")
             error_type = r.get("error_type", "unknown")
-            subtasks.append({"title": title, "status": "failed", "error": f"[{error_type}] {error_msg}", "video_path": r.get("video_path")})
+            subtasks.append(
+                {
+                    "title": title,
+                    "status": "failed",
+                    "error": f"[{error_type}] {error_msg}",
+                    "video_path": r.get("video_path"),
+                }
+            )
 
     # 删除已成功转写的源视频
     if auto_delete:
         from media_tools.assets.service import MediaAssetService
+
         for r in report.results:
             if r.get("success"):
                 vp = Path(r.get("video_path", ""))

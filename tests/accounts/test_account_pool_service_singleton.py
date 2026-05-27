@@ -6,6 +6,7 @@
 
 修复: 进程内 process-wide 单例,所有 orchestrator 共享同一个 _upload_locks dict。
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -47,9 +48,7 @@ def test_singleton_preserves_upload_locks_across_callers() -> None:
         return lock1, lock2
 
     lock1, lock2 = asyncio.run(_acquire_locks())
-    assert lock1 is lock2, (
-        "同账号的 upload lock 跨 orchestrator 必须是同一把,否则同账号会被多文件并发上传"
-    )
+    assert lock1 is lock2, "同账号的 upload lock 跨 orchestrator 必须是同一把,否则同账号会被多文件并发上传"
 
 
 def test_reset_account_pool_service_invalidates_singleton() -> None:

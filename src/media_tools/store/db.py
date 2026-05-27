@@ -1,22 +1,33 @@
 import re
 import sqlite3
 import threading
-from contextlib import contextmanager
+from collections.abc import Generator
+from contextlib import contextmanager, suppress
 from pathlib import Path
-from typing import Generator, Optional
 
 from media_tools.logger import get_logger
-from .path_utils import resolve_safe_path, resolve_query_value, local_asset_id  # noqa: F401
 
-logger = get_logger('db')
+from .path_utils import local_asset_id, resolve_query_value, resolve_safe_path  # noqa: F401
+
+logger = get_logger("db")
 
 # --- Identifier validation ---
-_IDENTIFIER_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
-_VALID_TABLES = frozenset({
-    'creators', 'media_assets', 'task_queue', 'auth_credentials',
-    'Accounts_Pool', 'SystemSettings', 'scheduled_tasks', 'assets_fts',
-    'video_metadata', 'user_info_web', 'transcribe_runs'
-})
+_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+_VALID_TABLES = frozenset(
+    {
+        "creators",
+        "media_assets",
+        "task_queue",
+        "auth_credentials",
+        "Accounts_Pool",
+        "SystemSettings",
+        "scheduled_tasks",
+        "assets_fts",
+        "video_metadata",
+        "user_info_web",
+        "transcribe_runs",
+    }
+)
 
 
 def validate_identifier(name: str, field_name: str = "identifier") -> str:
@@ -41,7 +52,7 @@ def get_table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
 
 
 # --- Resolved DB path ---
-_db_path: Optional[str] = None
+_db_path: str | None = None
 
 
 def get_db_path() -> str:
@@ -89,16 +100,12 @@ def get_db_connection() -> sqlite3.Connection:
             cached.row_factory = sqlite3.Row
             return cached
         except sqlite3.Error:
-            try:
+            with suppress(sqlite3.Error, OSError):
                 cached.close()
-            except (sqlite3.Error, OSError):
-                pass
             _thread_local.conn = None
     elif cached is not None:
-        try:
+        with suppress(sqlite3.Error, OSError):
             cached.close()
-        except (sqlite3.Error, OSError):
-            pass
         _thread_local.conn = None
 
     conn = sqlite3.connect(current_path, timeout=15.0)
@@ -124,10 +131,8 @@ def get_db_connection_safe() -> Generator[sqlite3.Connection, None, None]:
         yield conn
     except sqlite3.Error:
         # 若连接处于显式事务中，先回滚避免污染后续使用
-        try:
+        with suppress(sqlite3.Error):
             conn.rollback()
-        except sqlite3.Error:
-            pass
         raise
     finally:
         conn.row_factory = old_factory
@@ -136,10 +141,8 @@ def get_db_connection_safe() -> Generator[sqlite3.Connection, None, None]:
 def close_db_connection() -> None:
     cached = getattr(_thread_local, "conn", None)
     if cached is not None:
-        try:
+        with suppress(sqlite3.Error):
             cached.close()
-        except sqlite3.Error:
-            pass
         _thread_local.conn = None
 
 
@@ -222,14 +225,14 @@ class DBConnection:
 
 
 # --- init_db (legacy entry point) ---
-def init_db(db_path: Optional[str] = None) -> None:
+def init_db(db_path: str | None = None) -> None:
     """Initialize database using new schema and migration framework."""
     global _db_path
     if db_path:
         _db_path = str(db_path)
 
-    from .schema import init_schema
     from .migrations import run_migrations
+    from .schema import init_schema
 
     conn = sqlite3.connect(get_db_path(), timeout=15.0)
     conn.execute("PRAGMA journal_mode=WAL")
@@ -237,6 +240,7 @@ def init_db(db_path: Optional[str] = None) -> None:
         init_schema(conn)
         run_migrations(conn)
         from .fts import _ensure_fts_table
+
         _ensure_fts_table(conn)
         conn.commit()
         logger.info("Database initialized")
@@ -249,4 +253,4 @@ def init_db(db_path: Optional[str] = None) -> None:
 
 
 # --- Re-export FTS functions for backward compatibility ---
-from .fts import ensure_fts_populated, update_fts_for_asset, rebuild_fts_index  # noqa: F401, E402
+from .fts import ensure_fts_populated, rebuild_fts_index, update_fts_for_asset  # noqa: F401, E402

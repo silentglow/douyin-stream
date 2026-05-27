@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from f2.apps.bark.utils import ClientConfManager as BarkClientConfManager
-from media_tools.platform.douyin import _prepare_f2_temp_dir
+
 from media_tools.douyin.core.f2_helper import get_f2_kwargs
+from media_tools.platform.douyin import _prepare_f2_temp_dir
 
 
 class F2HelperTests(unittest.TestCase):
@@ -27,9 +28,10 @@ class F2HelperTests(unittest.TestCase):
             downloads_path = Path(tmp_dir) / "downloads"
             fake_config = FakeConfig(downloads_path)
 
-            with patch("media_tools.douyin.core.f2_helper.get_config", return_value=fake_config), patch(
-                "media_tools.douyin.core.f2_helper.ConfigManager"
-            ) as mock_config_manager:
+            with (
+                patch("media_tools.douyin.core.f2_helper.get_config", return_value=fake_config),
+                patch("media_tools.douyin.core.f2_helper.ConfigManager") as mock_config_manager,
+            ):
                 mock_config_manager.return_value.config = {
                     "douyin": {
                         "headers": {"X-F2": "1"},

@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from media_tools.transcribe.worker import run_local_transcribe
 from media_tools.scheduler.base import BaseWorker, register_worker
+from media_tools.transcribe.worker import run_local_transcribe
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +31,7 @@ class LocalTranscribeWorker(BaseWorker):
             "failed": int(f_count or 0),
             "total": int(total or 0),
         }
-        msg = (
-            "没有找到有效的音视频文件"
-            if total == 0
-            else f"本地转写完成：成功 {s_count} 个，失败 {f_count} 个"
-        )
+        msg = "没有找到有效的音视频文件" if total == 0 else f"本地转写完成：成功 {s_count} 个，失败 {f_count} 个"
         await self.report_progress(
             1.0,
             msg,
@@ -43,9 +39,7 @@ class LocalTranscribeWorker(BaseWorker):
             pipeline_progress={"transcribe": {"done": int(total or 0), "total": int(total or 0)}},
         )
         if f_count == 0:
-            await self.finalize_success(
-                msg, result_summary=result_summary, subtasks=subtasks
-            )
+            await self.finalize_success(msg, result_summary=result_summary, subtasks=subtasks)
         elif s_count > 0:
             await self.finalize_partial(
                 msg,
@@ -63,4 +57,3 @@ class LocalTranscribeWorker(BaseWorker):
 
     async def _progress_fn(self, p: float, m: str, stage: str = "", pipeline_progress: dict | None = None) -> None:
         await self.report_progress(p, m, stage=stage, pipeline_progress=pipeline_progress)
-

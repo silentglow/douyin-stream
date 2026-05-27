@@ -2,12 +2,14 @@ import asyncio
 import logging
 import sqlite3
 from datetime import datetime
+
 from media_tools.core import background
+
 # 架构耦合说明：scheduler 层依赖 douyin.cancel_registry 清理任务取消事件。
 # 未来可将 cancel_registry 提升到 core 层以消除跨域依赖。
 from media_tools.douyin.core.cancel_registry import clear_cancel_event
-from media_tools.store.db import get_db_connection
 from media_tools.scheduler.retry import schedule_auto_retry
+from media_tools.store.db import get_db_connection
 
 logger = logging.getLogger(__name__)
 

@@ -1,11 +1,12 @@
 from __future__ import annotations
+
 """转写导出工具函数"""
 
 import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 from media_tools.common.runtime import ExportConfig, ensure_dir, now_stamp
 
@@ -16,10 +17,10 @@ class FlowDebugArtifacts:
     doc_edit_path: Path
 
 
-def _get_video_title_from_db(video_path: Path) -> Optional[str]:
+def _get_video_title_from_db(video_path: Path) -> str | None:
     """从文件名提取标题（下载时已清洗）"""
     stem = Path(video_path).stem
-    if re.search(r'\d{15,}', stem):
+    if re.search(r"\d{15,}", stem):
         pass
     else:
         clean = stem.strip()
@@ -30,16 +31,16 @@ def _get_video_title_from_db(video_path: Path) -> Optional[str]:
 
 def build_export_output_path(
     *,
-    input_path: Union[str, Path],
-    output_dir: Union[str, Path],
+    input_path: str | Path,
+    output_dir: str | Path,
     export_config: ExportConfig,
-    run_stamp: Optional[str] = None,
-    title: Optional[str] = None,
+    run_stamp: str | None = None,
+    title: str | None = None,
 ) -> Path:
     """构建导出文件路径"""
     stamp = run_stamp or now_stamp()
     if title:
-        clean_title = re.sub(r'[<>"/\\|?*]', '', title).strip()
+        clean_title = re.sub(r'[<>"/\\|?*]', "", title).strip()
         if len(clean_title) > 50:
             clean_title = clean_title[:50] + "..."
         filename = f"{clean_title}{export_config.extension}"
@@ -51,7 +52,7 @@ def build_export_output_path(
 
 def save_debug_artifacts(
     *,
-    output_dir: Union[str, Path],
+    output_dir: str | Path,
     output_base: str,
     run_stamp: str,
     transcript_json: Any,

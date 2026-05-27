@@ -35,4 +35,3 @@ def normalize_bilibili_url(url: str) -> NormalizedBilibiliUrl:
             return NormalizedBilibiliUrl(kind=BilibiliUrlKind.UNKNOWN, original_url=raw)
 
     return NormalizedBilibiliUrl(kind=BilibiliUrlKind.UNKNOWN, original_url=raw)
-

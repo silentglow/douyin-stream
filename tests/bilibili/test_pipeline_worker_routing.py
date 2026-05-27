@@ -11,18 +11,25 @@ class PipelineWorkerRoutingTests(unittest.IsolatedAsyncioTestCase):
     async def test_pipeline_download_uses_router(self) -> None:
         update_progress = AsyncMock()
         download_mock = object()
-        orchestrator = SimpleNamespace(transcribe_batch=AsyncMock(return_value=SimpleNamespace(success=1, failed=0, results=[])))
+        orchestrator = SimpleNamespace(
+            transcribe_batch=AsyncMock(return_value=SimpleNamespace(success=1, failed=0, results=[]))
+        )
         fake_config = SimpleNamespace()
 
-        with patch("media_tools.platform.bilibili.download_up_by_url", download_mock), patch(
-            "media_tools.transcribe.worker.asyncio.to_thread",
-            new=AsyncMock(return_value={"success": True, "new_files": ["/tmp/video.mp4"]}),
-        ) as mocked_to_thread, patch(
-            "media_tools.core.config.load_pipeline_config",
-            return_value=fake_config,
-        ), patch(
-            "media_tools.transcribe.service.create_orchestrator",
-            return_value=orchestrator,
+        with (
+            patch("media_tools.platform.bilibili.download_up_by_url", download_mock),
+            patch(
+                "media_tools.transcribe.worker.asyncio.to_thread",
+                new=AsyncMock(return_value={"success": True, "new_files": ["/tmp/video.mp4"]}),
+            ) as mocked_to_thread,
+            patch(
+                "media_tools.core.config.load_pipeline_config",
+                return_value=fake_config,
+            ),
+            patch(
+                "media_tools.transcribe.service.create_orchestrator",
+                return_value=orchestrator,
+            ),
         ):
             result = await run_pipeline_for_user(
                 url="https://space.bilibili.com/123",
@@ -43,4 +50,3 @@ class PipelineWorkerRoutingTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

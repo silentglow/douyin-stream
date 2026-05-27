@@ -1,22 +1,23 @@
 """Tests for the unified exception handling system."""
+
 from __future__ import annotations
 
 import unittest
 
 from media_tools.core.exceptions import (
-    AppError,
-    AppConfigurationError,
-    DownloadError,
-    TranscribeApiError,
-    TaskCancelledError,
-    NotFoundError,
-    ValidationError,
-    AuthenticationError,
     AccessDeniedError,
-    ExternalServiceError,
-    DatabaseError,
-    RateLimitError,
+    AppConfigurationError,
+    AppError,
+    AuthenticationError,
     ConflictError,
+    DatabaseError,
+    DownloadError,
+    ExternalServiceError,
+    NotFoundError,
+    RateLimitError,
+    TaskCancelledError,
+    TranscribeApiError,
+    ValidationError,
     error_response,
 )
 
@@ -94,7 +95,7 @@ class ErrorResponseTests(unittest.TestCase):
         """Test error_response returns correct format."""
         exc = AppError("TEST_CODE", "test message", {"detail": "info"})
         response = error_response(exc)
-        
+
         self.assertEqual(response["code"], "TEST_CODE")
         self.assertEqual(response["message"], "test message")
         self.assertEqual(response["details"], {"detail": "info"})
@@ -103,7 +104,7 @@ class ErrorResponseTests(unittest.TestCase):
         """Test NotFoundError response."""
         exc = NotFoundError("task", "task-123")
         response = error_response(exc)
-        
+
         self.assertEqual(response["code"], "NOT_FOUND")
         self.assertIn("task", response["message"])
         self.assertIn("task-123", response["message"])

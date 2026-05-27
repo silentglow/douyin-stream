@@ -38,10 +38,14 @@ async def test_handle_auto_retry_restarts_failed_task() -> None:
     conn.commit()
 
     start_worker = AsyncMock()
-    with patch("media_tools.scheduler.retry.get_db_connection", return_value=conn), patch(
-        "media_tools.scheduler.dispatcher._start_task_worker",
-        new=start_worker,
-    ), patch("media_tools.scheduler.retry._BACKOFF_BASE_SECONDS", 0):
+    with (
+        patch("media_tools.scheduler.retry.get_db_connection", return_value=conn),
+        patch(
+            "media_tools.scheduler.dispatcher._start_task_worker",
+            new=start_worker,
+        ),
+        patch("media_tools.scheduler.retry._BACKOFF_BASE_SECONDS", 0),
+    ):
         await auto_retry_module.handle_auto_retry("t1")
 
     row = conn.execute("SELECT status, progress, payload FROM task_queue WHERE task_id = ?", ("t1",)).fetchone()

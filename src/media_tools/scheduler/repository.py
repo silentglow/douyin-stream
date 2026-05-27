@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """任务数据访问层 - 所有 task_queue 表的操作集中在这里"""
 
 import json
@@ -7,17 +8,17 @@ import sqlite3
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
-from typing import Any, Optional
+from typing import Any
 
+from media_tools.core.workflow import validate_transition_by_str
 from media_tools.store.db import get_db_connection
-from media_tools.core.workflow import validate_transition_by_str, InvalidTransitionError
 
 
 def _merge_task_payload(
-    existing_payload: Optional[str],
+    existing_payload: str | None,
     msg: str,
-    result_summary: Optional[dict] = None,
-    subtasks: Optional[list] = None,
+    result_summary: dict | None = None,
+    subtasks: list | None = None,
 ) -> str:
     """合并任务 payload，保留现有字段并更新进度信息"""
     base_payload: dict = {}
@@ -43,8 +44,8 @@ def _merge_payload_from_db(
     conn: sqlite3.Connection,
     task_id: str,
     msg: str,
-    result_summary: Optional[dict] = None,
-    subtasks: Optional[list] = None,
+    result_summary: dict | None = None,
+    subtasks: list | None = None,
 ) -> str:
     """从数据库读取现有 payload 并合并新信息"""
     try:
@@ -72,7 +73,7 @@ class TaskRepository:
     # ---------- CREATE ----------
 
     @staticmethod
-    def create(task_id: str, task_type: str, payload: Optional[dict] = None) -> None:
+    def create(task_id: str, task_type: str, payload: dict | None = None) -> None:
         """创建新任务"""
         now = datetime.now().isoformat()
         payload_str = json.dumps(payload or {}, ensure_ascii=False)
@@ -85,7 +86,7 @@ class TaskRepository:
             conn.commit()
 
     @staticmethod
-    def create_running(task_id: str, task_type: str, payload: Optional[dict] = None) -> None:
+    def create_running(task_id: str, task_type: str, payload: dict | None = None) -> None:
         """创建并标记为 RUNNING（用于 rerun）"""
         now = datetime.now().isoformat()
         payload_str = json.dumps(payload or {}, ensure_ascii=False)
@@ -105,7 +106,7 @@ class TaskRepository:
     # ---------- READ ----------
 
     @staticmethod
-    def find_by_id(task_id: str) -> Optional[dict[str, Any]]:
+    def find_by_id(task_id: str) -> dict[str, Any] | None:
         """按 ID 查询任务"""
         with get_db_connection() as conn:
             cursor = conn.execute("SELECT * FROM task_queue WHERE task_id = ?", (task_id,))
@@ -116,9 +117,7 @@ class TaskRepository:
     def find_active() -> list[dict[str, Any]]:
         """查询活跃任务（PENDING 或 RUNNING）"""
         with get_db_connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM task_queue WHERE status IN ('PENDING', 'RUNNING')"
-            )
+            cursor = conn.execute("SELECT * FROM task_queue WHERE status IN ('PENDING', 'RUNNING')")
             return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
@@ -132,7 +131,7 @@ class TaskRepository:
             return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
-    def get_status(task_id: str) -> tuple[Optional[str], Optional[str]]:
+    def get_status(task_id: str) -> tuple[str | None, str | None]:
         """获取任务状态和类型"""
         with get_db_connection() as conn:
             cursor = conn.execute(
@@ -145,7 +144,7 @@ class TaskRepository:
             return None, None
 
     @staticmethod
-    def get_task_type_and_payload(task_id: str) -> tuple[Optional[str], Optional[str]]:
+    def get_task_type_and_payload(task_id: str) -> tuple[str | None, str | None]:
         """获取任务类型和 payload"""
         with get_db_connection() as conn:
             cursor = conn.execute(
@@ -158,7 +157,7 @@ class TaskRepository:
             return None, None
 
     @staticmethod
-    def get_task_type_payload_status(task_id: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    def get_task_type_payload_status(task_id: str) -> tuple[str | None, str | None, str | None]:
         """获取任务类型、payload 和状态"""
         with get_db_connection() as conn:
             cursor = conn.execute(
@@ -171,7 +170,7 @@ class TaskRepository:
             return None, None, None
 
     @staticmethod
-    def get_task_type_payload_auto_retry(task_id: str) -> tuple[Optional[str], Optional[str], bool]:
+    def get_task_type_payload_auto_retry(task_id: str) -> tuple[str | None, str | None, bool]:
         """获取任务类型、payload 和 auto_retry"""
         with get_db_connection() as conn:
             cursor = conn.execute(
@@ -191,8 +190,8 @@ class TaskRepository:
         progress: float,
         msg: str,
         task_type: str = "pipeline",
-        result_summary: Optional[dict] = None,
-        subtasks: Optional[list] = None,
+        result_summary: dict | None = None,
+        subtasks: list | None = None,
     ) -> None:
         """更新任务进度。
 
@@ -223,7 +222,7 @@ class TaskRepository:
             conn.commit()
 
     @staticmethod
-    def mark_running(task_id: str, progress: float = 0.0, payload: Optional[str] = None) -> None:
+    def mark_running(task_id: str, progress: float = 0.0, payload: str | None = None) -> None:
         """标记任务为 RUNNING（校验+更新在同一连接中完成，避免 TOCTOU 竞态）"""
         now = datetime.now().isoformat()
         with get_db_connection() as conn:
@@ -247,8 +246,8 @@ class TaskRepository:
     def mark_completed(
         task_id: str,
         msg: str,
-        result_summary: Optional[dict] = None,
-        subtasks: Optional[list] = None,
+        result_summary: dict | None = None,
+        subtasks: list | None = None,
     ) -> None:
         """标记任务为 COMPLETED（校验+更新在同一连接中完成）"""
         now = datetime.now().isoformat()

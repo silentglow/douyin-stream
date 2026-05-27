@@ -62,24 +62,31 @@ class BilibiliCreatorDownloadTaskTests(unittest.IsolatedAsyncioTestCase):
         tmp_video = Path("/tmp/bili_test_video.mp4")
         tmp_video.write_bytes(b"ok")
 
-        fake_config = SimpleNamespace(is_auto_transcribe=lambda: True, is_auto_delete_video=lambda: True)
+        SimpleNamespace(is_auto_transcribe=lambda: True, is_auto_delete_video=lambda: True)
         from media_tools.transcribe.models import BatchReport
+
         report = BatchReport(total=1, success=1, failed=0)
         report.results.append({"video_path": str(tmp_video), "success": True, "error": None, "error_type": "none"})
         orchestrator = SimpleNamespace(transcribe_batch=AsyncMock(return_value=report))
 
-        with patch("media_tools.creators.sync.get_db_connection", return_value=conn), patch(
-            "media_tools.scheduler.base.update_task_progress",
-            new=AsyncMock(),
-        ), patch(
-            "media_tools.scheduler.base._task_heartbeat",
-            new=AsyncMock(),
-        ), patch(
-            "media_tools.creators.sync.asyncio.to_thread",
-            new=AsyncMock(return_value={"success": True, "new_files": [str(tmp_video)]}),
-        ), patch(
-            "media_tools.transcribe.service.create_orchestrator",
-            return_value=orchestrator,
+        with (
+            patch("media_tools.creators.sync.get_db_connection", return_value=conn),
+            patch(
+                "media_tools.scheduler.base.update_task_progress",
+                new=AsyncMock(),
+            ),
+            patch(
+                "media_tools.scheduler.base._task_heartbeat",
+                new=AsyncMock(),
+            ),
+            patch(
+                "media_tools.creators.sync.asyncio.to_thread",
+                new=AsyncMock(return_value={"success": True, "new_files": [str(tmp_video)]}),
+            ),
+            patch(
+                "media_tools.transcribe.service.create_orchestrator",
+                return_value=orchestrator,
+            ),
         ):
             await CreatorSyncWorker().execute(task_id, uid=creator_uid, mode="incremental")
 

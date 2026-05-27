@@ -1,17 +1,16 @@
 """测试视频标题命名修复（LIMIT 10 + pipeline title passthrough）"""
+
 from __future__ import annotations
 
-import re
 import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
-from media_tools.transcribe.helpers import _lookup_video_title, _clean_title_for_export
-from media_tools.transcribe.flow import build_export_output_path, _get_video_title_from_db
+from media_tools.store.db import get_db_path, reset_db_cache, set_db_path
+from media_tools.transcribe.flow import _get_video_title_from_db, build_export_output_path
+from media_tools.transcribe.helpers import _clean_title_for_export, _lookup_video_title
 from media_tools.transcribe.runtime import ExportConfig
-from media_tools.store.db import get_db_path, set_db_path, reset_db_cache
 
 
 class CleanTitleForExportTests(unittest.TestCase):

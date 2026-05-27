@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Optional
 
 import logging
 import shutil
@@ -20,7 +19,7 @@ ARCHIVE_DIRNAME = "archive"
 class ArchiveOutcome:
     archived_count: int = 0
     failed_count: int = 0
-    archive_dir: Optional[Path] = None
+    archive_dir: Path | None = None
     failed_paths: list[str] = field(default_factory=list)
 
 

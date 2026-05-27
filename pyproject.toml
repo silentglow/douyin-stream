@@ -58,7 +58,11 @@ select = [
 ]
 ignore = [
   "E501",   # line too long (handled by formatter)
+  "E402",   # module level import not at top (lazy imports in __init__.py, routers)
+  "F401",   # unused imports (re-exports in __init__.py)
   "B008",   # do not perform function calls in argument defaults (FastAPI Depends)
+  "SIM105", # contextlib.suppress (try/except/pass is more readable in some cases)
+  "SIM117", # nested with (sometimes readability is better with nesting)
 ]
 
 [tool.ruff.lint.isort]

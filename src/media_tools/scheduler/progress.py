@@ -1,10 +1,17 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
-
-
-ALLOWED_STAGES = {"fetching", "auditing", "downloading", "uploading", "transcribing", "exporting", "completed", "failed"}
+ALLOWED_STAGES = {
+    "fetching",
+    "auditing",
+    "downloading",
+    "uploading",
+    "transcribing",
+    "exporting",
+    "completed",
+    "failed",
+}
 
 
 def _normalize_stage(raw: str) -> str:
@@ -40,7 +47,7 @@ def _normalize_stage(raw: str) -> str:
     return normalized if normalized in ALLOWED_STAGES else "downloading"
 
 
-def _clamp_progress(progress: float | Optional[int]) -> float:
+def _clamp_progress(progress: float | int | None) -> float:
     try:
         value = float(progress or 0.0)
     except (TypeError, ValueError):
@@ -70,7 +77,7 @@ def _extract_result_summary_counts(payload: dict[str, Any]) -> tuple[int, int]:
         except (TypeError, ValueError):
             total = 0
         try:
-            done = int((summary.get("success") or 0)) + int((summary.get("failed") or 0))
+            done = int(summary.get("success") or 0) + int(summary.get("failed") or 0)
         except (TypeError, ValueError):
             done = 0
         return max(done, 0), max(total, 0)
@@ -80,14 +87,19 @@ def _extract_result_summary_counts(payload: dict[str, Any]) -> tuple[int, int]:
         total = len(subtasks)
         done = 0
         for item in subtasks:
-            if isinstance(item, dict) and str(item.get("status") or "").lower() in ("completed", "failed", "success", "error"):
+            if isinstance(item, dict) and str(item.get("status") or "").lower() in (
+                "completed",
+                "failed",
+                "success",
+                "error",
+            ):
                 done += 1
         return done, total
 
     return 0, 0
 
 
-def _extract_export_meta(payload: dict[str, Any]) -> tuple[Optional[str], str | Optional[int]]:
+def _extract_export_meta(payload: dict[str, Any]) -> tuple[str | None, str | int | None]:
     pipeline_progress = payload.get("pipeline_progress")
     if isinstance(pipeline_progress, dict):
         export = pipeline_progress.get("export")
@@ -120,16 +132,20 @@ def _extract_export_meta(payload: dict[str, Any]) -> tuple[Optional[str], str | 
 def build_pipeline_progress(
     task_type: str,
     status: str,
-    progress: float | Optional[int],
-    payload: Optional[dict[str, Any]] = None,
-) -> Optional[dict[str, Any]]:
-    if task_type not in ("pipeline", "download", "creator_transcribe") and not task_type.startswith("creator_sync") and not task_type.startswith("full_sync"):
+    progress: float | int | None,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    if (
+        task_type not in ("pipeline", "download", "creator_transcribe")
+        and not task_type.startswith("creator_sync")
+        and not task_type.startswith("full_sync")
+    ):
         return None
 
     payload = payload or {}
     overall = _clamp_progress(progress)
 
-    stage_str: Optional[str] = None
+    stage_str: str | None = None
     payload_pp = payload.get("pipeline_progress")
     if isinstance(payload_pp, dict):
         raw_stage = payload_pp.get("stage")
@@ -240,5 +256,3 @@ def build_pipeline_progress(
             "status": export_status,
         },
     }
-
-

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 """Transcript preview + full-text extraction shared by orchestrator and local-transcribe worker."""
 import logging
-from pathlib import Path
 import zipfile
+from pathlib import Path
 from xml.etree import ElementTree as ET
 from xml.parsers.expat import ExpatError
 

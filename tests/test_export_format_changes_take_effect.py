@@ -60,6 +60,7 @@ def test_export_format_invalid_value_rejected_at_api_layer():
     """API 层 settings.py:206 已有白名单校验，仅 md/docx/pdf/srt/txt 五种。
     这条测试确认那个校验仍在，避免回归。"""
     import inspect
+
     from media_tools.api.routers import settings as settings_router
 
     src = inspect.getsource(settings_router)
@@ -67,6 +68,4 @@ def test_export_format_invalid_value_rejected_at_api_layer():
     assert "md" in src and "docx" in src and "pdf" in src and "srt" in src and "txt" in src, (
         "settings 路由应保留 export_format 合法值白名单（md/docx/pdf/srt/txt）"
     )
-    assert "export_format must be one of" in src, (
-        "settings 路由应保留 export_format 不合法时的 400 错误"
-    )
+    assert "export_format must be one of" in src, "settings 路由应保留 export_format 不合法时的 400 错误"

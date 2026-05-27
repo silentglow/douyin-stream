@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 CLI 核心模块
 
@@ -8,11 +7,11 @@ CLI 核心模块
 """
 
 from .interface import (
-    VideoInfo,
-    VideoFetcher,
-    VideoStorage,
-    VideoMetadataStore,
     Downloader,
+    VideoFetcher,
+    VideoInfo,
+    VideoMetadataStore,
+    VideoStorage,
 )
 
 __all__ = [

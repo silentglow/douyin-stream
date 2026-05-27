@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 F2 辅助模块 - 统一管理 F2 配置和初始化
 """
 
-import f2
 import logging
+
+import f2
 
 logger = logging.getLogger(__name__)
 from f2.utils.conf_manager import ConfigManager
@@ -25,22 +25,22 @@ def _disable_f2_bark_notifications() -> None:
 
 def _disable_f2_logging() -> None:
     """优化 F2 库的日志输出策略。
-    
+
     策略：
     1. 保留 WARNING 及以上级别日志（用于记录异常和错误）
     2. 移除 F2 默认的文件 handler（避免产生大量空的 f2-trace-*.log 文件）
     3. 允许日志向上传播到根日志器（便于统一管理和输出）
     """
-    f2_logger = logging.getLogger('f2')
+    f2_logger = logging.getLogger("f2")
     # 设置为 INFO 级别，保留 HTTP 请求等下载活动日志
     f2_logger.setLevel(logging.INFO)
-    
+
     # 移除 F2 默认添加的文件 handler（这些会产生大量空的 f2-trace-*.log 文件）
     for handler in list(f2_logger.handlers):
         # 只移除文件 handler，保留其他类型的 handler
         if isinstance(handler, logging.FileHandler):
             f2_logger.removeHandler(handler)
-    
+
     # 允许日志向上传播到父日志器，这样可以统一管理日志输出
     f2_logger.propagate = True
 
@@ -79,6 +79,7 @@ def get_f2_kwargs() -> dict:
     config = get_config()
 
     from media_tools.core.cookie_manager import get_cookie_manager
+
     cookie = get_cookie_manager().get_cookie("douyin")
     if not cookie:
         cookie = config.get_cookie()
@@ -134,7 +135,7 @@ import datetime
 
 class StructuredLogger:
     """结构化日志记录器 - 添加时间戳、图标和阶段标识"""
-    
+
     _stage_icons = {
         "list": "📋",
         "fetching": "📋",
@@ -154,7 +155,7 @@ class StructuredLogger:
         "cancel": "🚫",
         "cancelled": "🚫",
     }
-    
+
     _type_icons = {
         "info": "ℹ️",
         "success": "✅",
@@ -162,29 +163,29 @@ class StructuredLogger:
         "error": "❌",
         "debug": "🔧",
     }
-    
+
     @classmethod
     def _get_timestamp(cls) -> str:
         """获取格式化的时间戳"""
         return datetime.datetime.now().strftime("%H:%M:%S")
-    
+
     @classmethod
     def _get_stage_icon(cls, stage: str) -> str:
         """获取阶段图标"""
         return cls._stage_icons.get(stage.lower(), "📦")
-    
+
     @classmethod
     def log(cls, message: str, stage: str = "", log_type: str = "info") -> None:
         """记录结构化日志"""
         timestamp = cls._get_timestamp()
         type_icon = cls._type_icons.get(log_type.lower(), "ℹ️")
         stage_icon = cls._get_stage_icon(stage) if stage else ""
-        
+
         if stage:
             log_message = f"[{timestamp}] {type_icon} {stage_icon} {stage.upper():<12} - {message}"
         else:
             log_message = f"[{timestamp}] {type_icon} {message}"
-        
+
         if log_type.lower() == "error":
             logger.error(log_message)
         elif log_type.lower() == "warning":
@@ -193,23 +194,23 @@ class StructuredLogger:
             logger.debug(log_message)
         else:
             logger.info(log_message)
-    
+
     @classmethod
     def info(cls, message: str, stage: str = "") -> None:
         cls.log(message, stage, "info")
-    
+
     @classmethod
     def success(cls, message: str, stage: str = "") -> None:
         cls.log(message, stage, "success")
-    
+
     @classmethod
     def warning(cls, message: str, stage: str = "") -> None:
         cls.log(message, stage, "warning")
-    
+
     @classmethod
     def error(cls, message: str, stage: str = "") -> None:
         cls.log(message, stage, "error")
-    
+
     @classmethod
     def debug(cls, message: str, stage: str = "") -> None:
         cls.log(message, stage, "debug")
@@ -223,6 +224,7 @@ def _is_interactive_terminal() -> bool:
                   Rich Live 的终端控制序列会产生空行干扰。
     """
     import sys
+
     return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
 
@@ -238,8 +240,9 @@ def _patch_f2_console_for_non_interactive() -> None:
 
     try:
         import io
-        from rich.console import Console
+
         from f2.cli.cli_console import RichConsoleManager
+        from rich.console import Console
 
         class LogConsole(Console):
             """将 Rich print 输出重定向到 Python logging，过滤空行。"""
@@ -261,7 +264,7 @@ def _patch_f2_console_for_non_interactive() -> None:
                     for line in value.rstrip("\n").splitlines():
                         stripped = line.strip()
                         # 跳过纯分隔线和空行
-                        if not stripped or set(stripped) <= {"─", "━", "═", "─"}:
+                        if not stripped or set(stripped) <= {"─", "━", "═"}:
                             continue
                         # 去掉行首行尾的分隔符，提取核心内容
                         cleaned = stripped.strip("─━═─ ")
@@ -271,7 +274,6 @@ def _patch_f2_console_for_non_interactive() -> None:
                     self._log_buffer.seek(0)
 
         # 替换 RichConsoleManager 的 rich_console property
-        original_property = RichConsoleManager.rich_console
 
         @property
         def patched_rich_console(self):

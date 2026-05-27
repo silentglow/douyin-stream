@@ -7,9 +7,9 @@
 - 时间窗口过滤（days 参数）
 - sample_error 取桶内最新一条错误信息（截断到 200 字）
 """
+
 from __future__ import annotations
 
-import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -97,12 +97,18 @@ def test_aggregate_failures_window_filters_old_records(tmp_db):
 
 def test_aggregate_failures_sample_error_is_latest_within_bucket(tmp_db):
     _insert_failed_run(
-        run_id="r-old", error_type="auth", error_stage="upload",
-        last_error="OLD ERROR MESSAGE", days_ago=3,
+        run_id="r-old",
+        error_type="auth",
+        error_stage="upload",
+        last_error="OLD ERROR MESSAGE",
+        days_ago=3,
     )
     _insert_failed_run(
-        run_id="r-new", error_type="auth", error_stage="upload",
-        last_error="LATEST ERROR MESSAGE", days_ago=1,
+        run_id="r-new",
+        error_type="auth",
+        error_stage="upload",
+        last_error="LATEST ERROR MESSAGE",
+        days_ago=1,
     )
 
     buckets = TranscribeRunRepository.aggregate_failures(days=7)

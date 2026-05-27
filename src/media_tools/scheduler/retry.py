@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Optional
 
 import asyncio
 import json
@@ -19,25 +18,26 @@ _BACKOFF_MAX_SECONDS = 60
 
 
 async def _backoff_sleep(task_id: str, retry_count: int) -> None:
-    delay_seconds = min((2 ** retry_count) * _BACKOFF_BASE_SECONDS, _BACKOFF_MAX_SECONDS)
-    logger.info(
-        f"任务 {task_id} 将在 {delay_seconds}s 后进行第 {retry_count + 1}/{MAX_AUTO_RETRY} 次自动重试"
-    )
+    delay_seconds = min((2**retry_count) * _BACKOFF_BASE_SECONDS, _BACKOFF_MAX_SECONDS)
+    logger.info(f"任务 {task_id} 将在 {delay_seconds}s 后进行第 {retry_count + 1}/{MAX_AUTO_RETRY} 次自动重试")
     await asyncio.sleep(delay_seconds)
+
 
 # 仅以下 task_type 受 auto_retry 支持；其它（如 recover_aweme_transcribe、
 # 以 creator_uid 启动的 local_transcribe）原始参数不足以复现，重试只会再次失败。
-_AUTO_RETRY_SUPPORTED_TYPES: frozenset[str] = frozenset({
-    "pipeline",
-    "download",
-})
+_AUTO_RETRY_SUPPORTED_TYPES: frozenset[str] = frozenset(
+    {
+        "pipeline",
+        "download",
+    }
+)
 _AUTO_RETRY_SUPPORTED_PREFIXES: tuple[str, ...] = (
     "creator_sync",
     "full_sync",
 )
 
 
-def _is_auto_retry_supported(task_type: Optional[str], payload: Optional[dict]) -> bool:
+def _is_auto_retry_supported(task_type: str | None, payload: dict | None) -> bool:
     if not task_type:
         return False
     if task_type in _AUTO_RETRY_SUPPORTED_TYPES:
@@ -128,7 +128,7 @@ async def handle_auto_retry(task_id: str) -> None:
             _rollback_running_to_failed(task_id)
         logger.info(f"自动重试被取消 task_id={task_id}")
         raise
-    except (sqlite3.Error, OSError, RuntimeError, asyncio.TimeoutError):
+    except (TimeoutError, sqlite3.Error, OSError, RuntimeError):
         logger.exception(f"自动重试失败 task_id={task_id}")
         if db_marked_running:
             _rollback_running_to_failed(task_id)
@@ -147,4 +147,3 @@ def _rollback_running_to_failed(task_id: str) -> None:
             )
     except sqlite3.Error:
         logger.exception(f"回滚 RUNNING orphan 失败 task_id={task_id}")
-

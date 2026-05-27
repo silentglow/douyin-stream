@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 from typing import Any
 
 from media_tools.core.config import get_runtime_setting_bool
-from media_tools.transcribe.worker import run_pipeline_for_user, run_batch_pipeline, run_download_only
-from media_tools.scheduler.repository import TaskRepository
 from media_tools.scheduler.base import BaseWorker, register_worker
+from media_tools.scheduler.repository import TaskRepository
+from media_tools.transcribe.worker import run_batch_pipeline, run_pipeline_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +26,8 @@ def _patch_payload_with_results(task_id: str, total: int, export_file: str | Non
         patch["export_file"] = export_file.strip()
         patch["export_status"] = "saved"
     if patch:
-        try:
+        with contextlib.suppress(OSError, RuntimeError):
             TaskRepository.patch_payload(task_id, patch)
-        except (OSError, RuntimeError):
-            pass
 
 
 def _build_pipeline_result_summary(result: dict[str, Any]) -> dict[str, int]:
@@ -148,4 +147,3 @@ class PipelineWorker(BaseWorker):
 
     async def _progress_fn(self, p: float, m: str, stage: str = "", pipeline_progress: dict | None = None) -> None:
         await self.report_progress(p, m, stage=stage, pipeline_progress=pipeline_progress)
-

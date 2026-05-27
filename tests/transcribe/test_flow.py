@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 import tempfile
 import unittest
 
@@ -42,8 +41,12 @@ class FlowTests(unittest.TestCase):
         def log(message: str) -> None:
             messages.append(message)
 
-        before = QuotaSnapshot(raw={}, used_upload=0, total_upload=100, remaining_upload=80, gratis_upload=False, free=False)
-        after = QuotaSnapshot(raw={}, used_upload=0, total_upload=100, remaining_upload=72, gratis_upload=False, free=False)
+        before = QuotaSnapshot(
+            raw={}, used_upload=0, total_upload=100, remaining_upload=80, gratis_upload=False, free=False
+        )
+        after = QuotaSnapshot(
+            raw={}, used_upload=0, total_upload=100, remaining_upload=72, gratis_upload=False, free=False
+        )
 
         from unittest.mock import patch
 

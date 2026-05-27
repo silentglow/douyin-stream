@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """临时文件安全管理"""
 
 import atexit
@@ -6,9 +7,8 @@ import os
 import signal
 import tempfile
 import threading
+from collections.abc import Generator
 from contextlib import contextmanager
-from pathlib import Path
-from typing import Any, Generator, Optional
 
 from media_tools.logger import get_logger
 
@@ -52,25 +52,26 @@ def _cleanup_on_signal(signum, frame) -> None:
 
 # 注册进程退出清理
 atexit.register(_cleanup_temp_files)
-if hasattr(signal, 'SIGTERM'):
+if hasattr(signal, "SIGTERM"):
     signal.signal(signal.SIGTERM, _cleanup_on_signal)
 signal.signal(signal.SIGINT, _cleanup_on_signal)
 
 
 @contextmanager
-def managed_temp_file(mode: str = 'w', suffix: str = '.txt', directory: Optional[str] = None) -> Generator[tuple, None, None]:
+def managed_temp_file(
+    mode: str = "w", suffix: str = ".txt", directory: str | None = None
+) -> Generator[tuple, None, None]:
     """安全的临时文件上下文管理器"""
-    import io
-    fd, path = tempfile.mkstemp(suffix=suffix, prefix='bili_tmp_', dir=directory)
+    fd, path = tempfile.mkstemp(suffix=suffix, prefix="bili_tmp_", dir=directory)
     _register_temp_file(path)
     try:
         os.close(fd)
         os.chmod(path, 0o600)
-        handle = io.open(path, mode, newline='')
+        handle = open(path, mode, newline="")
         yield handle, path
     finally:
         try:
-            if 'handle' in dir() and not handle.closed:
+            if "handle" in dir() and not handle.closed:
                 handle.close()
             if os.path.exists(path):
                 os.unlink(path)

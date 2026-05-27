@@ -4,9 +4,9 @@ import logging
 import sqlite3
 
 from media_tools.core.config import get_runtime_setting_bool
-from media_tools.store.db import get_db_connection
 from media_tools.platform.douyin import download_aweme_by_url
 from media_tools.scheduler.base import BaseWorker, register_worker
+from media_tools.store.db import get_db_connection
 from media_tools.workers.transcribe import transcribe_files
 
 logger = logging.getLogger(__name__)
@@ -45,9 +45,7 @@ class AwemeRecoverWorker(BaseWorker):
 
         display_name = resolved_title or creator_uid or aweme_id
 
-        await self.report_progress(
-            0.05, f"补齐下载：{display_name}", stage="downloading"
-        )
+        await self.report_progress(0.05, f"补齐下载：{display_name}", stage="downloading")
         url = f"https://www.douyin.com/video/{aweme_id}"
         dl = await download_aweme_by_url(url)
         if not isinstance(dl, dict) or not dl.get("success"):
@@ -58,9 +56,7 @@ class AwemeRecoverWorker(BaseWorker):
             raise RuntimeError("补齐下载未产生新文件")
 
         auto_delete = get_runtime_setting_bool("auto_delete", True)
-        tr = await transcribe_files(
-            task_id, self._progress_fn, list(new_files), display_name, auto_delete=auto_delete
-        )
+        tr = await transcribe_files(task_id, self._progress_fn, list(new_files), display_name, auto_delete=auto_delete)
 
         s = int(tr.get("success_count", 0) or 0)
         f = int(tr.get("failed_count", 0) or 0)
@@ -75,9 +71,7 @@ class AwemeRecoverWorker(BaseWorker):
 
         msg = f"补齐并转写完成：成功 {s} 个，失败 {f} 个"
         if f == 0:
-            await self.finalize_success(
-                msg, result_summary=result_summary, subtasks=subtasks
-            )
+            await self.finalize_success(msg, result_summary=result_summary, subtasks=subtasks)
             return
 
         error_msg = msg
@@ -87,9 +81,7 @@ class AwemeRecoverWorker(BaseWorker):
             if err:
                 error_msg = str(err)
 
-        await self.finalize_failure(
-            msg, error_msg=error_msg, result_summary=result_summary, subtasks=subtasks
-        )
+        await self.finalize_failure(msg, error_msg=error_msg, result_summary=result_summary, subtasks=subtasks)
 
     async def _progress_fn(
         self,
@@ -101,4 +93,3 @@ class AwemeRecoverWorker(BaseWorker):
     ) -> None:
         """透传给 transcribe_files 的进度回调（签名与 transcribe_files 约定一致）。"""
         await self.report_progress(p, m, stage=stage)
-

@@ -5,6 +5,7 @@
   - 异常场景下能检出 + samples 有内容
   - 退出码：0=healthy / 1=anomaly
 """
+
 from __future__ import annotations
 
 import json
@@ -13,8 +14,6 @@ import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-
-import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT_PATH = PROJECT_ROOT / "scripts" / "health_check.py"

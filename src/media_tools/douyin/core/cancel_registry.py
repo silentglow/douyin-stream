@@ -1,11 +1,10 @@
 from __future__ import annotations
-"""全局任务取消注册表，供 Douyin 下载器与 API 路由共享。"""
-from typing import Optional
 
+"""全局任务取消注册表，供 Douyin 下载器与 API 路由共享。"""
 import threading
 import time
 
-from media_tools.core.task_progress import Stage, DownloadProgress, TranscribeProgress, TaskProgress
+from media_tools.core.task_progress import DownloadProgress, Stage, TaskProgress, TranscribeProgress
 
 _cancel_events: dict[str, threading.Event] = {}
 
@@ -44,7 +43,7 @@ def clear_cancel_event(task_id: str) -> None:
         _last_activity.pop(task_id, None)
 
 
-def is_task_cancelled(task_id: Optional[str]) -> bool:
+def is_task_cancelled(task_id: str | None) -> bool:
     """检查指定任务是否已被请求取消。"""
     if not task_id:
         return False
@@ -53,7 +52,7 @@ def is_task_cancelled(task_id: Optional[str]) -> bool:
     return event is not None and event.is_set()
 
 
-def get_download_progress(task_id: str) -> Optional[dict]:
+def get_download_progress(task_id: str) -> dict | None:
     """获取指定任务的下载进度信息。"""
     with _lock:
         progress = _download_progress.get(task_id)
@@ -153,11 +152,13 @@ def increment_downloaded(task_id: str, video_title: str = "") -> None:
                 progress.download_progress = DownloadProgress()
             progress.download_progress.downloaded += 1
             if video_title:
-                progress.details.append({
-                    "title": video_title,
-                    "status": "downloaded",
-                    "time": time.time(),
-                })
+                progress.details.append(
+                    {
+                        "title": video_title,
+                        "status": "downloaded",
+                        "time": time.time(),
+                    }
+                )
             _update_overall_percent(progress)
         _last_activity[task_id] = time.monotonic()
 
@@ -171,11 +172,13 @@ def increment_skipped(task_id: str, video_title: str = "") -> None:
                 progress.download_progress = DownloadProgress()
             progress.download_progress.skipped += 1
             if video_title:
-                progress.details.append({
-                    "title": video_title,
-                    "status": "skipped",
-                    "time": time.time(),
-                })
+                progress.details.append(
+                    {
+                        "title": video_title,
+                        "status": "skipped",
+                        "time": time.time(),
+                    }
+                )
         _last_activity[task_id] = time.monotonic()
 
 
@@ -188,11 +191,13 @@ def add_download_error(task_id: str, video_title: str, error_msg: str) -> None:
                 progress.download_progress = DownloadProgress()
             progress.download_progress.failed += 1
             progress.error_count += 1
-            progress.errors.append({
-                "title": video_title,
-                "error": error_msg,
-                "time": time.time(),
-            })
+            progress.errors.append(
+                {
+                    "title": video_title,
+                    "error": error_msg,
+                    "time": time.time(),
+                }
+            )
             if len(progress.errors) > 20:
                 progress.errors = progress.errors[-20:]
         _last_activity[task_id] = time.monotonic()
@@ -268,7 +273,7 @@ def _update_overall_percent(progress: TaskProgress) -> None:
         progress.overall_percent = 0.0
 
 
-def get_progress_for_api(task_id: str) -> Optional[dict]:
+def get_progress_for_api(task_id: str) -> dict | None:
     """获取适合 API 返回格式的进度信息。"""
     progress = get_download_progress(task_id)
     if not progress:
