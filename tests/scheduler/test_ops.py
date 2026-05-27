@@ -408,6 +408,7 @@ class TestUpdateTaskProgress(unittest.IsolatedAsyncioTestCase):
         @contextmanager
         def ctx():
             yield conn
+
         return ctx
 
     @patch("media_tools.scheduler.ops.schedule_auto_retry")
@@ -510,9 +511,7 @@ class TestUpdateTaskProgress(unittest.IsolatedAsyncioTestCase):
         conn = _make_in_memory_conn()
 
         with patch("media_tools.scheduler.ops.get_db_connection", side_effect=self._make_shared_conn_ctx(conn)):
-            await update_task_progress(
-                "t1", 0.5, "msg", stage="download", pipeline_progress={"step": 2}
-            )
+            await update_task_progress("t1", 0.5, "msg", stage="download", pipeline_progress={"step": 2})
 
         row = conn.execute("SELECT payload FROM task_queue WHERE task_id='t1'").fetchone()
         payload = json.loads(row["payload"])
@@ -544,6 +543,7 @@ class TestUpdateTaskProgress(unittest.IsolatedAsyncioTestCase):
     @patch("media_tools.scheduler.ops.manager.broadcast", new_callable=AsyncMock)
     async def test_broadcast_not_called_on_db_error(self, mock_broadcast, _mock_retry):
         """If get_db_connection raises, no broadcast should happen."""
+
         def raise_error():
             raise OSError("disk full")
 
@@ -567,6 +567,7 @@ class TestMarkTaskCancelled(unittest.IsolatedAsyncioTestCase):
         @contextmanager
         def ctx():
             yield conn
+
         return ctx
 
     @patch("media_tools.scheduler.ops.schedule_auto_retry")
@@ -597,7 +598,7 @@ class TestMarkTaskCancelled(unittest.IsolatedAsyncioTestCase):
         conn.execute(
             "INSERT INTO task_queue (task_id, task_type, status, progress, payload, create_time, update_time) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("t1", "pipeline", "PENDING", 0.0, '{}', now, now),
+            ("t1", "pipeline", "PENDING", 0.0, "{}", now, now),
         )
         conn.commit()
 
@@ -637,7 +638,7 @@ class TestMarkTaskCancelled(unittest.IsolatedAsyncioTestCase):
         conn.execute(
             "INSERT INTO task_queue (task_id, task_type, status, progress, payload, create_time, update_time) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("t1", "pipeline", "CANCELLED", 0.0, '{}', now, now),
+            ("t1", "pipeline", "CANCELLED", 0.0, "{}", now, now),
         )
         conn.commit()
 
@@ -669,6 +670,7 @@ class TestFailTask(unittest.IsolatedAsyncioTestCase):
         @contextmanager
         def ctx():
             yield conn
+
         return ctx
 
     @patch("media_tools.scheduler.ops.schedule_auto_retry")
@@ -701,7 +703,7 @@ class TestFailTask(unittest.IsolatedAsyncioTestCase):
         conn.execute(
             "INSERT INTO task_queue (task_id, task_type, status, progress, payload, create_time, update_time) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("t1", "pipeline", "PENDING", 0.0, '{}', now, now),
+            ("t1", "pipeline", "PENDING", 0.0, "{}", now, now),
         )
         conn.commit()
 
@@ -743,7 +745,7 @@ class TestFailTask(unittest.IsolatedAsyncioTestCase):
         conn.execute(
             "INSERT INTO task_queue (task_id, task_type, status, progress, payload, create_time, update_time) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("t1", "pipeline", "CANCELLED", 0.0, '{}', now, now),
+            ("t1", "pipeline", "CANCELLED", 0.0, "{}", now, now),
         )
         conn.commit()
 
@@ -766,7 +768,7 @@ class TestFailTask(unittest.IsolatedAsyncioTestCase):
         conn.execute(
             "INSERT INTO task_queue (task_id, task_type, status, progress, payload, create_time, update_time) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("t1", "pipeline", "FAILED", 0.0, '{}', now, now),
+            ("t1", "pipeline", "FAILED", 0.0, "{}", now, now),
         )
         conn.commit()
 
@@ -800,7 +802,7 @@ class TestFailTask(unittest.IsolatedAsyncioTestCase):
         conn.execute(
             "INSERT INTO task_queue (task_id, task_type, status, progress, payload, create_time, update_time) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("t1", "pipeline", "RUNNING", 0.5, '{}', now, now),
+            ("t1", "pipeline", "RUNNING", 0.5, "{}", now, now),
         )
         conn.commit()
 

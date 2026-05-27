@@ -51,9 +51,7 @@ class TestTaskRepositoryCreate(unittest.TestCase):
 
         # Use a standalone connection to verify (since each get_db_connection call
         # returns a *new* in-memory DB, we verify via find_by_id instead).
-        with patch(
-            "media_tools.scheduler.repository.get_db_connection", side_effect=_fake_get_db_connection
-        ):
+        with patch("media_tools.scheduler.repository.get_db_connection", side_effect=_fake_get_db_connection):
             # The create already committed; but find_by_id opens a new in-memory DB
             # so we need a single shared connection for this test.
             pass
@@ -70,9 +68,7 @@ class TestTaskRepositoryCreate(unittest.TestCase):
 
         with patch("media_tools.scheduler.repository.get_db_connection", side_effect=shared_conn):
             TaskRepository.create("t1", "pipeline", {"key": "value"})
-            row = conn.execute(
-                "SELECT * FROM task_queue WHERE task_id = ?", ("t1",)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM task_queue WHERE task_id = ?", ("t1",)).fetchone()
 
             self.assertIsNotNone(row)
             self.assertEqual(row["task_id"], "t1")
@@ -92,6 +88,7 @@ class TestTaskRepositoryFindById(unittest.TestCase):
         @contextmanager
         def ctx():
             yield conn
+
         return ctx
 
     def test_find_by_id_returns_task(self):
@@ -135,6 +132,7 @@ class TestTaskRepositoryListRecent(unittest.TestCase):
         @contextmanager
         def ctx():
             yield conn
+
         return ctx
 
     def test_list_recent_returns_ordered_by_update_time(self):
@@ -175,7 +173,7 @@ class TestTaskRepositoryListRecent(unittest.TestCase):
             conn.execute(
                 "INSERT INTO task_queue (task_id, task_type, status, progress, payload, create_time, update_time) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (f"t{i}", "x", "PENDING", 0.0, "{}", f"2026-01-0{i+1}T00:00:00", f"2026-01-0{i+1}T00:00:00"),
+                (f"t{i}", "x", "PENDING", 0.0, "{}", f"2026-01-0{i + 1}T00:00:00", f"2026-01-0{i + 1}T00:00:00"),
             )
         conn.commit()
 
@@ -196,6 +194,7 @@ class TestTaskRepositoryPatchPayload(unittest.TestCase):
         @contextmanager
         def ctx():
             yield conn
+
         return ctx
 
     def test_patch_payload_merges_fields(self):
@@ -269,6 +268,7 @@ class TestTaskRepositoryDeleteAllExcept(unittest.TestCase):
         @contextmanager
         def ctx():
             yield conn
+
         return ctx
 
     def test_delete_all_except_keeps_specified(self):
@@ -338,9 +338,7 @@ class TestTaskRepositoryCountByStatus(unittest.TestCase):
 
         # count_by_status is not on TaskRepository, so we verify via raw SQL
         # as a baseline and document the expected behavior if the method exists.
-        rows = conn.execute(
-            "SELECT status, COUNT(*) as cnt FROM task_queue GROUP BY status"
-        ).fetchall()
+        rows = conn.execute("SELECT status, COUNT(*) as cnt FROM task_queue GROUP BY status").fetchall()
         counts = {row["status"]: row["cnt"] for row in rows}
         self.assertEqual(counts["PENDING"], 2)
         self.assertEqual(counts["RUNNING"], 1)
@@ -359,6 +357,7 @@ class TestTaskRepositoryFindRunningByType(unittest.TestCase):
         @contextmanager
         def ctx():
             yield conn
+
         return ctx
 
     def test_find_running_by_type_filters_correctly(self):

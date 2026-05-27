@@ -130,9 +130,7 @@ class TestDispatchNewTask(unittest.IsolatedAsyncioTestCase):
     @patch("media_tools.scheduler.dispatcher.notify_task_update", new_callable=AsyncMock)
     @patch("media_tools.scheduler.dispatcher.TaskRepository.create_running")
     @patch("media_tools.scheduler.dispatcher.PipelineWorker")
-    async def test_creates_task_and_starts_worker(
-        self, mock_pw_cls, mock_create, mock_notify, mock_register
-    ):
+    async def test_creates_task_and_starts_worker(self, mock_pw_cls, mock_create, mock_notify, mock_register):
         mock_pw_cls.return_value.execute.return_value = MagicMock()
         mock_register.return_value = MagicMock()
 
@@ -161,15 +159,11 @@ class TestRetryTaskWorker(unittest.IsolatedAsyncioTestCase):
     @patch("media_tools.scheduler.dispatcher.notify_task_update", new_callable=AsyncMock)
     @patch("media_tools.scheduler.dispatcher.TaskRepository.create_running")
     @patch("media_tools.scheduler.dispatcher.PipelineWorker")
-    async def test_retry_pipeline_generates_new_task_id(
-        self, mock_pw_cls, mock_create, mock_notify, mock_register
-    ):
+    async def test_retry_pipeline_generates_new_task_id(self, mock_pw_cls, mock_create, mock_notify, mock_register):
         mock_pw_cls.return_value.execute.return_value = MagicMock()
         mock_register.return_value = MagicMock()
 
-        result = await _retry_task_worker(
-            "old-tid", "pipeline", {"url": "https://example.com", "max_counts": 3}
-        )
+        result = await _retry_task_worker("old-tid", "pipeline", {"url": "https://example.com", "max_counts": 3})
 
         # New task_id should differ from old
         self.assertNotEqual(result["task_id"], "old-tid")
@@ -183,9 +177,7 @@ class TestRetryTaskWorker(unittest.IsolatedAsyncioTestCase):
     @patch("media_tools.scheduler.dispatcher.notify_task_update", new_callable=AsyncMock)
     @patch("media_tools.scheduler.dispatcher.TaskRepository.create_running")
     @patch("media_tools.scheduler.dispatcher.CreatorSyncWorker")
-    async def test_retry_creator_sync_uses_retry_task_type(
-        self, mock_cls, mock_create, mock_notify, mock_register
-    ):
+    async def test_retry_creator_sync_uses_retry_task_type(self, mock_cls, mock_create, mock_notify, mock_register):
         mock_cls.return_value.execute.return_value = MagicMock()
         mock_register.return_value = MagicMock()
 

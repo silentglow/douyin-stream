@@ -8,6 +8,7 @@
     "build": "NODE_OPTIONS='--no-deprecation' tsc -b && NODE_OPTIONS='--no-deprecation' vite build",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest",
     "preview": "vite preview"
   },
   "dependencies": {
