@@ -63,7 +63,10 @@ ignore = [
   "B008",   # do not perform function calls in argument defaults (FastAPI Depends)
   "B904",   # raise ... from err (many pre-existing raise HTTPException patterns)
   "SIM105", # contextlib.suppress (try/except/pass is more readable in some cases)
+  "SIM115", # context manager for open() (not always appropriate in generator/yield)
   "SIM117", # nested with (sometimes readability is better with nesting)
+  "B005",   # .strip() with multi-char strings (valid for separator-like chars)
+  "B026",   # star-arg unpacking after keyword arg (legacy call patterns)
 ]
 
 [tool.ruff.lint.isort]

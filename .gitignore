@@ -189,6 +189,8 @@ TROUBLESHOOTING.md
 .qwen/
 .streamlit/
 config/
+!config/auth_rules.yaml
+!config/config.yaml.example
 docs/
 references/
 scripts/
@@ -243,3 +245,7 @@ tests/**/__pycache__/
 *.pipeline_state*.json
 .pipeline_state_auto_*.json
 .archive/
+
+# Un-ignore specific config files
+!config/auth_rules.yaml
+!config/config.yaml.example

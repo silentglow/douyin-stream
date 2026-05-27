@@ -1,0 +1,45 @@
+# 认证数据解析规则
+rules:
+  douyin:
+    description: "抖音网页版认证"
+    type: "cookie"
+    required_keys:
+      - "sessionid"
+    optional_keys:
+      - "passport_csrf_token"
+      - "ttwid"
+      - "sid_guard"
+    validation:
+      check_expiry: true
+      min_length: 50
+  
+  qwen:
+    description: "Qwen 通义千问网页版认证"
+    type: "cookie"
+    required_keys:
+      - "tongyi_sso_ticket"
+    optional_keys:
+      - "tongyi_sso_ticket_hash"
+      - "login_aliyunid_ticket"
+    validation:
+      check_expiry: true
+      min_length: 20
+  
+  custom_json:
+    description: "自定义JSON数据提取"
+    type: "json"
+    mapping:
+      token: "data.access_token"
+      userId: "data.user.id"
+      sessionId: "data.session_id"
+    validation:
+      check_expiry: false
+      
+  custom_text:
+    description: "自定义文本数据提取"
+    type: "text"
+    mapping:
+      token: "Bearer\\s+([A-Za-z0-9-_\\.]+)"
+      userId: "User:\\s*(\\d+)"
+    validation:
+      check_expiry: false

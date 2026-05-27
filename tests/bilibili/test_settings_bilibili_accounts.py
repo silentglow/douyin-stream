@@ -14,9 +14,10 @@ def test_add_and_delete_bilibili_account() -> None:
     with (
         patch("media_tools.api.routers.settings.AccountRepository.create"),
         patch("media_tools.api.routers.settings.AccountRepository.delete", return_value=1),
-        patch("media_tools.api.routers.settings.AccountRepository.list_by_platform", return_value=[
-            {"id": account_id, "platform": "bilibili", "remark": "test", "status": "active"}
-        ]),
+        patch(
+            "media_tools.api.routers.settings.AccountRepository.list_by_platform",
+            return_value=[{"id": account_id, "platform": "bilibili", "remark": "test", "status": "active"}],
+        ),
     ):
         add_resp = client.post(
             "/api/v1/settings/bilibili/accounts",
