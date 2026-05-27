@@ -4,8 +4,8 @@ import tempfile
 import unittest
 
 from media_tools.transcribe.flow import build_export_output_path, record_flow_quota_usage, save_debug_artifacts
-from media_tools.transcribe.quota import QuotaSnapshot
-from media_tools.transcribe.runtime import ExportConfig
+from media_tools.accounts.quota import QuotaSnapshot
+from media_tools.common.runtime import ExportConfig
 
 
 class FlowTests(unittest.TestCase):

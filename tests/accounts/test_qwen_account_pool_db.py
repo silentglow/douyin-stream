@@ -15,7 +15,7 @@ def test_db_init_adds_accounts_pool_auth_state_path(tmp_path) -> None:
 
 
 def test_build_qwen_auth_state_path_for_account() -> None:
-    from media_tools.transcribe.db_account_pool import build_qwen_auth_state_path_for_account
+    from media_tools.accounts.db_account_pool import build_qwen_auth_state_path_for_account
 
     p = build_qwen_auth_state_path_for_account("abc123")
     assert p.name == "qwen-storage-state-abc123.json"

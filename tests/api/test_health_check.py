@@ -15,7 +15,7 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 SCRIPT_PATH = PROJECT_ROOT / "scripts" / "health_check.py"
 
 

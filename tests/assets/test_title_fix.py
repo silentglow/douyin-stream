@@ -10,7 +10,7 @@ from pathlib import Path
 from media_tools.store.db import get_db_path, reset_db_cache, set_db_path
 from media_tools.transcribe.flow import _get_video_title_from_db, build_export_output_path
 from media_tools.transcribe.helpers import _clean_title_for_export, _lookup_video_title
-from media_tools.transcribe.runtime import ExportConfig
+from media_tools.common.runtime import ExportConfig
 
 
 class CleanTitleForExportTests(unittest.TestCase):

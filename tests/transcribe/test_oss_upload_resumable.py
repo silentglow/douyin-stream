@@ -17,8 +17,8 @@ from unittest.mock import patch
 
 import pytest
 
-from media_tools.transcribe import oss_upload
-from media_tools.transcribe.oss_upload import (
+from media_tools.transcribe.upload import oss_upload
+from media_tools.transcribe.upload.oss_upload import (
     _resolve_part_size,
     upload_file_to_oss,
 )

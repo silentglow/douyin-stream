@@ -4,7 +4,7 @@ import json
 
 
 def test_normalize_qwen_storage_state_fills_domain_and_path() -> None:
-    from media_tools.transcribe.auth_state import QWEN_COOKIE_DOMAIN, normalize_qwen_storage_state
+    from media_tools.accounts.auth_state import QWEN_COOKIE_DOMAIN, normalize_qwen_storage_state
 
     state = {
         "cookies": [
@@ -26,7 +26,7 @@ def test_normalize_qwen_storage_state_fills_domain_and_path() -> None:
 
 
 def test_read_qwen_storage_state_file_normalizes(tmp_path) -> None:
-    from media_tools.transcribe.auth_state import QWEN_COOKIE_DOMAIN, read_qwen_storage_state_file
+    from media_tools.accounts.auth_state import QWEN_COOKIE_DOMAIN, read_qwen_storage_state_file
 
     p = tmp_path / "storage.json"
     p.write_text(json.dumps({"cookies": [{"name": "x", "value": "y"}]}), encoding="utf-8")

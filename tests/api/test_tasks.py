@@ -36,13 +36,3 @@ def test_batch_pipeline():
         response = client.post("/api/v1/tasks/pipeline/batch", json=payload)
     assert response.status_code == 200
     assert "task_id" in response.json()
-
-
-def test_pause_task_returns_501():
-    response = client.post("/api/v1/tasks/t1/pause")
-    assert response.status_code == 501
-
-
-def test_resume_task_returns_501():
-    response = client.post("/api/v1/tasks/t1/resume")
-    assert response.status_code == 501

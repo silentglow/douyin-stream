@@ -15,7 +15,7 @@ import pytest
 from media_tools.store.db import init_db
 from media_tools.transcribe.flow import ResumeState, run_real_flow
 from media_tools.transcribe.repository import TranscribeRunRepository
-from media_tools.transcribe.runtime import ExportConfig
+from media_tools.common.runtime import ExportConfig
 
 
 def _make_export_config() -> ExportConfig:

@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 def test_no_print_in_src() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     src_root = root / "src" / "media_tools"
 
     pattern = re.compile(r"(?m)(^|[^\\w.])print\(")

@@ -152,7 +152,7 @@ def test_get_transcript_deletes_db_row_when_file_missing(tmp_path, monkeypatch) 
     conn.commit()
 
     monkeypatch.setattr("media_tools.api.routers.assets.get_db_connection", lambda: conn)
-    monkeypatch.setattr("media_tools.api.routers.assets.get_project_root", lambda: tmp_path)
+    monkeypatch.setattr("media_tools.api.routers.assets.get_transcripts_path", lambda: tmp_path)
 
     try:
         assets_router.get_transcript("a1")

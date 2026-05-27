@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from media_tools.bilibili.utils.naming import build_bilibili_asset_id, build_bilibili_creator_uid, sanitize_filename
+from media_tools.bilibili.naming import build_bilibili_asset_id, build_bilibili_creator_uid, sanitize_filename
 
 
 def test_creator_uid_prefix() -> None:

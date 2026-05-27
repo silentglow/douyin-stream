@@ -5,7 +5,6 @@ import contextlib
 import sqlite3
 from datetime import datetime
 
-from media_tools.creators.sync import _build_interval_from_last_fetch
 from media_tools.douyin.core.cancel_registry import clear_download_progress, get_download_progress
 from media_tools.douyin.core.following_mgr import list_users
 from media_tools.platform.douyin import download_by_uid
@@ -129,6 +128,8 @@ class FullSyncWorker(BaseWorker):
                     )
                     row = cursor.fetchone()
                     last_fetch = (row["last_fetch_time"] if isinstance(row, dict) else row[0]) if row else None
+                from media_tools.creators.sync import _build_interval_from_last_fetch
+
                 return _build_interval_from_last_fetch(last_fetch)
             except (sqlite3.Error, OSError):
                 return None

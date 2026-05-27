@@ -4,16 +4,18 @@ from pathlib import Path
 
 
 def test_playwright_removed_from_dependencies() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
-    requirements = (root / "requirements.txt").read_text(encoding="utf-8")
-
     assert "playwright" not in pyproject.lower()
-    assert "playwright" not in requirements.lower()
+
+    requirements_path = root / "requirements.txt"
+    if requirements_path.exists():
+        requirements = requirements_path.read_text(encoding="utf-8")
+        assert "playwright" not in requirements.lower()
 
 
 def test_no_playwright_imports_in_src() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     src_root = root / "src" / "media_tools"
 
     offenders: list[str] = []

@@ -50,7 +50,6 @@ def test_clear_history_removes_non_active_tasks(monkeypatch) -> None:
     def _get_conn():  # noqa: ANN001
         yield conn
 
-    monkeypatch.setattr(tasks_router, "get_db_connection", _get_conn)
     monkeypatch.setattr(task_repository, "get_db_connection", _get_conn)
     monkeypatch.setattr(tasks_router, "_active_tasks", {"t_active": object()})
 

@@ -1,4 +1,4 @@
-from media_tools.bilibili.core.url_parser import BilibiliUrlKind, normalize_bilibili_url
+from media_tools.bilibili.url_parser import BilibiliUrlKind, normalize_bilibili_url
 
 
 def test_normalize_space_url() -> None:

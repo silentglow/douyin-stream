@@ -88,7 +88,6 @@ def test_creator_transcribe_writes_cleanup_payload_and_deletes_files(tmp_path: P
     monkeypatch.setattr("media_tools.scheduler.repository.get_db_connection", _get_conn)
     monkeypatch.setattr("media_tools.scheduler.state.get_db_connection", _get_conn)
     monkeypatch.setattr("media_tools.workers.creator_transcribe_worker.get_download_path", lambda: downloads)
-    monkeypatch.setattr("media_tools.workers.creator_transcribe_worker.get_project_root", lambda: project_root)
     monkeypatch.setattr("media_tools.workers.creator_transcribe_worker.get_transcripts_path", lambda: transcripts_root)
     monkeypatch.setenv("MEDIA_TOOLS_CLEANUP_RETRY_DELAY", "0")
 

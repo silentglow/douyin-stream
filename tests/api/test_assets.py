@@ -93,7 +93,6 @@ def test_bulk_delete_commits_db_before_file_delete():
         with (
             patch.object(assets_router, "get_db_connection", return_value=_ConnProxy(conn)),
             patch.object(assets_router, "get_download_path", return_value=downloads),
-            patch.object(assets_router, "get_project_root", return_value=root),
             patch.object(assets_router, "delete_asset_files", side_effect=_delete_asset_files),
         ):
             resp = client.post("/api/v1/assets/bulk_delete", json={"ids": ["a1"]})
@@ -138,7 +137,6 @@ def test_get_asset_transcript_missing_file_does_not_write_db() -> None:
 
         with (
             patch.object(assets_router, "get_db_connection", return_value=conn),
-            patch.object(assets_router, "get_project_root", return_value=root),
         ):
             resp = client.get("/api/v1/assets/a1/transcript")
 

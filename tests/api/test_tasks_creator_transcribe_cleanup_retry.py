@@ -60,13 +60,12 @@ def test_creator_transcribe_cleanup_retry_deletes_allowlisted_and_updates_payloa
     conn.commit()
 
     with (
-        patch.object(tasks_router, "get_db_connection", return_value=conn),
         patch(
             "media_tools.scheduler.repository.get_db_connection",
             return_value=conn,
         ),
         patch.object(tasks_router, "get_download_path", return_value=downloads_root),
-        patch.object(tasks_router, "get_project_root", return_value=project_root),
+        patch.object(tasks_router, "get_transcripts_path", return_value=transcripts_root),
     ):
         client = TestClient(app)
         resp = client.post("/api/v1/tasks/transcribe/creator/cleanup-retry", json={"task_id": "t1"})

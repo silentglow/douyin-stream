@@ -140,7 +140,7 @@ function CommandPalette({ open, setOpen, setTaskDrawerOpen }: CommandPaletteProp
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [navigate, setOpen, setTaskDrawerOpen]);
+  }, [navigate, open, setOpen, setTaskDrawerOpen]);
 
   if (!open) return null;
 

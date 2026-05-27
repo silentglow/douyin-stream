@@ -91,7 +91,6 @@ def test_task_history_injects_pipeline_progress_into_payload() -> None:
     conn.commit()
 
     with (
-        patch("media_tools.api.routers.tasks.get_db_connection", return_value=conn),
         patch("media_tools.scheduler.repository.get_db_connection", return_value=conn),
     ):
         client = TestClient(app)
@@ -159,7 +158,6 @@ def test_task_status_injects_pipeline_progress_into_payload() -> None:
     conn.commit()
 
     with (
-        patch("media_tools.api.routers.tasks.get_db_connection", return_value=conn),
         patch("media_tools.scheduler.repository.get_db_connection", return_value=conn),
     ):
         client = TestClient(app)

@@ -58,7 +58,6 @@ def test_retry_failed_subtasks_creates_local_transcribe_task(tmp_path: Path) -> 
     conn.commit()
 
     with (
-        patch.object(tasks_router, "get_db_connection", return_value=conn),
         patch(
             "media_tools.scheduler.repository.get_db_connection",
             return_value=conn,
@@ -118,7 +117,6 @@ def test_retry_failed_subtasks_requires_existing_failed_paths(tmp_path: Path) ->
     conn.commit()
 
     with (
-        patch.object(tasks_router, "get_db_connection", return_value=conn),
         patch(
             "media_tools.scheduler.repository.get_db_connection",
             return_value=conn,

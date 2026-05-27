@@ -95,7 +95,7 @@ def test_settings_change_in_db_visible_within_ttl_plus_buffer():
 ENV_ALLOWED_FILES = {
     "src/media_tools/core/config.py",  # 主 config loader
     "src/media_tools/transcribe/config.py",  # transcribe config loader
-    "src/media_tools/transcribe/runtime.py",  # env_flag helper（被 transcribe/config 调用）
+    "src/media_tools/common/runtime.py",  # env_flag helper（被 transcribe/config 调用）
     "src/media_tools/logger.py",  # 日志 bootstrap（早于 AppConfig）
     "src/media_tools/douyin/core/f2_helper.py",  # OS-level TMPDIR/TEMP（非项目配置）
     "src/media_tools/douyin/core/config_mgr.py",  # MEDIA_TOOLS_PROJECT_ROOT 启动 override
