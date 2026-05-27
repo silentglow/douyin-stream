@@ -23,8 +23,8 @@ info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# 确保在项目根目录运行
-cd "$(dirname "$0")"
+# 确保在项目根目录运行（脚本位于 scripts/，需要回到上一级）
+cd "$(dirname "$0")/.."
 
 # 强制使用项目 .venv 的 Python，避免与系统/miniconda 解释器混用
 # （历史教训：miniconda Python 会拾起 ~/.local/lib/.../f2，绕开 .venv 的依赖）
@@ -83,7 +83,7 @@ run_both() {
     # 后端检查依赖
     if ! "${PY}" -c "import uvicorn" 2>/dev/null; then
         info "安装后端依赖..."
-        "${PY}" -m pip install -r requirements.txt
+        "${PY}" -m pip install -e .
     fi
 
     # 前端检查依赖

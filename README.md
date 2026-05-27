@@ -128,17 +128,23 @@ media-tools/
 ├── frontend/                  # React SPA（已纳入主仓库）
 ├── src/media_tools/
 │   ├── api/                   # FastAPI 应用
-│   │   ├── routers/           # 路由：creators, assets, tasks, settings, douyin, scheduler
+│   │   ├── routers/           # 路由：creators, assets, tasks, settings, douyin, scheduler 等
 │   │   └── websocket_manager.py  # WebSocket 任务推送 + 心跳
-│   ├── douyin/                # 抖音集成：下载、关注管理、Cookie 认证
+│   ├── accounts/              # Qwen 账号池与额度管理
+│   ├── assets/                # 媒体资产读写、GC、文件操作
 │   ├── bilibili/              # B站集成：下载、UP主管理
-│   ├── transcribe/            # 通义千问转写引擎：OSS 上传、轮询、导出、配额追踪
-│   ├── pipeline/              # 流水线编排：下载→转写→导出，含重试和断点续传
-│   ├── services/              # 业务逻辑层：任务操作、文件浏览、Qwen 状态等
-│   ├── repositories/          # 数据访问层：task_queue, creators, assets
-│   ├── workers/               # 后台任务 worker
+│   ├── common/                # HTTP 客户端、运行时工具等共享基础
 │   ├── core/                  # 统一配置系统 + CookieManager + 安全存储
-│   └── db/                    # SQLite 数据库初始化、FTS5 索引、路径工具
+│   ├── creators/              # 创作者同步流水线
+│   ├── douyin/                # 抖音集成：下载、关注管理、Cookie 认证
+│   ├── download/              # 下载器统一抽象
+│   ├── platform/              # 平台无关的浏览器/系统适配
+│   ├── pipeline/              # 流水线编排：下载→转写→导出，含重试和断点续传
+│   ├── scheduler/             # APScheduler 定时任务（账号轮询、自动同步等）
+│   ├── services/              # 业务逻辑层：任务操作、文件浏览、Qwen 状态等
+│   ├── store/                 # SQLite 数据库初始化、FTS5 索引、路径工具
+│   ├── transcribe/            # 通义千问转写引擎：OSS 上传、轮询、导出、配额追踪
+│   └── workers/               # 后台任务 worker
 ├── config/                    # 配置模板和规则文件
 ├── data/                      # 运行时数据（数据库、认证、下载、日志）
 │   ├── media_tools.db         # SQLite 数据库
@@ -146,8 +152,10 @@ media-tools/
 │   ├── downloads/             # 视频下载目录
 │   ├── transcripts/           # 转写文稿输出目录
 │   └── logs/                  # 日志文件
-├── tests/                     # 测试套件
-└── run.sh                     # 一键启动脚本
+├── deploy/                    # Dockerfile / docker-compose 部署配置
+├── scripts/                   # 启动与运维脚本（start.sh、health_check.py 等）
+├── tests/                     # 测试套件（按模块分目录镜像 src/）
+└── run.sh                     # 一键启动入口（转发到 scripts/start.sh）
 ```
 
 ---

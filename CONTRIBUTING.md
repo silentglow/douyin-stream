@@ -27,7 +27,7 @@ uv sync
 pip install -e ".[dev]"
 
 # 或仅安装运行依赖
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ### 4. 创建分支
@@ -76,7 +76,7 @@ git checkout -b feature/your-feature-name
 
 3. **运行测试**
    ```bash
-   ./run.sh test
+   uv run pytest
    ```
 
 4. **提交代码**
