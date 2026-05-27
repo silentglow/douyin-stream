@@ -37,7 +37,7 @@ export function useLibraryDetail() {
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [transcribing, setTranscribing] = useState(false);
   const [scannedDirectory, setScannedDirectory] = useState('');
-  const [deleteAfter, setDeleteAfter] = useState(false);
+  const [deleteAfter, setDeleteAfter] = useState(true);
 
   const [deleteConfirm, setDeleteConfirm] = useState<{
     uid: string;
