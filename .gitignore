@@ -222,6 +222,8 @@ tests/*
 !tests/bilibili/**
 !tests/api/
 !tests/api/**
+!tests/core/
+!tests/core/**
 !tests/services/
 !tests/services/**
 !tests/accounts/

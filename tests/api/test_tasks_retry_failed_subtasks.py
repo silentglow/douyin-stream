@@ -16,7 +16,6 @@ def _skip_background_task(_task_id, coro):
 
 
 def test_retry_failed_subtasks_creates_local_transcribe_task(tmp_path: Path) -> None:
-    from media_tools.api.routers import tasks as tasks_router
 
     conn = sqlite3.connect(":memory:", check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -89,7 +88,6 @@ def test_retry_failed_subtasks_creates_local_transcribe_task(tmp_path: Path) -> 
 
 
 def test_retry_failed_subtasks_requires_existing_failed_paths(tmp_path: Path) -> None:
-    from media_tools.api.routers import tasks as tasks_router
 
     conn = sqlite3.connect(":memory:", check_same_thread=False)
     conn.row_factory = sqlite3.Row
