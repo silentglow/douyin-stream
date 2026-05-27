@@ -9,8 +9,6 @@ services:
     volumes:
       - ../data:/app/data
       - ../config:/app/config
-      - ../logs:/app/logs
-      - ../transcripts:/app/transcripts
     env_file:
       - ../.env
     restart: unless-stopped

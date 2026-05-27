@@ -270,12 +270,12 @@ async def delete_orphans_for_account(
     batch_size: int = 20,
 ) -> tuple[int, int]:
     """返回 (ok_count, fail_count)。"""
-    from media_tools.transcribe.auth_state import resolve_qwen_cookie_string
-    from media_tools.transcribe.db_account_pool import (
+    from media_tools.accounts.auth_state import resolve_qwen_cookie_string
+    from media_tools.accounts.db_account_pool import (
         build_qwen_auth_state_path_for_account,
     )
     from media_tools.transcribe.flow import delete_record
-    from media_tools.transcribe.http import RequestsApiContext
+    from media_tools.common.http import RequestsApiContext
 
     auth_state_path = build_qwen_auth_state_path_for_account(account_id)
     if not auth_state_path.exists():

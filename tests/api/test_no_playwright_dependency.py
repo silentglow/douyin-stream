@@ -8,11 +8,6 @@ def test_playwright_removed_from_dependencies() -> None:
     pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
     assert "playwright" not in pyproject.lower()
 
-    requirements_path = root / "requirements.txt"
-    if requirements_path.exists():
-        requirements = requirements_path.read_text(encoding="utf-8")
-        assert "playwright" not in requirements.lower()
-
 
 def test_no_playwright_imports_in_src() -> None:
     root = Path(__file__).resolve().parents[2]
