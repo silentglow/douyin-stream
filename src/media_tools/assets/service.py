@@ -42,7 +42,7 @@ class MediaAssetService:
                 row = conn.execute(
                     """
                     SELECT asset_id FROM media_assets
-                    WHERE video_path LIKE ? OR title LIKE ?
+                    WHERE video_path LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\'
                     ORDER BY update_time DESC
                     LIMIT 1
                     """,
@@ -138,7 +138,7 @@ class MediaAssetService:
                         """
                         UPDATE media_assets
                         SET video_status = 'archived', update_time = ?
-                        WHERE video_path LIKE ? AND video_status IN ('downloaded', 'pending')
+                        WHERE video_path LIKE ? ESCAPE '\\' AND video_status IN ('downloaded', 'pending')
                         """,
                         (now, f"%/{_escape_like(video_path.name)}"),
                     )
@@ -213,7 +213,7 @@ class MediaAssetService:
                             update_time = CURRENT_TIMESTAMP
                         WHERE rowid = (
                             SELECT rowid FROM media_assets
-                            WHERE video_path LIKE ? OR title LIKE ?
+                            WHERE video_path LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\'
                             ORDER BY update_time DESC
                             LIMIT 1
                         )
@@ -287,7 +287,7 @@ class MediaAssetService:
                             update_time = CURRENT_TIMESTAMP
                         WHERE rowid = (
                             SELECT rowid FROM media_assets
-                            WHERE video_path LIKE ? OR title LIKE ?
+                            WHERE video_path LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\'
                             ORDER BY update_time DESC
                             LIMIT 1
                         )

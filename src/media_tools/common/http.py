@@ -97,7 +97,8 @@ class HttpxApiContext:
                 content=content,
             )
         except httpx.RequestError as error:
-            raise RuntimeError(f"API request failed: {error}") from error
+            detail = str(error) or error.__class__.__name__
+            raise RuntimeError(f"API request failed: {detail}") from error
 
         payload: Any
         if resp.content:

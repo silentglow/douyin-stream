@@ -172,7 +172,7 @@ export function useLibraryDetail() {
       setScannedFiles([]);
       setSelectedFiles(new Set());
       setScannedDirectory('');
-      setDeleteAfter(false);
+      setDeleteAfter(true);
     } catch { /* api interceptor handles toast */ }
     finally { setTranscribing(false); }
   }, [selectedFiles, scannedDirectory, deleteAfter]);
