@@ -71,6 +71,8 @@ class BilibiliCreatorDownloadTaskTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch("media_tools.creators.sync.get_db_connection", return_value=conn),
+            patch("media_tools.core.config.get_db_connection", return_value=conn),
+            patch("media_tools.scheduler.ops.get_db_connection", return_value=conn),
             patch(
                 "media_tools.creators.sync.update_task_progress",
                 new=AsyncMock(),
