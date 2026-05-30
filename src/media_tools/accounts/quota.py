@@ -259,15 +259,24 @@ async def trigger_equity_claim_via_api(*, cookie_string: str) -> dict[str, Any]:
             "platform": "QIANWEN",
             "bx-v": "2.5.36",
         }
-        result = await api_json(
+        center_result = await api_json(
             api,
             "https://api.qianwen.com/growth/user/task/benefit/center/list",
             payload,
             headers,
         )
+        reward_result = await api_json(
+            api,
+            "https://api.qianwen.com/growth/user/task/reward/notice",
+            payload,
+            headers,
+        )
     finally:
         await api.dispose()
-    return result if isinstance(result, dict) else {"raw": result}
+    return {
+        "center_list": center_result if isinstance(center_result, dict) else {"raw": center_result},
+        "reward_notice": reward_result if isinstance(reward_result, dict) else {"raw": reward_result},
+    }
 
 
 def has_claimed_equity_today(account_id: str) -> bool:
@@ -330,9 +339,9 @@ async def claim_equity_quota(
         referer="https://www.qianwen.com/equity",
     )
 
-    # trigger 接口当前指向的是 list 查询接口（历史 bug，正确的 claim 接口待替换），
-    # 因此即使返回 200 也不代表真领到。trigger 调用失败也不立刻 return —— 让下面的
-    # before/after 额度差兜底判定，避免依赖单次返回值。
+    # 浏览器点击「打卡/领取」会依次触发 center/list 与 reward/notice。
+    # 即使两个接口都返回 200 也不代表真领到，因此 trigger 调用失败也不立刻 return ——
+    # 让下面的 before/after 额度差兜底判定，避免依赖单次返回值。
     try:
         await trigger_equity_claim_via_api(cookie_string=cookie_string)
     except (RuntimeError, OSError, ValueError) as e:

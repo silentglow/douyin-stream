@@ -45,6 +45,8 @@ result = await claim_qwen_quota()
 status = await get_qwen_account_status()
 ```
 
+额度领取链路会模拟网页点击「打卡/领取」后的请求顺序：先用 `benefit/base` 读取 before 额度，再依次 POST `task/benefit/center/list` 和 `task/reward/notice`，最后再次读取 `benefit/base`。接口返回 `success: true` 只表示请求成功，最终是否领到仍以 before/after 的 `remainingQuota` 差值为准；额度没有增加时返回 `quota-unchanged`，不会写入“今日已领取”记录。
+
 ---
 
 ## 2. 数据库设计 (SQLite: `data/media_tools.db`)
