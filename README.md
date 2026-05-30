@@ -145,12 +145,11 @@ media-tools/
 │   ├── douyin/                # 抖音集成：下载、关注管理、Cookie 认证
 │   ├── download/              # 下载器统一抽象
 │   ├── platform/              # 平台无关的浏览器/系统适配
-│   ├── pipeline/              # 流水线编排：下载→转写→导出，含重试和断点续传
 │   ├── scheduler/             # APScheduler 定时任务（账号轮询、自动同步等）
 │   ├── services/              # 业务逻辑层：任务操作、文件浏览、Qwen 状态等
 │   ├── store/                 # SQLite 数据库初始化、FTS5 索引、路径工具
-│   ├── transcribe/            # 通义千问转写引擎：OSS 上传、轮询、导出、配额追踪
-│   └── workers/               # 后台任务 worker
+│   ├── transcribe/            # 通义千问转写流水线：编排、OSS 上传、轮询、导出、断点续传、进度调度
+│   └── workers/               # 后台任务 worker（调度器注册入口）
 ├── config/                    # 配置模板和规则文件
 ├── data/                      # 运行时数据（数据库、认证、下载、日志）
 │   ├── media_tools.db         # SQLite 数据库

@@ -1,6 +1,6 @@
 # 🔌 API 与架构开发指南 (API & Architecture Docs)
 
-本项目 `douyin-stream` 在设计之初，就充分考虑了模块化与二次开发的可能。如果你希望将本项目接入你自己的 SaaS 服务、Web 后端（如 FastAPI / Django）或替换存储引擎，这份文档将为你提供关键的架构信息。
+本项目 `media-tools` 在设计之初，就充分考虑了模块化与二次开发的可能。如果你希望将本项目接入你自己的 SaaS 服务、Web 后端（如 FastAPI / Django）或替换存储引擎，这份文档将为你提供关键的架构信息。
 
 ---
 
@@ -19,15 +19,24 @@ auto_transcribe = config.auto_transcribe
 val = get_runtime_setting_int("concurrency", 10)
 ```
 
-### 1.2 转写流水线 (`pipeline/orchestrator.py`, `pipeline/worker.py`)
+### 1.2 转写流水线 (`transcribe/service.py`, `transcribe/worker.py`)
 ```python
-from media_tools.pipeline.orchestrator import create_orchestrator
-from media_tools.pipeline.worker import run_local_transcribe, run_pipeline_for_user, run_batch_pipeline
+from media_tools.transcribe.service import create_orchestrator
+from media_tools.transcribe.worker import run_local_transcribe, run_pipeline_for_user, run_batch_pipeline
 ```
 
-### 1.3 额度领取 (`services/qwen_status.py`)
+`create_orchestrator()` 创建 `OrchestratorV2`，负责单文件转写、断点续传、重试和导出。`transcribe/worker.py` 是后台任务入口，负责本地文件转写、创作者/批量流水线任务拆分、任务进度汇总和前端进度推送。
+
+进度回调可能来自两个线程上下文：
+
+- 主事件循环：Qwen 轮询心跳、阶段切换等异步流程会直接在运行中的 asyncio loop 内触发。
+- 上传工作线程：OSS multipart 上传通过 `asyncio.to_thread` 调用同步 SDK，分片上传进度回调会在工作线程内触发。
+
+因此后台 worker 统一通过 `_dispatch_progress(coro, main_loop)` 调度进度推送：如果当前线程已有运行中的事件循环，就直接创建托管任务；如果没有事件循环，则用 `main_loop.call_soon_threadsafe(...)` 把任务创建投递回主事件循环。不要在上传进度回调里直接调用 `asyncio.create_task()`，否则大文件 multipart 上传时会触发 `RuntimeError: no running event loop` 并丢失“上传中 x%”的实时进度。
+
+### 1.3 额度领取 (`accounts/status.py`)
 ```python
-from media_tools.services.qwen_status import claim_qwen_quota, get_qwen_account_status
+from media_tools.accounts.status import claim_qwen_quota, get_qwen_account_status
 
 # 手动领取额度（force=True，直接调 API）
 result = await claim_qwen_quota()
