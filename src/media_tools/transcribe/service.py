@@ -100,6 +100,8 @@ class OrchestratorV2:
         self,
         video_path: Path,
         account_id: str | None = None,
+        retry_attempt: int = 1,
+        retry_max: int = 1,
     ) -> PipelineResultV2:
         """对单个视频执行转写（内部方法，不含重试）
 
@@ -226,6 +228,13 @@ class OrchestratorV2:
                         )
 
                     account_upload_lock = await self._account_pool_service.get_upload_lock(current_account_id)
+
+                    # 把 flow 的阶段文案实时推给 UI（顶部运行条 / 任务抽屉显示的就是这个 msg）。
+                    # _acct 用默认参数绑定本次迭代的账号，规避闭包后期绑定（ruff B023）。
+                    def _on_stage(msg: str, _acct: str | None = current_account_id) -> None:
+                        prefix = f"[尝试 {retry_attempt}/{retry_max}] " if retry_max > 1 else ""
+                        self._fire_progress(0, 1, video_path, f"{prefix}{msg}", account_id=_acct)
+
                     result = await run_real_flow(
                         file_path=video_path,
                         auth_state_path=auth_state_path,
@@ -237,6 +246,7 @@ class OrchestratorV2:
                         account_upload_lock=account_upload_lock,
                         run_id=run_id,
                         resume_state=resume_state,
+                        on_stage=_on_stage,
                     )
                     self._account_pool_service.mark_used(current_account_id)
 
@@ -357,7 +367,9 @@ class OrchestratorV2:
                 account_id=execution_account_id,
             )
 
-            result = await self._transcribe_single_video(video_path, execution_account_id)
+            result = await self._transcribe_single_video(
+                video_path, execution_account_id, retry_attempt=attempt, retry_max=max_attempts
+            )
             execution_account_id = result.account_id
             result.attempts = attempt
 

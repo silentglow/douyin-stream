@@ -156,7 +156,7 @@ export default function Transcripts() {
                 className={cn(
                   'w-full text-left px-6 py-4 border-b border-[var(--color-hairline-faint)] transition-colors group relative',
                   selectedId === item.asset_id
-                    ? 'bg-[rgba(99,102,241,0.06)]'
+                    ? 'bg-[rgba(255,106,47,0.06)]'
                     : 'hover:bg-[rgba(255,255,255,0.015)]'
                 )}
               >
@@ -194,7 +194,7 @@ export default function Transcripts() {
                     </div>
                   </div>
                   {!item.is_read && (
-                    <span className="w-2 h-2 rounded-full bg-[var(--color-rust)] flex-shrink-0 mt-2 shadow-[0_0_8px_rgba(99,102,241,0.6)] animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-[var(--color-rust)] flex-shrink-0 mt-2 shadow-[0_0_8px_rgba(255,106,47,0.6)] animate-pulse" />
                   )}
                 </div>
               </button>

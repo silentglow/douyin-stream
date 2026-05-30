@@ -8,7 +8,6 @@ import { useStore } from './store/useStore';
 
 // Lazy load pages for code splitting
 const Home = lazy(() => import('./pages/Home'));
-const Discover = lazy(() => import('./pages/Discover'));
 const Library = lazy(() => import('./pages/Library'));
 const CreatorDetail = lazy(() => import('./pages/CreatorDetail'));
 const Transcripts = lazy(() => import('./pages/Transcripts'));
@@ -76,11 +75,6 @@ function App() {
               <Route path="/home" element={
                 <Suspense fallback={<SkeletonScreen />}>
                   <Home />
-                </Suspense>
-              } />
-              <Route path="/discover" element={
-                <Suspense fallback={<SkeletonScreen />}>
-                  <Discover />
                 </Suspense>
               } />
               <Route path="/library" element={

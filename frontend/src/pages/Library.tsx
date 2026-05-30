@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import {
-  Search, Plus, Loader2, X, ArrowRight,
+  Search, Loader2, X, ArrowRight,
 } from 'lucide-react';
 import { useLibraryDetail } from '@/hooks/useLibraryDetail';
 import { cn } from '@/lib/utils';
 import { CreatorCard } from '@/components/library/CreatorCard';
+import { CreatorScout } from '@/components/library/CreatorScout';
 import { CreatorActionMenuModal } from '@/components/library/CreatorActionMenuModal';
 import { DeleteConfirmModal } from '@/components/library/DeleteConfirmModal';
 import { LocalTranscribeModal } from '@/components/library/LocalTranscribeModal';
@@ -19,9 +21,6 @@ export default function Library() {
     setFilter,
     search,
     setSearch,
-    newUrl,
-    setNewUrl,
-    isAdding,
     loading,
     syncingIds,
     deletingIds,
@@ -39,7 +38,6 @@ export default function Library() {
     deleteConfirm,
     setDeleteConfirm,
     filteredCreators,
-    handleAddCreator,
     handleSync,
     handleDeleteCreator,
     executeDeleteCreator,
@@ -51,6 +49,8 @@ export default function Library() {
     totalTranscribed,
     autoCount,
   } = useLibraryDetail();
+
+  const [scouting, setScouting] = useState(false);
 
   return (
     <div className="h-full overflow-y-auto page-enter">
@@ -86,6 +86,12 @@ export default function Library() {
         </div>
       </header>
 
+      {/* ═══ ADD / SCOUT — 粘贴、预览，然后 收录追踪 或 挑选下载 ═══ */}
+      <CreatorScout onActiveChange={setScouting} />
+
+      {/* ═══ ROSTER — 预览时隐藏，保持专注 ═══════════════════════ */}
+      {!scouting && (
+        <>
       {/* ═══ CONTROL STRIP ══════════════════════════════════════ */}
       <section className="px-10 py-5 border-b border-[var(--color-hairline)] flex items-center gap-8">
         {/* Search */}
@@ -124,44 +130,8 @@ export default function Library() {
         </div>
       </section>
 
-      {/* ═══ ADD CREATOR INPUT ══════════════════════════════════ */}
-      <section className="px-10 py-5 border-b border-[var(--color-hairline)]">
-        <div className="flex items-center gap-4">
-          <input
-            id="add-creator-input"
-            type="text"
-            placeholder="粘贴创作者主页链接 → 收录"
-            value={newUrl}
-            onChange={(e) => setNewUrl(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddCreator()}
-            className="flex-1 bg-transparent border-b border-[var(--color-hairline)] py-2 text-[15px] text-[var(--color-bone)] placeholder:text-[var(--color-smoke)] outline-none focus:border-[var(--color-rust)] transition-colors"
-          />
-          <button
-            onClick={handleAddCreator}
-            disabled={!newUrl.trim() || isAdding}
-            className="btn-sharp btn-primary disabled:opacity-40 flex items-center gap-2"
-          >
-            {isAdding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-            收录
-          </button>
-        </div>
-      </section>
-
+      {/* ═══ ROSTER GRID ════════════════════════════════════════ */}
       <div className="px-10 pb-12 pt-8">
-        <LocalTranscribeModal
-          isOpen={localTranscribeOpen}
-          scannedFiles={scannedFiles}
-          selectedFiles={selectedFiles}
-          transcribing={transcribing}
-          deleteAfter={deleteAfter}
-          onClose={() => { setLocalTranscribeOpen(false); }}
-          onSelectAll={() => setSelectedFiles(new Set(scannedFiles.map((f) => f.path)))}
-          onClear={() => setSelectedFiles(new Set())}
-          onToggleFile={toggleFileSelection}
-          onToggleDeleteAfter={toggleDeleteAfter}
-          onStart={handleStartLocalTranscribe}
-        />
-
         {/* Roster section header */}
         <div className="flex items-baseline justify-between mb-6 pb-3 border-b border-[var(--color-hairline-strong)]">
           <h2 className="font-display text-[28px] text-[var(--color-bone)] leading-none">
@@ -217,6 +187,22 @@ export default function Library() {
           </div>
         )}
       </div>
+        </>
+      )}
+
+      <LocalTranscribeModal
+        isOpen={localTranscribeOpen}
+        scannedFiles={scannedFiles}
+        selectedFiles={selectedFiles}
+        transcribing={transcribing}
+        deleteAfter={deleteAfter}
+        onClose={() => { setLocalTranscribeOpen(false); }}
+        onSelectAll={() => setSelectedFiles(new Set(scannedFiles.map((f) => f.path)))}
+        onClear={() => setSelectedFiles(new Set())}
+        onToggleFile={toggleFileSelection}
+        onToggleDeleteAfter={toggleDeleteAfter}
+        onStart={handleStartLocalTranscribe}
+      />
 
       <CreatorActionMenuModal
         creator={actionMenuCreator}

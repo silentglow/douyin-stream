@@ -51,7 +51,7 @@ export const AssetListItem = memo(function AssetListItem({
       className={cn(
         'grid grid-cols-[auto_1fr_auto] items-center gap-4 px-6 py-4 border-b border-[var(--color-hairline-faint)] transition-colors group relative',
         canView || bulkMode ? 'cursor-pointer' : 'cursor-default',
-        isSelected ? 'bg-[rgba(99,102,241,0.06)]' : 'hover:bg-[rgba(255,255,255,0.015)]',
+        isSelected ? 'bg-[rgba(255,106,47,0.06)]' : 'hover:bg-[rgba(255,255,255,0.015)]',
         asset.transcript_status === 'failed' && 'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2.5px] before:bg-[var(--color-iron)]'
       )}
       onClick={() => {
@@ -76,7 +76,7 @@ export const AssetListItem = memo(function AssetListItem({
       ) : (
         <div className="w-4 flex-shrink-0">
           {!asset.is_read && asset.transcript_status === 'completed' && (
-            <span className="w-2 h-2 rounded-full bg-[var(--color-rust)] block shadow-[0_0_8px_rgba(99,102,241,0.6)] animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-[var(--color-rust)] block shadow-[0_0_8px_rgba(255,106,47,0.6)] animate-pulse" />
           )}
         </div>
       )}

@@ -39,7 +39,7 @@ export function CreatorCard({
           </span>
           <span className={cn(
             'text-[10.5px] font-semibold tracking-wider px-2 py-0.5 rounded-full',
-            creator.auto_sync ? 'text-[var(--color-rust)] bg-[rgba(99,102,241,0.08)]' : 'text-[var(--color-smoke)] bg-white/5'
+            creator.auto_sync ? 'text-[var(--color-rust)] bg-[rgba(255,106,47,0.08)]' : 'text-[var(--color-smoke)] bg-white/5'
           )}>
             {creator.auto_sync ? '自动' : '手动'}
           </span>

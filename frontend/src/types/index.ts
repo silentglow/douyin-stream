@@ -131,6 +131,12 @@ export interface PipelineProgressExport {
   status?: string | number | null;
 }
 
+export interface PipelineProgressFile {
+  title: string;
+  status: string; // 'running' | 'completed' | 'failed'
+  stage?: string; // 当前阶段文案，如「云端转写中，已等待 3 分钟…」
+}
+
 export interface PipelineProgress {
   stage: PipelineProgressStage;
   list?: PipelineProgressCounter;
@@ -138,6 +144,7 @@ export interface PipelineProgress {
   download?: PipelineProgressCounter;
   transcribe?: PipelineProgressCounter;
   export?: PipelineProgressExport;
+  files?: PipelineProgressFile[];
 }
 
 export interface ScheduleTask {

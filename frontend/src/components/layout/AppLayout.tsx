@@ -3,7 +3,7 @@ import { useStore } from '@/store/useStore';
 import { useEffect, useState } from 'react';
 import { getTaskDisplayState } from '@/lib/task-utils';
 import type { Task } from '@/lib/api';
-import { Search, Home, FolderOpen, FileText, Compass, Settings } from 'lucide-react';
+import { Search, Home, FolderOpen, FileText, Settings } from 'lucide-react';
 import { TaskIsland } from '@/components/layout/TaskIsland';
 
 
@@ -15,8 +15,7 @@ const navItems = [
   { to: '/home',        idx: '01', icon: Home,          label: 'Studio',     en: 'studio',     kbd: '⌘1' },
   { to: '/library',     idx: '02', icon: FolderOpen,    label: '内容库',     en: 'library',    kbd: '⌘2' },
   { to: '/transcripts', idx: '03', icon: FileText,      label: '文稿库',     en: 'transcripts',kbd: '⌘3' },
-  { to: '/discover',    idx: '04', icon: Compass,       label: '发现',       en: 'discover',   kbd: '⌘4' },
-  { to: '/settings',    idx: '05', icon: Settings,      label: '设置',       en: 'settings',   kbd: '⌘5' },
+  { to: '/settings',    idx: '04', icon: Settings,      label: '设置',       en: 'settings',   kbd: '⌘4' },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -127,8 +126,8 @@ function CommandPalette({ open, setOpen, setTaskDrawerOpen }: CommandPaletteProp
         setOpen(false);
         setTaskDrawerOpen(true);
       }
-      // ⌘1 .. ⌘5 = 导航到对应 navItems
-      if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '5') {
+      // ⌘1 .. ⌘4 = 导航到对应 navItems
+      if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '4') {
         const idx = parseInt(e.key) - 1;
         if (idx < navItems.length) {
           e.preventDefault();
@@ -229,9 +228,9 @@ export default function AppLayout() {
           className="h-[76px] flex items-center justify-center border-b border-[var(--color-hairline-faint)] group"
           title="工作台"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.25)] group-hover:shadow-[0_0_22px_rgba(99,102,241,0.5)] transition-all duration-300">
-            <span className="font-sans font-extrabold text-[19px] text-white tracking-wider">
-              MS
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff6a2f] via-[#e8541a] to-[#c2451a] flex items-center justify-center shadow-[0_0_15px_rgba(255,106,47,0.25)] group-hover:shadow-[0_0_22px_rgba(255,106,47,0.5)] transition-all duration-300">
+            <span className="font-display font-medium text-[22px] text-white leading-none">
+              媒
             </span>
           </div>
         </NavLink>
@@ -248,7 +247,7 @@ export default function AppLayout() {
                 onClick={() => setTaskDrawerOpen(false)}
                 title={`${item.label} (${item.kbd})`}
                 className={`rail-item relative flex flex-col items-center justify-center py-3.5 px-2 transition-all duration-300 ${
-                  isActive ? 'active text-[var(--color-rust)] bg-[rgba(99,102,241,0.08)]' : 'text-[var(--color-ash)] hover:text-[var(--color-bone)]'
+                  isActive ? 'active text-[var(--color-rust)] bg-[rgba(255,106,47,0.08)]' : 'text-[var(--color-ash)] hover:text-[var(--color-bone)]'
                 }`}
               >
                 <item.icon className="w-[21px] h-[21px] transition-colors stroke-[1.8]" />

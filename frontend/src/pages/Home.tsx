@@ -153,7 +153,7 @@ export default function Home() {
             </p>
           </div>
 
-          <button onClick={() => navigate('/discover')} className="btn-sharp btn-primary">
+          <button onClick={() => navigate('/library')} className="btn-sharp btn-primary">
             + 新建任务
           </button>
         </div>
@@ -214,7 +214,6 @@ export default function Home() {
             <ActionRow label="粘贴链接下载" onClick={handlePasteLink} />
             <ActionRow label="添加创作者" onClick={() => navigate('/library')} />
             <ActionRow label="本地文件转写" onClick={() => navigate('/library')} />
-            <ActionRow label="发现新内容" kbd="⌘4" onClick={() => navigate('/discover')} />
           </div>
         </div>
       </section>
@@ -254,7 +253,7 @@ export default function Home() {
                       #{creator.uid.slice(0, 6)}
                     </span>
                     <span className={`text-[10.5px] font-semibold tracking-wider px-2 py-0.5 rounded-full ${
-                      creator.auto_sync ? 'text-[var(--color-rust)] bg-[rgba(99,102,241,0.08)]' : 'text-[var(--color-smoke)] bg-white/5'
+                      creator.auto_sync ? 'text-[var(--color-rust)] bg-[rgba(255,106,47,0.08)]' : 'text-[var(--color-smoke)] bg-white/5'
                     }`}>
                       {creator.auto_sync ? '自动' : '手动'}
                     </span>

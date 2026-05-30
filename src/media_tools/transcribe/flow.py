@@ -3,15 +3,19 @@ from __future__ import annotations
 import asyncio
 import json
 import sqlite3
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from media_tools.logger import get_logger
 
-from .errors import TranscribeError, TranscribeErrorClassifier
+from .errors import TranscribeError, TranscribeErrorClassifier, TranscribePollTimeoutError
 
 logger = get_logger(__name__)
+
+DEFAULT_TRANSCRIBE_POLL_TIMEOUT_SECONDS = 6 * 60 * 60
 
 from media_tools.accounts.auth_state import resolve_qwen_cookie_string
 from media_tools.accounts.quota import get_quota_snapshot, record_quota_consumption
@@ -63,7 +67,12 @@ def transcript_headers(gen_record_id: str) -> dict[str, str]:
     }
 
 
-async def poll_until_done(context: Any, gen_record_id: str, timeout_seconds: float = 15 * 60) -> dict[str, Any]:
+async def poll_until_done(
+    context: Any,
+    gen_record_id: str,
+    timeout_seconds: float = DEFAULT_TRANSCRIBE_POLL_TIMEOUT_SECONDS,
+    on_progress: Callable[[str], None] | None = None,
+) -> dict[str, Any]:
     url = "https://api.qianwen.com/assistant/api/record/list/poll?c=tongyi-web"
     payload = {
         "status": [10, 20, 30, 40, 41],
@@ -84,6 +93,11 @@ async def poll_until_done(context: Any, gen_record_id: str, timeout_seconds: flo
     }
 
     async def _poll_loop() -> dict[str, Any]:
+        import random
+
+        loop_start = time.monotonic()
+        last_report = 0.0
+        report_interval = 45.0  # 轮询每 5–7s 一次，但上报节流到 ~45s，避免 DB/广播风暴
         while True:
             response = await api_json(context, url, payload)
             data = response.get("data") or {}
@@ -102,15 +116,24 @@ async def poll_until_done(context: Any, gen_record_id: str, timeout_seconds: flo
                                 f"转写错误 [{error_info.error_code}]: {error_info.message} - {error_info.suggestion}"
                             )
                             raise TranscribeError(error_info, detail=fail_reason)
-            import random
-
+            # 轮询心跳：把「已等待多久」节流上报给 UI，让进度不再僵在笼统文案。
+            if on_progress is not None:
+                elapsed = time.monotonic() - loop_start
+                if elapsed - last_report >= report_interval:
+                    last_report = elapsed
+                    minutes = int(elapsed // 60)
+                    waited = f"已等待 {minutes} 分钟…" if minutes >= 1 else "排队等待中…"
+                    try:
+                        on_progress(f"云端转写中，{waited}")
+                    except Exception:  # noqa: BLE001  上报失败不影响轮询
+                        logger.debug("poll on_progress 回调异常", exc_info=True)
             await asyncio.sleep(5 + random.uniform(0, 2))
 
     try:
         return await asyncio.wait_for(_poll_loop(), timeout=timeout_seconds)
     except TimeoutError:
         error_info = TranscribeErrorClassifier.classify("timeout")
-        raise TranscribeError(error_info, detail=f"转写轮询超时 ({timeout_seconds}s)")
+        raise TranscribePollTimeoutError(error_info, detail=f"转写轮询超时 ({timeout_seconds}s)")
 
 
 async def delete_record(context: Any, record_ids: list[str]) -> bool:
@@ -219,6 +242,7 @@ async def run_real_flow(
     shared_api: Any | None = None,
     run_id: str | None = None,
     resume_state: ResumeState | None = None,
+    on_stage: Callable[[str], None] | None = None,
 ) -> FlowResult:
     input_path = Path(file_path).resolve()
     output_dir = Path(download_dir).resolve()
@@ -231,6 +255,14 @@ async def run_real_flow(
     )
     log = _make_flow_logger(input_path.name)
 
+    def _stage(message: str) -> None:
+        """把阶段文案推给进度回调（UI 实时显示）；回调异常不影响主流程。"""
+        if on_stage is not None:
+            try:
+                on_stage(message)
+            except Exception:  # noqa: BLE001
+                logger.debug("on_stage 回调异常", exc_info=True)
+
     def _checkpoint(stage: str, extra: dict[str, Any] | None = None) -> None:
         if not run_id:
             return
@@ -240,6 +272,15 @@ async def run_real_flow(
             TranscribeRunRepository.update_stage(run_id, stage, extra)
         except (sqlite3.Error, OSError) as exc:
             logger.warning(f"transcribe_runs 打卡失败 (run_id={run_id}, stage={stage}): {exc}")
+
+    def _poll_timeout_seconds() -> float:
+        return float(
+            getattr(
+                load_config(),
+                "transcribe_poll_timeout_seconds",
+                DEFAULT_TRANSCRIBE_POLL_TIMEOUT_SECONDS,
+            )
+        )
 
     async def _safe_cleanup_old_record(api: Any, old_record_id: str | None) -> None:
         """resume 失败回退时清理云端旧记录，避免后续 _do_flow 覆盖 gen_record_id 后变成孤儿。
@@ -310,7 +351,7 @@ async def run_real_flow(
                         token=token,
                         file_path=input_path,
                         mime_type=mime_type,
-                        on_progress=_make_upload_progress_logger(log),
+                        on_progress=_make_upload_progress_logger(log, _stage),
                     )
 
             await api_json(
@@ -346,8 +387,14 @@ async def run_real_flow(
             log(f"started batchId={batch_id}")
 
             _checkpoint("transcribing", {"batch_id": batch_id})
+            _stage("已提交云端，等待转写…")
 
-            completed_record = await poll_until_done(api, token["genRecordId"])
+            completed_record = await poll_until_done(
+                api,
+                token["genRecordId"],
+                timeout_seconds=_poll_timeout_seconds(),
+                on_progress=_stage,
+            )
             log(f"record completed with status={completed_record.get('recordStatus', 'unknown')}")
 
             await api_json(
@@ -357,10 +404,12 @@ async def run_real_flow(
             )
 
             _checkpoint("exporting")
+            _stage("导出字幕中…")
 
             export_url = await export_file(api, token["genRecordId"], export_config)
 
             _checkpoint("downloading", {"export_url": export_url})
+            _stage("下载结果中…")
 
             run_stamp = now_stamp()
 
@@ -434,6 +483,12 @@ async def run_real_flow(
                 export_path=export_out,
                 remote_deleted=deleted,
             )
+        except TranscribePollTimeoutError:
+            log(
+                f"转写仍在处理中，保留云端记录以便下次续传 "
+                f"record_id={token.get('recordId')} gen_record_id={token.get('genRecordId')}"
+            )
+            raise
         except BaseException:
             # 兜底清理：失败时也调 delete_record，把云端孤儿干掉。
             # 即使 should_delete=False（用户想保留成功记录），失败记录是没内容的噪音，应清掉。
@@ -506,8 +561,14 @@ async def run_real_flow(
                 f"resume[gen_record_id]: skip upload, "
                 f"gen_record_id={resume_state.gen_record_id} record_id={resume_state.record_id}"
             )
+            _stage("续传：等待云端转写…")
 
-            completed_record = await poll_until_done(api, resume_state.gen_record_id)
+            completed_record = await poll_until_done(
+                api,
+                resume_state.gen_record_id,
+                timeout_seconds=_poll_timeout_seconds(),
+                on_progress=_stage,
+            )
             log(f"resumed record completed with status={completed_record['recordStatus']}")
 
             try:
@@ -520,10 +581,12 @@ async def run_real_flow(
                 logger.debug(f"resume: record/read 失败但不影响后续: {exc}")
 
             _checkpoint("exporting")
+            _stage("导出字幕中…")
 
             export_url = await export_file(api, resume_state.gen_record_id, export_config)
 
             _checkpoint("downloading", {"export_url": export_url})
+            _stage("下载结果中…")
 
             run_stamp = now_stamp()
             resolved_title = title or _get_video_title_from_db(input_path)
@@ -544,6 +607,17 @@ async def run_real_flow(
                 export_path=export_out,
                 remote_deleted=False,
             )
+        except TranscribePollTimeoutError as exc:
+            logger.warning(f"resume[gen_record_id] 轮询超时，保留旧记录等待下次续传: {exc}")
+            _checkpoint(
+                "transcribing",
+                {
+                    "record_id": resume_state.record_id,
+                    "gen_record_id": resume_state.gen_record_id,
+                    "batch_id": resume_state.batch_id,
+                },
+            )
+            raise
         except (RuntimeError, OSError, ValueError) as exc:
             logger.warning(
                 f"resume[gen_record_id] 失败，回退到完整 flow: {exc}",
@@ -596,7 +670,7 @@ def _make_flow_logger(file_name: str):
     return log
 
 
-def _make_upload_progress_logger(log):
+def _make_upload_progress_logger(log, on_stage: Callable[[str], None] | None = None):
     last_bucket = -1
 
     def handle_event(event: dict[str, Any]) -> None:
@@ -622,6 +696,8 @@ def _make_upload_progress_logger(log):
             if should_log:
                 last_bucket = bucket
                 log(f"upload progress: {completed}/{total_parts} ({percent}%)")
+                if on_stage is not None:
+                    on_stage(f"上传中 {percent}%")
         elif event_type == "multipart-complete":
             log("multipart upload completed")
 

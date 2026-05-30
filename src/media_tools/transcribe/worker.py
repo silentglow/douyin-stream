@@ -54,22 +54,36 @@ async def run_local_transcribe(
     failed_paths: list[str] = []
 
     _pb_done = 0
+    # 批量并发时每个文件的实时状态，供任务抽屉「每文件一行」展示
+    _file_states: dict[str, dict[str, Any]] = {}
 
     def _progress_callback(current: int, total_cb: int, video_path: Path, status: str, account_id: str | None = None):
         nonlocal _pb_done
+        key = str(video_path)
+        title = video_path.stem
         if current == 1 and total_cb == 1:
             _pb_done += 1
+            _file_states[key] = {"title": title, "status": "completed", "stage": "完成"}
+        else:
+            is_failed = "已达最大尝试次数" in status
+            _file_states[key] = {
+                "title": title,
+                "status": "failed" if is_failed else "running",
+                "stage": status,
+            }
         progress = 0.02 + 0.93 * (_pb_done / total) if total > 0 else 0.02
-        transcribe_info: dict[str, Any] = {"done": _pb_done, "total": total}
+        transcribe_info: dict[str, Any] = {"done": _pb_done, "total": total, "current_video": title}
         if account_id:
             transcribe_info["account_id"] = account_id
+        # 顶部进度条文案带上当前文件名；批量并发时也能看出正在处理哪个文件
+        top_msg = f"{title} · {status}"
         create_managed_task(
             call_progress(
                 update_progress_fn,
                 progress,
-                status,
+                top_msg,
                 stage="transcribe",
-                pipeline_progress={"transcribe": transcribe_info},
+                pipeline_progress={"transcribe": transcribe_info, "files": list(_file_states.values())},
             )
         )
 
@@ -179,23 +193,31 @@ async def run_local_transcribe(
 def _build_progress_callback(update_progress_fn, base_progress: float):
     """构建转写进度回调，将单视频完成事件聚合为批量进度。"""
     _pb_done = 0
+    _file_states: dict[str, dict[str, Any]] = {}
 
     def _progress_callback(current: int, total: int, video_path: Path, status: str, account_id: str | None = None):
         nonlocal _pb_done
+        key = str(video_path)
+        title = video_path.stem
         if current == 1 and total == 1:
             _pb_done += 1
+            _file_states[key] = {"title": title, "status": "completed", "stage": "完成"}
+        else:
+            is_failed = "已达最大尝试次数" in status
+            _file_states[key] = {"title": title, "status": "failed" if is_failed else "running", "stage": status}
         progress = base_progress + (1.0 - base_progress) * (_pb_done / total) if total > 0 else base_progress
-        transcribe_info: dict[str, Any] = {"done": _pb_done, "total": total}
+        transcribe_info: dict[str, Any] = {"done": _pb_done, "total": total, "current_video": title}
         if account_id:
             transcribe_info["account_id"] = account_id
-        pp = {"transcribe": transcribe_info}
+        pp = {"transcribe": transcribe_info, "files": list(_file_states.values())}
+        top_msg = f"{title} · {status}"
         try:
-            result = update_progress_fn(progress, status, "transcribe", pp)
+            result = update_progress_fn(progress, top_msg, "transcribe", pp)
         except TypeError:
             try:
-                result = update_progress_fn(progress, status, "transcribe")
+                result = update_progress_fn(progress, top_msg, "transcribe")
             except TypeError:
-                result = update_progress_fn(progress, status)
+                result = update_progress_fn(progress, top_msg)
         if inspect.isawaitable(result):
             create_managed_task(result)
         elif result is not None:

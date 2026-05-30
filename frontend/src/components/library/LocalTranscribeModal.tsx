@@ -32,12 +32,21 @@ export function LocalTranscribeModal({
     <AnimatePresence>
       {isOpen && scannedFiles.length > 0 && (
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          className="ed-card p-6 mb-8"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-md px-4"
+          onClick={onClose}
         >
-          <div className="flex items-baseline justify-between mb-4 pb-3 border-b border-[var(--color-hairline)]">
+          <motion.div
+            initial={{ scale: 0.96, opacity: 0, y: 8 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.96, opacity: 0, y: 8 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+            className="bg-[var(--color-paper)] w-full max-w-2xl max-h-[85vh] flex flex-col border border-[var(--color-hairline-strong)] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+          <div className="flex items-baseline justify-between mb-4 pb-3 border-b border-[var(--color-hairline)] flex-shrink-0">
             <div>
               <div className="eyebrow mb-1">已扫描目录</div>
               <div className="font-display text-[22px] text-[var(--color-bone)]">
@@ -48,11 +57,11 @@ export function LocalTranscribeModal({
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex items-center gap-4 mb-3">
+          <div className="flex items-center gap-4 mb-3 flex-shrink-0">
             <button onClick={onSelectAll} className="draw-line text-[12px] text-[var(--color-rust)]">全选</button>
             <button onClick={onClear} className="draw-line text-[12px] text-[var(--color-ash)]">清除</button>
           </div>
-          <div className="max-h-[240px] overflow-y-auto -mx-2">
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-2">
             {scannedFiles.map((file) => (
               <label key={file.path} className="flex items-center gap-3 px-2 py-2 hover:bg-[rgba(243,238,219,0.02)] cursor-pointer transition-colors">
                 <input
@@ -65,7 +74,7 @@ export function LocalTranscribeModal({
               </label>
             ))}
           </div>
-          <div className="flex items-center justify-between mt-5 pt-4 border-t border-[var(--color-hairline)]">
+          <div className="flex items-center justify-between mt-5 pt-4 border-t border-[var(--color-hairline)] flex-shrink-0">
             <div className="flex items-center gap-4">
               <span className="text-[12px] text-[var(--color-ash)]">
                 <span className="font-display text-[20px] text-[var(--color-rust)] tabular mr-1">{selectedFiles.size}</span>
@@ -93,6 +102,7 @@ export function LocalTranscribeModal({
               </button>
             </div>
           </div>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

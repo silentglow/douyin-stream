@@ -14,6 +14,7 @@ import pytest
 
 from media_tools.common.runtime import ExportConfig
 from media_tools.store.db import init_db
+from media_tools.transcribe.errors import TranscribeErrorClassifier, TranscribePollTimeoutError
 from media_tools.transcribe.flow import ResumeState, run_real_flow
 from media_tools.transcribe.repository import TranscribeRunRepository
 
@@ -407,7 +408,7 @@ async def test_resume_gen_record_id_fallback_when_poll_fails(
     # poll 第一次抛错（续传分支），第二次成功（完整 flow 接管）
     poll_calls = {"n": 0}
 
-    async def poll_side_effect(api, gen_record_id, timeout_seconds=15 * 60):
+    async def poll_side_effect(api, gen_record_id, timeout_seconds=15 * 60, on_progress=None):
         poll_calls["n"] += 1
         if poll_calls["n"] == 1:
             assert gen_record_id == "gen-STALE", "续传应先用历史 gen_record_id"
@@ -485,3 +486,101 @@ async def test_resume_gen_record_id_fallback_when_poll_fails(
     final = TranscribeRunRepository.get(run_id)
     assert final["stage"] == "downloading"
     assert final["gen_record_id"] == "gen-NEW"
+
+
+@pytest.mark.asyncio
+async def test_resume_gen_record_id_poll_timeout_does_not_fallback_or_delete(
+    db: sqlite3.Connection, video_file: Path, tmp_path: Path
+) -> None:
+    """续传 poll timeout 表示远端仍可能在转写；不得重传或清掉旧 record。"""
+    run_id = TranscribeRunRepository.create(
+        asset_id="asset-TIMEOUT",
+        video_path=str(video_file),
+        account_id="acc-1",
+    )
+    TranscribeRunRepository.update_stage(
+        run_id,
+        "transcribing",
+        {"gen_record_id": "gen-SLOW", "record_id": "rec-SLOW", "batch_id": "batch-SLOW"},
+    )
+    TranscribeRunRepository.mark_failed(
+        run_id,
+        error_stage="transcribing",
+        error_type="timeout",
+        last_error="previous poll timeout",
+    )
+
+    from media_tools.transcribe import flow as flow_mod
+
+    timeout_error = TranscribePollTimeoutError(
+        TranscribeErrorClassifier.classify("timeout"),
+        detail="转写轮询超时 (21600s)",
+    )
+    upload = AsyncMock(side_effect=AssertionError("timeout resume 不应重传"))
+    delete_record = AsyncMock(return_value=True)
+    export_fn = AsyncMock(side_effect=AssertionError("poll timeout 后不应 export"))
+    download = AsyncMock(side_effect=AssertionError("poll timeout 后不应 download"))
+
+    with (
+        patch.object(flow_mod, "upload_file_to_oss", upload),
+        patch.object(flow_mod, "poll_until_done", AsyncMock(side_effect=timeout_error)),
+        patch.object(flow_mod, "delete_record", delete_record),
+        patch.object(flow_mod, "export_file", export_fn),
+        patch.object(flow_mod, "download_file", download),
+        patch.object(flow_mod, "api_json", AsyncMock()),
+        patch.object(
+            flow_mod,
+            "get_quota_snapshot",
+            AsyncMock(
+                return_value=type(
+                    "Q",
+                    (),
+                    {
+                        "remaining_upload": 1,
+                        "total_upload": 1,
+                        "remaining_equity": 1,
+                        "total_equity": 1,
+                    },
+                )()
+            ),
+        ),
+        patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None),
+        patch.object(
+            flow_mod,
+            "load_config",
+            return_value=type(
+                "C",
+                (),
+                {
+                    "save_debug_json": False,
+                    "transcribe_poll_timeout_seconds": 21600,
+                },
+            )(),
+        ),
+        pytest.raises(TranscribePollTimeoutError),
+    ):
+        await run_real_flow(
+            file_path=video_file,
+            auth_state_path=tmp_path / "auth.json",
+            download_dir=tmp_path / "out",
+            export_config=_make_export_config(),
+            account_id="acc-1",
+            shared_api=object(),
+            run_id=run_id,
+            resume_state=ResumeState(
+                stage="failed",
+                record_id="rec-SLOW",
+                gen_record_id="gen-SLOW",
+                batch_id="batch-SLOW",
+            ),
+        )
+
+    upload.assert_not_called()
+    delete_record.assert_not_called()
+    export_fn.assert_not_called()
+    download.assert_not_called()
+
+    final = TranscribeRunRepository.get(run_id)
+    assert final["stage"] == "transcribing"
+    assert final["gen_record_id"] == "gen-SLOW"
+    assert final["record_id"] == "rec-SLOW"

@@ -34,6 +34,7 @@ class TranscribeConfig:
     delete_after_export: bool
     save_debug_json: bool
     export_concurrency: int
+    transcribe_poll_timeout_seconds: float
     export_max_retries: int
     export_initial_backoff_seconds: float
     upload_concurrency_per_account: int
@@ -96,6 +97,11 @@ def load_config() -> TranscribeConfig:
         delete_after_export=env_flag("QWEN_DELETE_AFTER_EXPORT", default=True),
         save_debug_json=env_flag("QWEN_SAVE_DEBUG_JSON", default=False),
         export_concurrency=parse_int_setting("QWEN_EXPORT_CONCURRENCY", 2, minimum=1),
+        transcribe_poll_timeout_seconds=parse_float_setting(
+            "QWEN_TRANSCRIBE_POLL_TIMEOUT_SECONDS",
+            6 * 60 * 60,
+            minimum=1.0,
+        ),
         export_max_retries=parse_int_setting("QWEN_EXPORT_MAX_RETRIES", 6, minimum=1),
         export_initial_backoff_seconds=parse_float_setting(
             "QWEN_EXPORT_INITIAL_BACKOFF_SECONDS",

@@ -56,7 +56,7 @@ status = await get_qwen_account_status()
 | :--- | :--- |
 | `SystemSettings` | 系统设置：运行时配置（KV 存储），含 `concurrency`（内部参考值）、`auto_transcribe`、`auto_delete`、`api_key`、`export_format` |
 | `Accounts_Pool` | 统一账号池：管理所有平台（抖音/B站/Qwen）的 Cookie 和账号状态。Qwen 活跃账号数决定实际转写并发数 |
-| `transcribe_runs` | 转写运行记录：每个视频在某个 Qwen 账号上的完整转写尝试（含断点续传） |
+| `transcribe_runs` | 转写运行记录：每个视频在某个 Qwen 账号上的完整转写尝试（含断点续传）；轮询超时会保留 `record_id/gen_record_id`，后续重试继续复用远端记录 |
 | `scheduled_tasks` | 定时任务：自动领取 Qwen 额度等定时任务配置 |
 | `auth_credentials` | 认证凭据：Qwen 兼容回退层（逐步废弃，新代码使用 `Accounts_Pool`） |
 | `assets_fts` | 全文搜索索引：素材内容搜索 |

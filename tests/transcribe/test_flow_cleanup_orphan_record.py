@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from media_tools.common.runtime import ExportConfig
+from media_tools.transcribe.errors import TranscribeErrorClassifier, TranscribePollTimeoutError
 from media_tools.transcribe.flow import run_real_flow
 
 
@@ -130,6 +131,61 @@ async def test_export_failure_also_triggers_cleanup(video_file: Path, tmp_path: 
     delete_record.assert_called_once()
     args, _ = delete_record.call_args
     assert args[1] == ["orphan-after-upload-id"]
+
+
+@pytest.mark.asyncio
+async def test_poll_timeout_keeps_remote_record_for_later_resume(video_file: Path, tmp_path: Path) -> None:
+    """poll timeout 不代表远端失败；已启动的 record 必须保留给下次 resume。"""
+    from media_tools.transcribe import flow as flow_mod
+
+    fake_token = {
+        "recordId": "slow-record-id",
+        "genRecordId": "slow-gen-id",
+        "getLink": "https://oss-link/",
+        "sts": {},
+    }
+    api_json_results = [
+        {"data": fake_token},  # token/get
+        {"data": {}},  # upload_heartbeat
+        {"data": {"batchId": "batch-slow"}},  # record/start
+    ]
+    poll_timeout = TranscribePollTimeoutError(
+        TranscribeErrorClassifier.classify("timeout"),
+        detail="转写轮询超时 (21600s)",
+    )
+    delete_record = AsyncMock(return_value=True)
+
+    with (
+        patch.object(flow_mod, "api_json", AsyncMock(side_effect=api_json_results)),
+        patch.object(flow_mod, "upload_file_to_oss", AsyncMock(return_value=None)),
+        patch.object(flow_mod, "poll_until_done", AsyncMock(side_effect=poll_timeout)),
+        patch.object(flow_mod, "delete_record", delete_record),
+        patch.object(flow_mod, "get_quota_snapshot", AsyncMock(return_value=_make_quota_snapshot())),
+        patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None),
+        patch.object(
+            flow_mod,
+            "load_config",
+            return_value=type(
+                "C",
+                (),
+                {
+                    "save_debug_json": False,
+                    "transcribe_poll_timeout_seconds": 21600,
+                },
+            )(),
+        ),
+        pytest.raises(TranscribePollTimeoutError),
+    ):
+        await run_real_flow(
+            file_path=video_file,
+            auth_state_path=tmp_path / "auth.json",
+            download_dir=tmp_path / "out",
+            export_config=_make_export_config(),
+            account_id="test-account",
+            shared_api=object(),
+        )
+
+    delete_record.assert_not_called()
 
 
 @pytest.mark.asyncio

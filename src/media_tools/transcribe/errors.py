@@ -144,6 +144,10 @@ class TranscribeError(RuntimeError):
         super().__init__(f"{error_info.message}{detail_suffix}")
 
 
+class TranscribePollTimeoutError(TranscribeError):
+    """Raised when a Qwen record is still processing after the local poll budget."""
+
+
 class TranscribeErrorClassifier:
     _error_mapping = {
         "40": ErrorInfo(

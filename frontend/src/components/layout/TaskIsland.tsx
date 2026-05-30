@@ -313,6 +313,16 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                   const subtasks = Array.isArray(parsed?.subtasks)
                     ? (parsed.subtasks as Array<{ title?: string; status?: string; error?: string; error_type?: string; video_path?: string }>)
                     : [];
+                  // 运行中：从 pipeline_progress.files 取每个文件的实时阶段；完成后回退到 subtasks
+                  const ppFiles = (() => {
+                    const pp = parsed?.pipeline_progress as
+                      | { files?: Array<{ title?: string; status?: string; stage?: string }> }
+                      | undefined;
+                    return Array.isArray(pp?.files) ? pp!.files! : [];
+                  })();
+                  const fileRows: Array<{ title?: string; status?: string; stage?: string; error?: string; error_type?: string; video_path?: string }> =
+                    isRunning && ppFiles.length > 0 ? ppFiles : subtasks;
+                  const showFileRows = fileRows.length > 0;
 
                   return (
                     <div
@@ -406,20 +416,40 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                         </div>
                       )}
 
-                      {/* 子任务文件级明细：用户在 island 视图最频繁的疑问就是"具体哪个文件" */}
-                      {!isRunning && subtasks.length > 0 && (
+                      {/* 文件级明细：运行中显示每个文件的实时阶段，完成后显示成/败结果 */}
+                      {showFileRows && (
                         <div className="mt-2 pl-7 pr-1 space-y-1 max-h-32 overflow-y-auto border-l border-white/[0.03]">
-                          {subtasks.map((sub, idx) => {
+                          {fileRows.map((sub, idx) => {
                             const ok = sub?.status === 'completed';
                             const bad = sub?.status === 'failed';
                             const skipped = sub?.status === 'skipped';
+                            const running = sub?.status === 'running';
                             const fileName = sub?.title || (sub?.video_path ? sub.video_path.split('/').pop() : null) || '?';
+                            const stageText = sub?.stage;
+                            const errText = sub?.error;
+                            let detail = '';
+                            let detailTitle = '';
+                            if (running && stageText) {
+                              detail = stageText;
+                              detailTitle = stageText;
+                            } else if (bad) {
+                              if (errText) {
+                                const label = classifySubtaskError(sub);
+                                detail = label ? `[${label}]` : errText.slice(0, 40);
+                                detailTitle = `${label ? label + ' — ' : ''}${errText}`;
+                              } else if (stageText) {
+                                detail = stageText;
+                                detailTitle = stageText;
+                              }
+                            }
                             return (
                               <div key={idx} className="flex items-start gap-1.5 text-[10px] leading-snug">
                                 {ok ? (
                                   <CheckCircle2 className="size-2.5 shrink-0 mt-[2px] text-[var(--color-patina)]" />
                                 ) : bad ? (
                                   <AlertTriangle className="size-2.5 shrink-0 mt-[2px] text-[var(--color-iron)]" />
+                                ) : running ? (
+                                  <Loader2 className="size-2.5 shrink-0 mt-[2px] animate-spin text-[var(--color-rust)]" />
                                 ) : skipped ? (
                                   <div className="size-2 shrink-0 mt-[3px] rounded-full bg-white/15" />
                                 ) : (
@@ -428,18 +458,17 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                                 <span className="truncate text-[var(--color-smoke)] flex-1" title={fileName}>
                                   {fileName}
                                 </span>
-                                {bad && sub?.error && (() => {
-                                  const label = classifySubtaskError(sub);
-                                  const display = label ? `[${label}]` : sub.error.slice(0, 40);
-                                  return (
-                                    <span
-                                      className="shrink-0 text-[9px] text-[var(--color-iron)] truncate max-w-[120px]"
-                                      title={`${label ? label + ' — ' : ''}${sub.error}`}
-                                    >
-                                      {display}
-                                    </span>
-                                  );
-                                })()}
+                                {detail && (
+                                  <span
+                                    className={cn(
+                                      'shrink-0 text-[9px] truncate max-w-[150px]',
+                                      bad ? 'text-[var(--color-iron)]' : 'text-[var(--color-ash)]',
+                                    )}
+                                    title={detailTitle}
+                                  >
+                                    {detail}
+                                  </span>
+                                )}
                               </div>
                             );
                           })}

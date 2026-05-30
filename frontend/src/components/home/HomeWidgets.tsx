@@ -31,7 +31,7 @@ export function HeroCol({
   accent?: boolean;
 }) {
   return (
-    <div className="bg-[var(--color-paper)] border border-white/[0.03] hover:border-[var(--color-rust)]/25 hover:bg-[rgba(99,102,241,0.02)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] rounded-[var(--radius-card)] p-6 transition-all duration-300 flex flex-col justify-between min-h-[148px]">
+    <div className="bg-[var(--color-paper)] border border-white/[0.03] hover:border-[var(--color-rust)]/25 hover:bg-[rgba(255,106,47,0.02)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] rounded-[var(--radius-card)] p-6 transition-all duration-300 flex flex-col justify-between min-h-[148px]">
       <div>
         <div className="text-[10px] font-bold tracking-widest text-[var(--color-smoke)] uppercase mb-2">{label}</div>
         <div className={accent ? 'text-[var(--color-rust)]' : 'text-[var(--color-bone)]'}>
