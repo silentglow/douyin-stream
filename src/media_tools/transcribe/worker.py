@@ -13,6 +13,27 @@ from media_tools.transcribe.task_helpers import call_progress, create_managed_ta
 logger = get_logger("pipeline")
 
 
+def _dispatch_progress(coro: Any, main_loop: asyncio.AbstractEventLoop) -> None:
+    """把进度推送协程安全地交给事件循环执行。
+
+    转写进度回调有两个触发上下文：
+    1) 主协程内（如 poll_until_done 的轮询心跳）——此时有运行中的事件循环；
+    2) 上传工作线程内——multipart 分片上传跑在 ``asyncio.to_thread`` 起的线程里
+       （见 ``oss_upload._resumable_upload_via_oss2``，oss2 的进度回调在该线程触发），
+       那里没有事件循环，直接 ``asyncio.create_task`` 会抛
+       ``RuntimeError: no running event loop``。
+
+    因此这里区分上下文：在事件循环线程内直接调度；在工作线程里用
+    ``call_soon_threadsafe`` 把任务创建投递回主循环。
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        main_loop.call_soon_threadsafe(create_managed_task, coro)
+    else:
+        create_managed_task(coro)
+
+
 async def run_local_transcribe(
     file_paths: list[str], update_progress_fn=None, delete_after: bool = False, task_id: str | None = None
 ):
@@ -56,6 +77,8 @@ async def run_local_transcribe(
     _pb_done = 0
     # 批量并发时每个文件的实时状态，供任务抽屉「每文件一行」展示
     _file_states: dict[str, dict[str, Any]] = {}
+    # 抓住主事件循环：上传分片进度回调会在 to_thread 工作线程触发，需投递回此循环（见 _dispatch_progress）
+    _main_loop = asyncio.get_running_loop()
 
     def _progress_callback(current: int, total_cb: int, video_path: Path, status: str, account_id: str | None = None):
         nonlocal _pb_done
@@ -77,14 +100,15 @@ async def run_local_transcribe(
             transcribe_info["account_id"] = account_id
         # 顶部进度条文案带上当前文件名；批量并发时也能看出正在处理哪个文件
         top_msg = f"{title} · {status}"
-        create_managed_task(
+        _dispatch_progress(
             call_progress(
                 update_progress_fn,
                 progress,
                 top_msg,
                 stage="transcribe",
                 pipeline_progress={"transcribe": transcribe_info, "files": list(_file_states.values())},
-            )
+            ),
+            _main_loop,
         )
 
     orchestrator.on_progress = _progress_callback
@@ -194,6 +218,8 @@ def _build_progress_callback(update_progress_fn, base_progress: float):
     """构建转写进度回调，将单视频完成事件聚合为批量进度。"""
     _pb_done = 0
     _file_states: dict[str, dict[str, Any]] = {}
+    # 抓住主事件循环：上传分片进度回调会在 to_thread 工作线程触发，需投递回此循环（见 _dispatch_progress）
+    _main_loop = asyncio.get_running_loop()
 
     def _progress_callback(current: int, total: int, video_path: Path, status: str, account_id: str | None = None):
         nonlocal _pb_done
@@ -219,7 +245,7 @@ def _build_progress_callback(update_progress_fn, base_progress: float):
             except TypeError:
                 result = update_progress_fn(progress, top_msg)
         if inspect.isawaitable(result):
-            create_managed_task(result)
+            _dispatch_progress(result, _main_loop)
         elif result is not None:
             logger.warning(f"update_progress_fn 返回非协程: {type(result)}")
         return None
