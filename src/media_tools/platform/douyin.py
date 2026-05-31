@@ -259,22 +259,25 @@ def _get_user_info_from_db(sec_user_id: str) -> tuple[str, str, int]:
     try:
         from media_tools.store.db import get_db_connection
 
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("PRAGMA table_info(user_info_web)")
-            columns = {str(row[1]) for row in cursor.fetchall()}
-            has_aweme_count = "aweme_count" in columns
-            select_columns = "uid, nickname, aweme_count" if has_aweme_count else "uid, nickname"
-
+        def _fetch_user_info(cursor, select_columns: str):
             cursor.execute(
                 f"SELECT {select_columns} FROM user_info_web WHERE sec_user_id = ? LIMIT 1",
                 (sec_user_id,),
             )
             row = cursor.fetchone()
+            if row:
+                return row
+            cursor.execute(f"SELECT {select_columns} FROM user_info_web ORDER BY ROWID DESC LIMIT 1")
+            return cursor.fetchone()
 
-            if not row:
-                cursor.execute(f"SELECT {select_columns} FROM user_info_web ORDER BY ROWID DESC LIMIT 1")
-                row = cursor.fetchone()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            has_aweme_count = True
+            try:
+                row = _fetch_user_info(cursor, "uid, nickname, aweme_count")
+            except sqlite3.OperationalError:
+                has_aweme_count = False
+                row = _fetch_user_info(cursor, "uid, nickname")
 
             if not row:
                 return "", "", 0
