@@ -14,13 +14,26 @@ import pytest
 
 from media_tools.common.runtime import ExportConfig
 from media_tools.store.db import init_db
-from media_tools.transcribe.errors import TranscribeErrorClassifier, TranscribePollTimeoutError
+from media_tools.transcribe.errors import TranscribeError, TranscribeErrorClassifier, TranscribePollTimeoutError
 from media_tools.transcribe.flow import ResumeState, run_real_flow
 from media_tools.transcribe.repository import TranscribeRunRepository
 
 
 def _make_export_config() -> ExportConfig:
     return ExportConfig(file_type=1, extension=".docx", label="WORD")
+
+
+def _make_quota_snapshot():
+    return type(
+        "Q",
+        (),
+        {
+            "remaining_upload": 100,
+            "total_upload": 100,
+            "remaining_equity": 100,
+            "total_equity": 100,
+        },
+    )()
 
 
 @pytest.fixture
@@ -408,7 +421,13 @@ async def test_resume_gen_record_id_fallback_when_poll_fails(
     # poll 第一次抛错（续传分支），第二次成功（完整 flow 接管）
     poll_calls = {"n": 0}
 
-    async def poll_side_effect(api, gen_record_id, timeout_seconds=15 * 60, on_progress=None):
+    async def poll_side_effect(
+        api,
+        gen_record_id,
+        timeout_seconds=15 * 60,
+        on_progress=None,
+        missing_timeout_seconds=None,
+    ):
         poll_calls["n"] += 1
         if poll_calls["n"] == 1:
             assert gen_record_id == "gen-STALE", "续传应先用历史 gen_record_id"
@@ -584,3 +603,154 @@ async def test_resume_gen_record_id_poll_timeout_does_not_fallback_or_delete(
     assert final["stage"] == "transcribing"
     assert final["gen_record_id"] == "gen-SLOW"
     assert final["record_id"] == "rec-SLOW"
+
+
+@pytest.mark.asyncio
+async def test_full_flow_network_failure_after_checkpoint_preserves_remote_record(
+    db: sqlite3.Connection, video_file: Path, tmp_path: Path
+) -> None:
+    """上传/start 已持久化后，普通网络失败应保留 record 给下一次续传。"""
+    run_id = TranscribeRunRepository.create(
+        asset_id="asset-NETWORK-RESUME",
+        video_path=str(video_file),
+        account_id="acc-1",
+    )
+
+    from media_tools.transcribe import flow as flow_mod
+
+    fake_token = {
+        "recordId": "rec-network",
+        "genRecordId": "gen-network",
+        "getLink": "https://oss-link/",
+        "sts": {},
+    }
+    api_json_results = [
+        {"data": fake_token},  # token/get
+        {"data": {}},  # upload_heartbeat
+        {"data": {"batchId": "batch-network"}},  # record/start
+    ]
+    delete_record = AsyncMock(return_value=True)
+
+    with (
+        patch.object(flow_mod, "api_json", AsyncMock(side_effect=api_json_results)),
+        patch.object(flow_mod, "upload_file_to_oss", AsyncMock(return_value=None)),
+        patch.object(
+            flow_mod,
+            "poll_until_done",
+            AsyncMock(side_effect=RuntimeError("API request failed: ConnectTimeout")),
+        ),
+        patch.object(flow_mod, "delete_record", delete_record),
+        patch.object(flow_mod, "get_quota_snapshot", AsyncMock(return_value=_make_quota_snapshot())),
+        patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None),
+        patch.object(
+            flow_mod,
+            "load_config",
+            return_value=type(
+                "C",
+                (),
+                {
+                    "save_debug_json": False,
+                    "transcribe_poll_timeout_seconds": 21600,
+                },
+            )(),
+        ),
+        pytest.raises(RuntimeError, match="ConnectTimeout"),
+    ):
+        await run_real_flow(
+            file_path=video_file,
+            auth_state_path=tmp_path / "auth.json",
+            download_dir=tmp_path / "out",
+            export_config=_make_export_config(),
+            account_id="acc-1",
+            shared_api=object(),
+            run_id=run_id,
+        )
+
+    delete_record.assert_not_called()
+
+    final = TranscribeRunRepository.get(run_id)
+    assert final["stage"] == "transcribing"
+    assert final["record_id"] == "rec-network"
+    assert final["gen_record_id"] == "gen-network"
+    assert final["batch_id"] == "batch-network"
+
+    TranscribeRunRepository.mark_failed(
+        run_id,
+        error_stage="transcribing",
+        error_type="network",
+        last_error="API request failed: ConnectTimeout",
+    )
+    resumable = TranscribeRunRepository.find_resumable("asset-NETWORK-RESUME", "acc-1")
+    assert resumable is not None
+    assert resumable["gen_record_id"] == "gen-network"
+
+
+@pytest.mark.asyncio
+async def test_terminal_remote_failure_cleanup_clears_checkpoint(
+    db: sqlite3.Connection, video_file: Path, tmp_path: Path
+) -> None:
+    """远端明确终态失败时，删除成功后要清空本地断点，避免 stale resume。"""
+    run_id = TranscribeRunRepository.create(
+        asset_id="asset-TERMINAL",
+        video_path=str(video_file),
+        account_id="acc-1",
+    )
+
+    from media_tools.transcribe import flow as flow_mod
+
+    fake_token = {
+        "recordId": "rec-terminal",
+        "genRecordId": "gen-terminal",
+        "getLink": "https://oss-link/",
+        "sts": {},
+    }
+    api_json_results = [
+        {"data": fake_token},  # token/get
+        {"data": {}},  # upload_heartbeat
+        {"data": {"batchId": "batch-terminal"}},  # record/start
+    ]
+    terminal_error = TranscribeError(
+        TranscribeErrorClassifier.classify("recordStatus=40"),
+        detail="recordStatus=40",
+    )
+    delete_record = AsyncMock(return_value=True)
+
+    with (
+        patch.object(flow_mod, "api_json", AsyncMock(side_effect=api_json_results)),
+        patch.object(flow_mod, "upload_file_to_oss", AsyncMock(return_value=None)),
+        patch.object(flow_mod, "poll_until_done", AsyncMock(side_effect=terminal_error)),
+        patch.object(flow_mod, "delete_record", delete_record),
+        patch.object(flow_mod, "get_quota_snapshot", AsyncMock(return_value=_make_quota_snapshot())),
+        patch.object(flow_mod, "record_flow_quota_usage", lambda **kw: None),
+        patch.object(
+            flow_mod,
+            "load_config",
+            return_value=type(
+                "C",
+                (),
+                {
+                    "save_debug_json": False,
+                    "transcribe_poll_timeout_seconds": 21600,
+                },
+            )(),
+        ),
+        pytest.raises(TranscribeError, match="recordStatus=40"),
+    ):
+        await run_real_flow(
+            file_path=video_file,
+            auth_state_path=tmp_path / "auth.json",
+            download_dir=tmp_path / "out",
+            export_config=_make_export_config(),
+            account_id="acc-1",
+            shared_api=object(),
+            run_id=run_id,
+        )
+
+    delete_record.assert_called_once()
+
+    final = TranscribeRunRepository.get(run_id)
+    assert final["stage"] == "queued"
+    assert final["record_id"] is None
+    assert final["gen_record_id"] is None
+    assert final["batch_id"] is None
+    assert TranscribeRunRepository.find_resumable("asset-TERMINAL", "acc-1") is None

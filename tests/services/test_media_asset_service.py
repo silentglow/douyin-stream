@@ -154,6 +154,26 @@ def test_mark_transcribe_failed_like_path_for_local_files(db: sqlite3.Connection
     assert row["transcript_error_type"] == "quota"
 
 
+def test_mark_archived_matches_local_source_url(db: sqlite3.Connection, tmp_path: Path) -> None:
+    from media_tools.assets.service import MediaAssetService
+
+    video_path = tmp_path / "MyClip.mp4"
+    video_path.write_bytes(b"ok")
+    db.execute(
+        """
+        INSERT INTO media_assets (asset_id, creator_uid, source_url, title, video_path,
+            video_status, transcript_status, create_time, update_time)
+        VALUES (?, ?, ?, ?, '', 'downloaded', 'completed', '2025', '2025')
+        """,
+        ("local:abc", "local:upload", str(video_path.resolve()), "MyClip"),
+    )
+    db.commit()
+
+    assert MediaAssetService.mark_archived(video_path) == 1
+    row = _row(db, "local:abc")
+    assert row["video_status"] == "archived"
+
+
 def test_mark_transcribe_completed_clears_errors(db: sqlite3.Connection, tmp_path: Path) -> None:
     from media_tools.assets.service import MediaAssetService
 

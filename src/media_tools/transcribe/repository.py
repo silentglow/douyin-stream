@@ -108,6 +108,30 @@ class TranscribeRunRepository:
             )
 
     @staticmethod
+    def clear_remote_checkpoint(run_id: str, stage: str = "queued") -> None:
+        """Clear remote Qwen identifiers after the remote record was deleted.
+
+        A run with a stale gen_record_id must not be considered resumable. The
+        caller usually marks the run failed after this, so setting the stage to
+        queued makes the later error_stage non-resumable as well.
+        """
+        with get_db_connection() as conn:
+            conn.execute(
+                """
+                UPDATE transcribe_runs
+                SET stage = ?,
+                    record_id = NULL,
+                    gen_record_id = NULL,
+                    batch_id = NULL,
+                    export_task_id = NULL,
+                    export_url = NULL,
+                    updated_at = ?
+                WHERE run_id = ?
+                """,
+                (stage, datetime.now().isoformat(), run_id),
+            )
+
+    @staticmethod
     def mark_saved(run_id: str, transcript_path: str) -> None:
         with get_db_connection() as conn:
             conn.execute(

@@ -130,6 +130,43 @@ def test_mark_failed_records_stage_and_truncates_long_error(db: sqlite3.Connecti
     assert len(row["last_error"]) == 2000  # repo 截到 2000
 
 
+def test_clear_remote_checkpoint_makes_run_non_resumable(db: sqlite3.Connection) -> None:
+    run_id = TranscribeRunRepository.create(
+        asset_id="asset-CLEAR",
+        video_path="/tmp/clear.mp4",
+        account_id="acc-1",
+    )
+    TranscribeRunRepository.update_stage(
+        run_id,
+        "transcribing",
+        {
+            "record_id": "rec-clear",
+            "gen_record_id": "gen-clear",
+            "batch_id": "batch-clear",
+            "export_url": "https://x/out.docx",
+        },
+    )
+
+    assert TranscribeRunRepository.find_resumable("asset-CLEAR", "acc-1") is not None
+
+    TranscribeRunRepository.clear_remote_checkpoint(run_id)
+    TranscribeRunRepository.mark_failed(
+        run_id,
+        error_stage="queued",
+        error_type="network",
+        last_error="remote record was deleted",
+    )
+
+    row = TranscribeRunRepository.get(run_id)
+    assert row["stage"] == "failed"
+    assert row["error_stage"] == "queued"
+    assert row["record_id"] is None
+    assert row["gen_record_id"] is None
+    assert row["batch_id"] is None
+    assert row["export_url"] is None
+    assert TranscribeRunRepository.find_resumable("asset-CLEAR", "acc-1") is None
+
+
 def test_find_resumable_filters_by_stage_and_account(db: sqlite3.Connection) -> None:
     # acc-1 上一条 uploaded 但没 gen_record_id（不应被返回，因为 SQL 强制 gen_record_id NOT NULL/!=''）
     no_gen = TranscribeRunRepository.create(

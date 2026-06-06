@@ -7,7 +7,10 @@
 import asyncio
 from unittest.mock import patch
 
+import pytest
+
 from media_tools.transcribe import flow
+from media_tools.transcribe.errors import TranscribeError
 
 
 def test_poll_until_done_heartbeat_is_throttled():
@@ -64,3 +67,18 @@ def test_poll_until_done_no_callback_is_safe():
         record = asyncio.run(flow.poll_until_done("ctx", "g1", timeout_seconds=10_000))
 
     assert record["recordStatus"] == 30
+
+
+def test_poll_until_done_missing_record_can_fail_fast():
+    async def fake_api_json(_context, _url, _payload):
+        return {"data": {"batchRecord": [{"recordList": [{"genRecordId": "other", "recordStatus": 10}]}]}}
+
+    async def noop_sleep(*_a, **_k):
+        raise AssertionError("missing record should fail before sleeping")
+
+    with (
+        patch.object(flow, "api_json", fake_api_json),
+        patch.object(flow.asyncio, "sleep", noop_sleep),
+        pytest.raises(TranscribeError, match="gen_record_id=g1"),
+    ):
+        asyncio.run(flow.poll_until_done("ctx", "g1", timeout_seconds=10_000, missing_timeout_seconds=0))

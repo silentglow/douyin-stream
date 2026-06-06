@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from media_tools.logger import get_logger
-from media_tools.store.db import get_db_connection, update_fts_for_asset
+from media_tools.store.db import get_db_connection, get_table_columns, update_fts_for_asset
 
 logger = get_logger(__name__)
 
@@ -119,29 +119,55 @@ class MediaAssetService:
 
         try:
             downloads_root = get_download_path()
+            resolved = video_path.resolve()
             try:
-                rel = str(video_path.resolve().relative_to(downloads_root.resolve()))
+                rel = str(resolved.relative_to(downloads_root.resolve()))
             except ValueError:
                 rel = video_path.name
+            absolute = str(resolved)
             now = datetime.now().isoformat()
             with get_db_connection() as conn:
-                cur = conn.execute(
-                    """
-                    UPDATE media_assets
-                    SET video_status = 'archived', update_time = ?
-                    WHERE video_path = ? AND video_status IN ('downloaded', 'pending')
-                    """,
-                    (now, rel),
-                )
-                if cur.rowcount == 0:
+                has_source_url = "source_url" in get_table_columns(conn, "media_assets")
+                if has_source_url:
                     cur = conn.execute(
                         """
                         UPDATE media_assets
                         SET video_status = 'archived', update_time = ?
-                        WHERE video_path LIKE ? ESCAPE '\\' AND video_status IN ('downloaded', 'pending')
+                        WHERE (video_path = ? OR source_url = ?)
+                          AND video_status IN ('downloaded', 'pending')
                         """,
-                        (now, f"%/{_escape_like(video_path.name)}"),
+                        (now, rel, absolute),
                     )
+                else:
+                    cur = conn.execute(
+                        """
+                        UPDATE media_assets
+                        SET video_status = 'archived', update_time = ?
+                        WHERE video_path = ? AND video_status IN ('downloaded', 'pending')
+                        """,
+                        (now, rel),
+                    )
+                if cur.rowcount == 0:
+                    basename_like = f"%/{_escape_like(video_path.name)}"
+                    if has_source_url:
+                        cur = conn.execute(
+                            """
+                            UPDATE media_assets
+                            SET video_status = 'archived', update_time = ?
+                            WHERE (video_path LIKE ? ESCAPE '\\' OR source_url LIKE ? ESCAPE '\\')
+                              AND video_status IN ('downloaded', 'pending')
+                            """,
+                            (now, basename_like, basename_like),
+                        )
+                    else:
+                        cur = conn.execute(
+                            """
+                            UPDATE media_assets
+                            SET video_status = 'archived', update_time = ?
+                            WHERE video_path LIKE ? ESCAPE '\\' AND video_status IN ('downloaded', 'pending')
+                            """,
+                            (now, basename_like),
+                        )
                 return cur.rowcount or 0
         except sqlite3.Error as e:
             logger.warning(f"mark_archived({video_path}) 失败: {e}")

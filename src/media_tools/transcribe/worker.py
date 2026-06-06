@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from media_tools.logger import get_logger
-from media_tools.store.db import local_asset_id
+from media_tools.store.db import get_db_connection, local_asset_id
 from media_tools.transcribe.task_helpers import call_progress, create_managed_task, filter_supported_media_paths
 
 logger = get_logger("pipeline")
@@ -34,6 +34,61 @@ def _dispatch_progress(coro: Any, main_loop: asyncio.AbstractEventLoop) -> None:
         create_managed_task(coro)
 
 
+def _resolve_transcript_file(transcript_path: Any, output_dir: Path) -> Path | None:
+    raw = str(transcript_path).strip() if transcript_path is not None else ""
+    if not raw:
+        return None
+    path = Path(raw)
+    if path.is_absolute():
+        return path
+    return output_dir / path
+
+
+def _lookup_recorded_transcript_file(video_path: Path, output_dir: Path) -> Path | None:
+    try:
+        with get_db_connection() as conn:
+            row = conn.execute(
+                "SELECT transcript_path FROM media_assets WHERE asset_id = ?",
+                (local_asset_id(video_path),),
+            ).fetchone()
+    except sqlite3.Error as db_err:
+        logger.error(f"查询本地转录文件失败 (asset={local_asset_id(video_path)}): {db_err}")
+        return None
+    if not row:
+        return None
+    transcript_path = row["transcript_path"] if isinstance(row, sqlite3.Row) else row[0]
+    return _resolve_transcript_file(transcript_path, output_dir)
+
+
+def _delete_source_after_transcribe(video_path: Path, transcript_path: Any, output_dir: Path) -> bool:
+    if not video_path.exists():
+        return False
+
+    transcript_file = _resolve_transcript_file(transcript_path, output_dir)
+    if not transcript_file or not transcript_file.exists():
+        logger.warning(f"跳过删除源视频：转录文件不存在或已丢失 ({transcript_path})")
+        return False
+
+    return _unlink_source_and_archive(video_path)
+
+
+def _unlink_source_and_archive(video_path: Path) -> bool:
+    try:
+        video_path.unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        logger.error(f"删除视频失败: {video_path}, {e}")
+        return False
+
+    from media_tools.assets.service import MediaAssetService
+
+    archived = MediaAssetService.mark_archived(video_path)
+    if archived == 0:
+        logger.warning(f"源视频已删除，但未匹配到可归档素材记录: {video_path}")
+    return True
+
+
 async def run_local_transcribe(
     file_paths: list[str], update_progress_fn=None, delete_after: bool = False, task_id: str | None = None
 ):
@@ -52,6 +107,7 @@ async def run_local_transcribe(
         return {"success_count": 0, "failed_count": 0, "total": 0, "success_paths": [], "failed_paths": []}
 
     config = load_pipeline_config()
+    output_dir = Path(config.output_dir).resolve()
     orchestrator = create_orchestrator(config)
     if hasattr(orchestrator, "_account_pool_service"):
         orchestrator._account_pool_service.resolve_accounts()
@@ -67,7 +123,6 @@ async def run_local_transcribe(
         stage="transcribe",
         pipeline_progress={"transcribe": {"done": 0, "total": total}},
     )
-    from media_tools.store.db import get_db_connection
     from media_tools.transcribe.preview import extract_transcript_preview, extract_transcript_text
 
     subtasks: list[dict[str, Any]] = []
@@ -77,6 +132,7 @@ async def run_local_transcribe(
     _pb_done = 0
     # 批量并发时每个文件的实时状态，供任务抽屉「每文件一行」展示
     _file_states: dict[str, dict[str, Any]] = {}
+    split_part_paths = {str(part.resolve()) for parts in split_registry.values() for part in parts}
     # 抓住主事件循环：上传分片进度回调会在 to_thread 工作线程触发，需投递回此循环（见 _dispatch_progress）
     _main_loop = asyncio.get_running_loop()
 
@@ -87,6 +143,9 @@ async def run_local_transcribe(
         if current == 1 and total_cb == 1:
             _pb_done += 1
             _file_states[key] = {"title": title, "status": "completed", "stage": "完成"}
+            if delete_after and str(video_path.resolve()) not in split_part_paths:
+                transcript_file = _lookup_recorded_transcript_file(video_path, output_dir)
+                _delete_source_after_transcribe(video_path, transcript_file, output_dir)
         else:
             is_failed = "已达最大尝试次数" in status
             _file_states[key] = {
@@ -114,6 +173,9 @@ async def run_local_transcribe(
     orchestrator.on_progress = _progress_callback
 
     report = await orchestrator.transcribe_batch(valid_paths, resume=False)
+    split_sources_to_delete = (
+        _find_successfully_transcribed_split_sources(split_registry, report, output_dir) if split_registry else []
+    )
 
     if split_registry:
         _cleanup_split_parts(split_registry, report)
@@ -127,9 +189,9 @@ async def run_local_transcribe(
         if success and video_path:
             transcript_path = item.get("transcript_path")
             if transcript_path:
-                tp = Path(transcript_path)
-                preview = extract_transcript_preview(str(tp))
-                full_text = extract_transcript_text(str(tp))
+                tp = _resolve_transcript_file(transcript_path, output_dir)
+                preview = extract_transcript_preview(str(tp)) if tp else ""
+                full_text = extract_transcript_text(str(tp)) if tp else ""
                 try:
                     with get_db_connection() as conn:
                         asset_id = local_asset_id(video_path)
@@ -159,19 +221,9 @@ async def run_local_transcribe(
             success_paths.append(str(video_path))
             subtasks.append({"title": video_path.stem, "status": "completed"})
 
-            if delete_after and video_path.exists():
-                if transcript_path and Path(transcript_path).exists():
-                    from media_tools.assets.service import MediaAssetService
+            if delete_after and str(video_path.resolve()) not in split_part_paths:
+                _delete_source_after_transcribe(video_path, transcript_path, output_dir)
 
-                    MediaAssetService.mark_archived(video_path)
-                    try:
-                        video_path.unlink()
-                    except FileNotFoundError:
-                        pass
-                    except OSError as e:
-                        logger.error(f"删除视频失败: {video_path}, {e}")
-                else:
-                    logger.warning(f"跳过删除源视频：转录文件不存在或已丢失 ({transcript_path})")
         else:
             if video_path:
                 failed_paths.append(str(video_path))
@@ -195,6 +247,10 @@ async def run_local_transcribe(
                     "video_path": str(video_path) if video_path else None,
                 }
             )
+
+    if delete_after and split_sources_to_delete:
+        for source_path in split_sources_to_delete:
+            _unlink_source_and_archive(source_path)
 
     await call_progress(
         update_progress_fn,
@@ -269,6 +325,36 @@ def _extract_successful_paths(report) -> set[str]:
         for item in getattr(report, "results", [])
         if item.get("success") and item.get("video_path")
     }
+
+
+def _find_successfully_transcribed_split_sources(
+    registry: dict[Path, list[Path]],
+    report,
+    output_dir: Path,
+) -> list[Path]:
+    """找出所有 part 均成功且转录文件存在的原始大文件。"""
+    result_by_path: dict[str, dict[str, Any]] = {}
+    for item in getattr(report, "results", []) or []:
+        video_path = item.get("video_path") if isinstance(item, dict) else None
+        if video_path:
+            result_by_path[str(Path(video_path).resolve())] = item
+
+    ready: list[Path] = []
+    for source, parts in registry.items():
+        all_parts_ready = True
+        for part in parts:
+            item = result_by_path.get(str(part.resolve()))
+            if not item or not item.get("success"):
+                all_parts_ready = False
+                break
+            transcript_file = _resolve_transcript_file(item.get("transcript_path"), output_dir)
+            if not transcript_file or not transcript_file.exists():
+                all_parts_ready = False
+                logger.warning(f"跳过删除原始大文件：part 转录文件不存在或已丢失 ({part})")
+                break
+        if all_parts_ready:
+            ready.append(source)
+    return ready
 
 
 async def _prepare_split_paths(

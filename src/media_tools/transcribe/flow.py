@@ -16,6 +16,7 @@ from .errors import TranscribeError, TranscribeErrorClassifier, TranscribePollTi
 logger = get_logger(__name__)
 
 DEFAULT_TRANSCRIBE_POLL_TIMEOUT_SECONDS = 6 * 60 * 60
+DEFAULT_RESUME_RECORD_MISSING_TIMEOUT_SECONDS = 2 * 60
 
 from media_tools.accounts.auth_state import resolve_qwen_cookie_string
 from media_tools.accounts.quota import get_quota_snapshot, record_quota_consumption
@@ -72,6 +73,7 @@ async def poll_until_done(
     gen_record_id: str,
     timeout_seconds: float = DEFAULT_TRANSCRIBE_POLL_TIMEOUT_SECONDS,
     on_progress: Callable[[str], None] | None = None,
+    missing_timeout_seconds: float | None = None,
 ) -> dict[str, Any]:
     url = "https://api.qianwen.com/assistant/api/record/list/poll?c=tongyi-web"
     payload = {
@@ -97,13 +99,17 @@ async def poll_until_done(
 
         loop_start = time.monotonic()
         last_report = 0.0
+        missing_started_at: float | None = None
         report_interval = 45.0  # 轮询每 5–7s 一次，但上报节流到 ~45s，避免 DB/广播风暴
         while True:
             response = await api_json(context, url, payload)
             data = response.get("data") or {}
+            found_record = False
             for batch in data.get("batchRecord", []):
                 for record in batch.get("recordList", []):
                     if record.get("genRecordId") == gen_record_id:
+                        found_record = True
+                        missing_started_at = None
                         status = record.get("recordStatus")
                         if status == 30:
                             return record
@@ -116,6 +122,16 @@ async def poll_until_done(
                                 f"转写错误 [{error_info.error_code}]: {error_info.message} - {error_info.suggestion}"
                             )
                             raise TranscribeError(error_info, detail=fail_reason)
+            if not found_record and missing_timeout_seconds is not None:
+                now = time.monotonic()
+                if missing_started_at is None:
+                    missing_started_at = now
+                if now - missing_started_at >= missing_timeout_seconds:
+                    error_info = TranscribeErrorClassifier.classify("record not found")
+                    raise TranscribeError(
+                        error_info,
+                        detail=f"转写记录不存在或已被删除 gen_record_id={gen_record_id}",
+                    )
             # 轮询心跳：把「已等待多久」节流上报给 UI，让进度不再僵在笼统文案。
             if on_progress is not None:
                 elapsed = time.monotonic() - loop_start
@@ -263,15 +279,17 @@ async def run_real_flow(
             except Exception:  # noqa: BLE001
                 logger.debug("on_stage 回调异常", exc_info=True)
 
-    def _checkpoint(stage: str, extra: dict[str, Any] | None = None) -> None:
+    def _checkpoint(stage: str, extra: dict[str, Any] | None = None) -> bool:
         if not run_id:
-            return
+            return False
         try:
             from media_tools.transcribe.repository import TranscribeRunRepository
 
             TranscribeRunRepository.update_stage(run_id, stage, extra)
+            return True
         except (sqlite3.Error, OSError) as exc:
             logger.warning(f"transcribe_runs 打卡失败 (run_id={run_id}, stage={stage}): {exc}")
+            return False
 
     def _poll_timeout_seconds() -> float:
         return float(
@@ -296,7 +314,7 @@ async def run_real_flow(
         except (RuntimeError, OSError, ValueError) as exc:
             logger.warning(f"resume 回退清理云端记录异常 record_id={old_record_id}: {exc}")
 
-    async def _safe_cleanup_failed_record(api: Any, record_id: str) -> None:
+    async def _safe_cleanup_failed_record(api: Any, record_id: str) -> bool:
         """_do_flow 失败兜底：清掉云端孤儿 recordId。
         和 _safe_cleanup_old_record 的区别：本函数在异常处理路径调用，对任何异常都吞掉
         (包括 CancelledError)，避免在外层 cancel 时把原始异常掩盖。"""
@@ -304,12 +322,32 @@ async def run_real_flow(
             ok = await delete_record(api, [record_id])
             if ok:
                 log(f"失败兜底：已清理云端孤儿 record_id={record_id}")
+                return True
             else:
                 logger.warning(f"失败兜底清理云端记录返回失败 record_id={record_id}")
         except BaseException as exc:
             logger.warning(f"失败兜底清理云端记录异常 record_id={record_id}: {exc}")
+        return False
+
+    def _clear_deleted_remote_checkpoint() -> None:
+        if not run_id:
+            return
+        try:
+            from media_tools.transcribe.repository import TranscribeRunRepository
+
+            TranscribeRunRepository.clear_remote_checkpoint(run_id)
+        except (sqlite3.Error, OSError) as exc:
+            logger.warning(f"清理本地远端断点失败 (run_id={run_id}): {exc}")
+
+    def _should_preserve_failed_remote_record(exc: BaseException) -> bool:
+        if isinstance(exc, TranscribeError):
+            error_code = (exc.error_info.error_code or "").upper()
+            if error_code in {"SERVICE_UNAVAILABLE", "UNSUPPORTED_FORMAT"}:
+                return False
+        return True
 
     async def _do_flow(api: Any) -> FlowResult:
+        remote_checkpoint_persisted = False
         log(f"Using file: {input_path}")
         log(f"File size: {stats.st_size}")
         log(f"quota upload remaining: {quota_before.remaining_upload}/{quota_before.total_upload}")
@@ -334,8 +372,8 @@ async def run_real_flow(
         log(f"genRecordId: {token['genRecordId']}")
         log(f"recordId: {token['recordId']}")
 
-        # 拿到 recordId 之后任何步骤失败（OSS 上传超时、record/start 失败、poll 超时、
-        # download 失败、cancel）都要清掉云端孤儿 recordId，否则千问账号"记录"列表会越积越多。
+        # 拿到 recordId 后，如果还没把断点写入 transcribe_runs，失败时需要清理远端记录，
+        # 否则千问账号"记录"列表会越积越多。断点已持久化后则优先保留给下一次续传。
         # 历史教训 v2026-05-26：5 文件 OSS 上传超时后，20 个 recordId 全部留在账号端。
         try:
             if account_upload_lock is None:
@@ -361,7 +399,7 @@ async def run_real_flow(
             )
             log("upload heartbeat sent")
 
-            _checkpoint(
+            remote_checkpoint_persisted = _checkpoint(
                 "uploaded",
                 {
                     "record_id": token["recordId"],
@@ -386,7 +424,9 @@ async def run_real_flow(
             batch_id = (start_json.get("data") or {}).get("batchId", "")
             log(f"started batchId={batch_id}")
 
-            _checkpoint("transcribing", {"batch_id": batch_id})
+            remote_checkpoint_persisted = (
+                _checkpoint("transcribing", {"batch_id": batch_id}) or remote_checkpoint_persisted
+            )
             _stage("已提交云端，等待转写…")
 
             completed_record = await poll_until_done(
@@ -403,12 +443,14 @@ async def run_real_flow(
                 {"recordIds": [token["recordId"]]},
             )
 
-            _checkpoint("exporting")
+            remote_checkpoint_persisted = _checkpoint("exporting") or remote_checkpoint_persisted
             _stage("导出字幕中…")
 
             export_url = await export_file(api, token["genRecordId"], export_config)
 
-            _checkpoint("downloading", {"export_url": export_url})
+            remote_checkpoint_persisted = (
+                _checkpoint("downloading", {"export_url": export_url}) or remote_checkpoint_persisted
+            )
             _stage("下载结果中…")
 
             run_stamp = now_stamp()
@@ -489,19 +531,28 @@ async def run_real_flow(
                 f"record_id={token.get('recordId')} gen_record_id={token.get('genRecordId')}"
             )
             raise
-        except BaseException:
-            # 兜底清理：失败时也调 delete_record，把云端孤儿干掉。
-            # 即使 should_delete=False（用户想保留成功记录），失败记录是没内容的噪音，应清掉。
+        except BaseException as exc:
+            # 兜底清理：尚未持久化断点的失败记录没有可恢复路径，应清掉。
+            # 已写入 transcribe_runs 的远端记录在普通网络/导出/下载失败后保留，
+            # 让下一次重试复用 gen_record_id，避免把可续传记录误删后继续空轮询。
             # shield 防止外层 cancel 把 cleanup 也打断；任何 cleanup 异常都吞掉，避免掩盖原始异常。
             orphan_record_id = token.get("recordId")
             if orphan_record_id:
-                try:
-                    await asyncio.shield(_safe_cleanup_failed_record(api, orphan_record_id))
-                except BaseException:
-                    logger.debug(
-                        f"failure-path cleanup orphan recordId={orphan_record_id} 异常忽略",
-                        exc_info=True,
+                if remote_checkpoint_persisted and _should_preserve_failed_remote_record(exc):
+                    log(
+                        f"失败后保留云端记录以便下次续传 "
+                        f"record_id={token.get('recordId')} gen_record_id={token.get('genRecordId')}"
                     )
+                else:
+                    try:
+                        cleanup_ok = await asyncio.shield(_safe_cleanup_failed_record(api, orphan_record_id))
+                        if cleanup_ok:
+                            _clear_deleted_remote_checkpoint()
+                    except BaseException:
+                        logger.debug(
+                            f"failure-path cleanup orphan recordId={orphan_record_id} 异常忽略",
+                            exc_info=True,
+                        )
             raise
 
     async def _try_resume_export_only(api: Any) -> FlowResult | None:
@@ -568,6 +619,7 @@ async def run_real_flow(
                 resume_state.gen_record_id,
                 timeout_seconds=_poll_timeout_seconds(),
                 on_progress=_stage,
+                missing_timeout_seconds=DEFAULT_RESUME_RECORD_MISSING_TIMEOUT_SECONDS,
             )
             log(f"resumed record completed with status={completed_record['recordStatus']}")
 
