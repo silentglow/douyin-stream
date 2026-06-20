@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   Search, Loader2, X, ArrowRight,
 } from 'lucide-react';
@@ -50,48 +49,54 @@ export default function Library() {
     autoCount,
   } = useLibraryDetail();
 
-  const [scouting, setScouting] = useState(false);
 
   return (
     <div className="h-full overflow-y-auto page-enter">
-      {/* ═══ MASTHEAD ═══════════════════════════════════════════ */}
-      <header className="px-10 pt-12 pb-9 border-b border-[var(--color-hairline)]">
-        <div className="flex items-end justify-between gap-10">
-          <div>
-            <div className="eyebrow mb-4">{creators.length} 位创作者在册</div>
-            <h1 className="font-display text-[clamp(48px,6.5vw,96px)] leading-[0.95] tracking-display text-[var(--color-bone)]">
+      {/* ═══ PRO HEADER ═══════════════════════════════════════════ */}
+      <header className="px-10 py-5 border-b border-[var(--color-hairline)] sticky top-0 z-10 backdrop-blur-md bg-[var(--color-ink)]/80">
+        <div className="flex items-center justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <h1 className="font-sans text-[20px] font-bold text-[var(--color-bone)]">
               内容库
             </h1>
-            <p className="mt-4 text-[15px] leading-[1.55] text-[var(--color-ash)] max-w-xl">
-              {totalAssets} 段影像在册 · <span className="text-[var(--color-bone)]">{totalTranscribed}</span> 段已转写 · <span className="text-[var(--color-rust)]">{autoCount}</span> 个自动同步
-            </p>
+            <div className="h-5 w-[1px] bg-[var(--color-hairline-strong)]" />
+            <div className="flex items-center gap-4 text-[13px] text-[var(--color-ash)] font-medium">
+              <div>
+                <span className="text-[var(--color-bone)] font-semibold">{totalAssets}</span> 影像
+              </div>
+              <div className="w-1 h-1 rounded-full bg-[var(--color-hairline-strong)]" />
+              <div>
+                <span className="text-[var(--color-bone)] font-semibold">{totalTranscribed}</span> 已转写
+              </div>
+              <div className="w-1 h-1 rounded-full bg-[var(--color-hairline-strong)]" />
+              <div>
+                <span className="text-[var(--color-rust)] font-semibold">{autoCount}</span> 自动同步
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 pb-2">
-            <button
-              onClick={() => { const el = document.getElementById('add-creator-input'); el?.focus(); }}
-              className="btn-sharp btn-primary"
-            >
-              + 添加创作者
-            </button>
+          <div className="flex items-center gap-3">
             <button
               onClick={handleSelectFolder}
               disabled={scanning}
-              className="btn-sharp"
+              className="btn-sharp py-1.5 px-4 text-[13px] bg-white hover:bg-black/5"
             >
               {scanning ? <Loader2 className="w-3.5 h-3.5 animate-spin inline mr-1" /> : null}
               本地上传
+            </button>
+            <button
+              onClick={() => { const el = document.getElementById('add-creator-input'); el?.focus(); }}
+              className="btn-sharp btn-primary py-1.5 px-4 text-[13px]"
+            >
+              + 添加创作者
             </button>
           </div>
         </div>
       </header>
 
-      {/* ═══ ADD / SCOUT — 粘贴、预览，然后 收录追踪 或 挑选下载 ═══ */}
-      <CreatorScout onActiveChange={setScouting} />
+      {/* ═══ ADD / SCOUT ═══ */}
+      <CreatorScout />
 
-      {/* ═══ ROSTER — 预览时隐藏，保持专注 ═══════════════════════ */}
-      {!scouting && (
-        <>
       {/* ═══ CONTROL STRIP ══════════════════════════════════════ */}
       <section className="px-10 py-5 border-b border-[var(--color-hairline)] flex items-center gap-8">
         {/* Search */}
@@ -187,8 +192,6 @@ export default function Library() {
           </div>
         )}
       </div>
-        </>
-      )}
 
       <LocalTranscribeModal
         isOpen={localTranscribeOpen}

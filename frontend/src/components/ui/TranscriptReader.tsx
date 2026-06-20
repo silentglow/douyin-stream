@@ -37,8 +37,8 @@ const IconBtn = ({ onClick, title, active, disabled, children }: {
     className={cn(
       'w-9 h-9 flex items-center justify-center rounded-lg border border-transparent transition-all duration-200',
       active
-        ? 'text-[var(--color-rust)] bg-[rgba(255,106,47,0.08)] border-[var(--color-rust)]/25'
-        : 'text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-white/5 hover:border-white/5',
+        ? 'text-[var(--color-rust)] bg-[rgba(0,113,227,0.08)] border-[var(--color-rust)]/25'
+        : 'text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/5 hover:border-black/5',
       disabled && 'opacity-30 cursor-not-allowed'
     )}
   >
@@ -382,7 +382,7 @@ export function TranscriptReader({
               </header>
 
               {/* Content */}
-              <div className="text-[var(--color-bone)] prose prose-invert max-w-none
+              <div className="text-[var(--color-bone)] prose dark:prose-invert max-w-none
                             prose-headings:font-display prose-headings:font-normal prose-headings:text-[var(--color-bone)]
                             prose-h1:text-[1.6em] prose-h2:text-[1.35em] prose-h3:text-[1.15em]
                             prose-p:text-[var(--color-bone)] prose-p:my-[0.9em] prose-p:leading-[inherit]

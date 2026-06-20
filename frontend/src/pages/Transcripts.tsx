@@ -86,8 +86,8 @@ export default function Transcripts() {
         {/* Masthead */}
         <div className="px-6 pt-8 pb-5 border-b border-[var(--color-hairline)] flex-shrink-0">
           <div className="eyebrow mb-2">{items.length} 篇 · {unreadCount} 未读 · {starredCount} 收藏</div>
-          <h1 className="font-display text-[44px] leading-[1] tracking-display text-[var(--color-bone)]">
-            文稿库
+          <h1 className="font-display text-[40px] leading-[1] tracking-display text-[var(--color-bone)]">
+            文稿库<span style={{ backgroundImage: 'var(--accent-grad)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', WebkitTextFillColor: 'transparent' }}>.</span>
           </h1>
         </div>
 
@@ -156,8 +156,8 @@ export default function Transcripts() {
                 className={cn(
                   'w-full text-left px-6 py-4 border-b border-[var(--color-hairline-faint)] transition-colors group relative',
                   selectedId === item.asset_id
-                    ? 'bg-[rgba(255,106,47,0.06)]'
-                    : 'hover:bg-[rgba(255,255,255,0.015)]'
+                    ? 'bg-[rgba(0,113,227,0.06)] dark:bg-[rgba(53,128,230,0.08)]'
+                    : 'hover:bg-black/[0.015] dark:hover:bg-white/[0.015]'
                 )}
               >
                 {/* Active rail */}
@@ -194,7 +194,7 @@ export default function Transcripts() {
                     </div>
                   </div>
                   {!item.is_read && (
-                    <span className="w-2 h-2 rounded-full bg-[var(--color-rust)] flex-shrink-0 mt-2 shadow-[0_0_8px_rgba(255,106,47,0.6)] animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-[var(--color-rust)] flex-shrink-0 mt-2 shadow-[0_0_8px_var(--ring)] animate-pulse" />
                   )}
                 </div>
               </button>

@@ -35,23 +35,23 @@ export function DeleteConfirmModal({
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-[var(--color-paper)] p-7 w-full max-w-md border border-[var(--color-iron)]/30"
+            className="bg-[rgba(23,21,19,0.92)] backdrop-blur-2xl p-7 w-full max-w-md border border-[var(--color-iron)]/30 rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="eyebrow text-[var(--color-iron)] mb-2">errata · destructive</div>
-            <h3 className="font-display text-[36px] text-[var(--color-bone)] leading-tight">
-              Remove from roster?
+            <div className="eyebrow text-[var(--color-iron)] mb-2">不可撤销</div>
+            <h3 className="font-sans font-bold text-[28px] text-[var(--color-bone)] leading-tight">
+              确认移除？
             </h3>
-            <p className="font-display text-[18px] text-[var(--color-ash)] mt-2">
-              <span className="text-[var(--color-bone)]">{deleteConfirm.nickname}</span> will no longer be subscribed.
+            <p className="text-[15px] text-[var(--color-ash)] mt-2">
+              <span className="text-[var(--color-bone)]">{deleteConfirm.nickname}</span> 将不再被追踪。
             </p>
 
             {deleteConfirm.assetCount > 0 && (
               <div className="mt-5 pt-5 border-t border-[var(--color-hairline)]">
                 <p className="text-[13px] text-[var(--color-ash)]">
-                  associated:{' '}
-                  <span className="font-display text-[22px] text-[var(--color-bone)] tabular">{deleteConfirm.assetCount}</span>{' '}
-                  archived films
+                  关联素材：{' '}
+                  <span className="font-sans font-bold text-[20px] text-[var(--color-bone)] tabular">{deleteConfirm.assetCount}</span>{' '}
+                  个文件
                 </p>
                 <label className="mt-3 flex items-center gap-3 cursor-pointer">
                   <input

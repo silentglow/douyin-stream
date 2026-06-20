@@ -80,7 +80,7 @@ export default function CreatorDetail() {
               {starredCount > 0 && <span> · {starredCount} 收藏</span>}
               {failedCount > 0 && <span className="text-[var(--color-iron)]"> · {failedCount} 失败</span>}
             </div>
-            <h1 className="font-display text-[clamp(40px,5.5vw,80px)] leading-[0.95] tracking-display text-[var(--color-bone)] truncate">
+            <h1 className="font-display text-[clamp(36px,5vw,68px)] leading-[1] tracking-display text-[var(--color-bone)] truncate">
               {isLocal ? '本地素材' : creator?.nickname ?? '创作者'}
             </h1>
           </div>

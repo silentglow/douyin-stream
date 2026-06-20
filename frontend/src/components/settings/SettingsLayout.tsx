@@ -44,7 +44,7 @@ export function SettingsItem({
           else if (onClick) onClick();
         }}
         className={cn(
-          "flex items-center justify-between px-5 py-4 cursor-pointer transition-colors hover:bg-white/[0.02]",
+          "flex items-center justify-between px-5 py-4 cursor-pointer transition-colors hover:bg-black/[0.02]",
           !hasChildren && !onClick && "cursor-default hover:bg-transparent"
         )}
       >

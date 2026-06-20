@@ -36,30 +36,30 @@ export function CreatorActionMenuModal({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="bg-[var(--color-paper)] w-full sm:max-w-sm sm:mx-4 border border-[var(--color-hairline-strong)] overflow-hidden"
+            className="bg-[rgba(23,21,19,0.92)] backdrop-blur-2xl w-full sm:max-w-sm sm:mx-4 border border-black/10 rounded-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-5 border-b border-[var(--color-hairline)]">
-              <div className="eyebrow mb-1">creator dossier</div>
-              <div className="font-display text-[22px] text-[var(--color-bone)] truncate">{creator.nickname}</div>
+              <div className="eyebrow mb-1">创作者</div>
+              <div className="font-sans font-semibold text-[20px] text-[var(--color-bone)] truncate">{creator.nickname}</div>
             </div>
             <div>
               <button
                 onClick={onSync}
-                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-[rgba(243,238,219,0.03)] transition-colors text-left border-b border-[var(--color-hairline-faint)] group"
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-black/[0.04] transition-colors text-left border-b border-[var(--color-hairline-faint)] group"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-[var(--color-rust)]" />
-                <span className="font-display text-[18px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">立即同步</span>
+                <RefreshCw className="w-4 h-4 text-[var(--color-rust)]" />
+                <span className="text-[15px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">立即同步</span>
               </button>
               <button
                 onClick={onFullSync}
-                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-[rgba(243,238,219,0.03)] transition-colors text-left border-b border-[var(--color-hairline-faint)] group"
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-black/[0.04] transition-colors text-left border-b border-[var(--color-hairline-faint)] group"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-[var(--color-rust)]" />
-                <span className="font-display text-[18px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">全量重拉</span>
+                <RefreshCw className="w-4 h-4 text-[var(--color-rust)]" />
+                <span className="text-[15px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">全量重拉</span>
               </button>
               <div className="w-full flex items-center justify-between px-5 py-4 border-b border-[var(--color-hairline-faint)]">
-                <span className="font-display text-[18px] text-[var(--color-bone)]">自动同步</span>
+                <span className="text-[15px] text-[var(--color-bone)]">自动同步</span>
                 <Switch
                   checked={isAutoSync}
                   onCheckedChange={onToggleAutoSync}
@@ -67,14 +67,14 @@ export function CreatorActionMenuModal({
               </div>
               <button
                 onClick={onDelete}
-                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-[rgba(178,89,80,0.08)] transition-colors text-left group"
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-[rgba(239,68,68,0.08)] transition-colors text-left group"
               >
-                <Trash2 className="w-3.5 h-3.5 text-[var(--color-iron)]" />
-                <span className="font-display text-[18px] text-[var(--color-iron)]">删除创作者</span>
+                <Trash2 className="w-4 h-4 text-[var(--color-iron)]" />
+                <span className="text-[15px] text-[var(--color-iron)]">删除创作者</span>
               </button>
             </div>
             <div className="p-3 border-t border-[var(--color-hairline)]">
-              <button onClick={onClose} className="w-full btn-sharp">cancel · 取消</button>
+              <button onClick={onClose} className="w-full btn-sharp">取消</button>
             </div>
           </motion.div>
         </motion.div>

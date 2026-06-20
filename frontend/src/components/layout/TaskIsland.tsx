@@ -163,10 +163,10 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
         className={cn(
           'fixed bottom-6 right-6 z-40 flex items-center justify-center transition-all duration-300 shadow-[0_12px_40px_rgba(0,0,0,0.5)] border cursor-pointer select-none outline-none',
           activeTasks.length > 0
-            ? 'h-10 px-4 rounded-full bg-[var(--color-paper)] border-white/[0.08] hover:border-[var(--color-rust)]/35 text-[var(--color-bone)] gap-2.5'
+            ? 'h-10 px-4 rounded-full bg-[var(--color-paper)] border-black/[0.08] hover:border-[var(--color-rust)]/35 text-[var(--color-bone)] gap-2.5'
             : failedCount > 0
               ? 'h-10 w-10 rounded-full bg-[rgba(239,68,68,0.1)] border-red-500/25 hover:border-red-500/40 text-red-400'
-              : 'h-10 w-10 rounded-full bg-[var(--color-paper)]/40 hover:bg-[var(--color-paper)]/70 backdrop-blur-md border-white/[0.04] hover:border-white/[0.08] text-[var(--color-smoke)] hover:text-[var(--color-bone)]'
+              : 'h-10 w-10 rounded-full bg-[var(--color-paper)]/40 hover:bg-[var(--color-paper)]/70 backdrop-blur-md border-black/[0.04] hover:border-black/[0.08] text-[var(--color-smoke)] hover:text-[var(--color-bone)]'
         )}
         title={activeTasks.length > 0 ? `${activeTasks.length} 项任务运行中...` : '任务中心 (⌘5)'}
       >
@@ -228,7 +228,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 15, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-            className="fixed bottom-20 right-6 z-40 w-[380px] max-w-[calc(100vw-3rem)] bg-[var(--color-paper)]/95 backdrop-blur-2xl border border-white/[0.06] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex flex-col overflow-hidden max-h-[460px]"
+            className="fixed bottom-20 right-6 z-40 w-[380px] max-w-[calc(100vw-3rem)] bg-[var(--color-paper)]/95 backdrop-blur-2xl border border-black/[0.06] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex flex-col overflow-hidden max-h-[460px]"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-hairline)] flex-shrink-0">
@@ -243,14 +243,14 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
               
               <button
                 onClick={onClose}
-                className="p-1 rounded-md hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] transition-colors cursor-pointer"
+                className="p-1 rounded-md hover:bg-black/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] transition-colors cursor-pointer"
               >
                 <X className="size-4" />
               </button>
             </div>
 
             {/* Filter controls */}
-            <div className="px-5 py-2.5 flex items-center justify-between gap-4 border-b border-[var(--color-hairline)] bg-white/[0.005] flex-shrink-0">
+            <div className="px-5 py-2.5 flex items-center justify-between gap-4 border-b border-[var(--color-hairline)] bg-black/[0.005] flex-shrink-0">
               <div className="flex items-center gap-1.5">
                 {FILTER_TABS.map((tab) => (
                   <button
@@ -259,7 +259,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                     className={cn(
                       'px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer',
                       filter === tab.key
-                        ? 'bg-white/5 text-[var(--color-rust)]'
+                        ? 'bg-black/5 text-[var(--color-rust)]'
                         : 'text-[var(--color-smoke)] hover:text-[var(--color-bone)]'
                     )}
                   >
@@ -272,7 +272,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                 <button
                   onClick={() => setSortBy(s => s === 'time' ? 'priority' : 'time')}
                   title="切换排序"
-                  className="p-1 rounded-md border border-white/5 bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] hover:bg-white/10 transition-all cursor-pointer"
+                  className="p-1 rounded-md border border-black/5 bg-black/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] hover:bg-black/10 transition-all cursor-pointer"
                 >
                   <ArrowUpDown className="size-3.5" />
                 </button>
@@ -330,8 +330,8 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                       className={cn(
                         'relative overflow-hidden p-3 rounded-xl border flex flex-col justify-between transition-all duration-200 group',
                         isRunning
-                          ? 'bg-white/[0.015] border-white/[0.04]'
-                          : 'bg-transparent border-transparent hover:bg-white/[0.005]'
+                          ? 'bg-black/[0.015] border-black/[0.04]'
+                          : 'bg-transparent border-transparent hover:bg-black/[0.005]'
                       )}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -346,7 +346,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                           ) : isSuccess ? (
                             <CheckCircle2 className="size-4 text-[var(--color-patina)]" strokeWidth={2} />
                           ) : (
-                            <div className="size-2 rounded-full bg-white/20 mt-1" />
+                            <div className="size-2 rounded-full bg-black/20 mt-1" />
                           )}
                         </div>
 
@@ -370,7 +370,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                               <button
                                 onClick={() => handleCancel(task)}
                                 title="停止任务"
-                                className="p-1 rounded-md hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-iron)] cursor-pointer"
+                                className="p-1 rounded-md hover:bg-black/5 text-[var(--color-smoke)] hover:text-[var(--color-iron)] cursor-pointer"
                               >
                                 <Square className="size-3" strokeWidth={2.5} />
                               </button>
@@ -381,7 +381,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                                 <button
                                   onClick={() => handleRetry(task)}
                                   title={isPartial ? '只重试失败子任务' : '重试任务'}
-                                  className="p-1 rounded-md hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] cursor-pointer"
+                                  className="p-1 rounded-md hover:bg-black/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] cursor-pointer"
                                 >
                                   <RotateCw className="size-3.5" />
                                 </button>
@@ -408,7 +408,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
 
                       {/* Thin Progress bar for running tasks */}
                       {isRunning && (
-                        <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-white/[0.03] overflow-hidden">
+                        <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-black/[0.03] overflow-hidden">
                           <div
                             className="h-full bg-[var(--color-rust)] transition-all duration-300"
                             style={{ width: `${pct}%` }}
@@ -418,7 +418,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
 
                       {/* 文件级明细：运行中显示每个文件的实时阶段，完成后显示成/败结果 */}
                       {showFileRows && (
-                        <div className="mt-2 pl-7 pr-1 space-y-1 max-h-32 overflow-y-auto border-l border-white/[0.03]">
+                        <div className="mt-2 pl-7 pr-1 space-y-1 max-h-32 overflow-y-auto border-l border-black/[0.03]">
                           {fileRows.map((sub, idx) => {
                             const ok = sub?.status === 'completed';
                             const bad = sub?.status === 'failed';
@@ -451,9 +451,9 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                                 ) : running ? (
                                   <Loader2 className="size-2.5 shrink-0 mt-[2px] animate-spin text-[var(--color-rust)]" />
                                 ) : skipped ? (
-                                  <div className="size-2 shrink-0 mt-[3px] rounded-full bg-white/15" />
+                                  <div className="size-2 shrink-0 mt-[3px] rounded-full bg-black/15" />
                                 ) : (
-                                  <div className="size-2 shrink-0 mt-[3px] rounded-full bg-white/25" />
+                                  <div className="size-2 shrink-0 mt-[3px] rounded-full bg-black/25" />
                                 )}
                                 <span className="truncate text-[var(--color-smoke)] flex-1" title={fileName}>
                                   {fileName}

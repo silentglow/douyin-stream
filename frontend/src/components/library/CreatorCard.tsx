@@ -34,33 +34,41 @@ export function CreatorCard({
       <div>
         {/* Auto/manual badge */}
         <div className="flex justify-between items-center mb-3">
-          <span className="text-[10px] font-bold tracking-widest text-[var(--color-smoke)] uppercase">
+          <span className="font-mono text-[11px] text-[var(--color-smoke)]">
             #{creator.uid.slice(0, 6)}
           </span>
           <span className={cn(
-            'text-[10.5px] font-semibold tracking-wider px-2 py-0.5 rounded-full',
-            creator.auto_sync ? 'text-[var(--color-rust)] bg-[rgba(255,106,47,0.08)]' : 'text-[var(--color-smoke)] bg-white/5'
+            'text-[11px] font-medium px-2.5 py-0.5 rounded-full',
+            creator.auto_sync ? 'text-[var(--color-rust)] bg-[rgba(0,113,227,0.10)]' : 'text-[var(--color-smoke)] bg-black/5 dark:bg-white/5'
           )}>
             {creator.auto_sync ? '自动' : '手动'}
           </span>
         </div>
 
         {/* Name */}
-        <div className="font-sans font-semibold text-[17px] text-[var(--color-bone)] leading-snug group-hover:text-[var(--color-rust)] transition-colors line-clamp-2 pr-6">
+        <div className="font-sans font-semibold text-[16px] text-[var(--color-bone)] leading-snug group-hover:text-[var(--color-rust)] transition-colors line-clamp-2 pr-6">
           {creator.nickname || '未命名'}
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="mt-4 pt-3 border-t border-[var(--color-hairline-faint)] flex items-baseline justify-between">
-        <span className="text-[12.5px] text-[var(--color-ash)]">
-          <span className="font-sans font-bold text-[16px] text-[var(--color-bone)] mr-1 tabular">{creator.asset_count || 0}</span>
-          视频
-        </span>
-        <span className="text-[12.5px] text-[var(--color-ash)]">
-          <span className="font-sans font-bold text-[16px] text-[var(--color-rust)] mr-1 tabular">{creator.transcript_completed_count || 0}</span>
-          文稿
-        </span>
+      {/* Stats & Progress */}
+      <div className="mt-4 pt-3 border-t border-[var(--color-hairline)] flex flex-col gap-2.5">
+        <div className="flex items-baseline justify-between">
+          <span className="text-[12px] text-[var(--color-ash)] font-medium">
+            <span className="font-sans font-semibold text-[14px] text-[var(--color-bone)] mr-1 tabular text-[var(--color-bone)]">{creator.asset_count || 0}</span>
+            视频
+          </span>
+          <span className="text-[12px] text-[var(--color-ash)] font-medium">
+            <span className="font-sans font-semibold text-[14px] mr-1 tabular text-[var(--color-rust)]">{creator.transcript_completed_count || 0}</span>
+            文稿
+          </span>
+        </div>
+        <div className="w-full h-1.5 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-[var(--color-rust)] rounded-full transition-all duration-500 ease-out" 
+            style={{ width: `${Math.min(100, creator.asset_count ? ((creator.transcript_completed_count || 0) / creator.asset_count) * 100 : 0)}%` }}
+          />
+        </div>
       </div>
 
       {/* Hover actions */}
@@ -68,7 +76,7 @@ export function CreatorCard({
         <button
           onClick={onSync}
           disabled={isSyncing || isDeleting}
-          className="w-8 h-8 flex items-center justify-center bg-[var(--color-vellum)] border border-[var(--color-hairline-strong)] rounded-lg hover:border-[var(--color-rust)] hover:text-[var(--color-rust)] transition-colors text-[var(--color-ash)] shadow-sm"
+          className="w-8 h-8 flex items-center justify-center bg-white/95 dark:bg-zinc-800/95 backdrop-blur border border-[var(--color-hairline-strong)] dark:border-white/10 rounded-[10px] hover:border-[var(--color-rust)] hover:text-[var(--color-rust)] transition-all text-[var(--color-ash)] shadow-sm active:scale-90"
           title="同步"
         >
           {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
@@ -76,7 +84,7 @@ export function CreatorCard({
         <button
           onClick={onMore}
           disabled={isDeleting}
-          className="w-8 h-8 flex items-center justify-center bg-[var(--color-vellum)] border border-[var(--color-hairline-strong)] rounded-lg hover:border-[var(--color-rust)] hover:text-[var(--color-rust)] transition-colors text-[var(--color-ash)] shadow-sm"
+          className="w-8 h-8 flex items-center justify-center bg-white/95 dark:bg-zinc-800/95 backdrop-blur border border-[var(--color-hairline-strong)] dark:border-white/10 rounded-[10px] hover:border-[var(--color-rust)] hover:text-[var(--color-rust)] transition-all text-[var(--color-ash)] shadow-sm active:scale-90"
           title="更多"
         >
           {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <MoreHorizontal className="w-4 h-4" />}

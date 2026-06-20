@@ -18,7 +18,7 @@ export function DirectLinkCard({
 }: DirectLinkCardProps) {
   return (
     <div className="max-w-xl">
-      <div className="border border-[var(--color-hairline-strong)] p-6">
+      <div className="bg-black/[0.04] backdrop-blur border border-black/10 rounded-2xl p-6">
         <div className="flex items-center gap-3 mb-4">
           <span className="mono-cap text-[var(--color-rust)]">
             {PLATFORM_LABEL[linkInfo.platform]}

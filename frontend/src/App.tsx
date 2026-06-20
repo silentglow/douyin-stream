@@ -66,7 +66,7 @@ function App() {
   }, [lastCompletedTaskTime, fetchCreators]);
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark">
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <ErrorBoundary>
         <BrowserRouter>
           <Routes>

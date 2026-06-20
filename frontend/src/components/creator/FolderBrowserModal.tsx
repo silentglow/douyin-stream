@@ -32,13 +32,13 @@ export function FolderBrowserModal({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="bg-[var(--color-paper)] w-full sm:max-w-lg sm:mx-4 border border-[var(--color-hairline-strong)] overflow-hidden max-h-[70vh] flex flex-col"
+            className="bg-[rgba(23,21,19,0.92)] backdrop-blur-2xl w-full sm:max-w-lg sm:mx-4 border border-black/10 rounded-2xl overflow-hidden max-h-[70vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-5 border-b border-[var(--color-hairline)] flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="eyebrow mb-1">关联文件夹</div>
-                <div className="font-display text-[20px] text-[var(--color-bone)] truncate">{assetTitle}</div>
+                <div className="font-sans font-semibold text-[18px] text-[var(--color-bone)] truncate">{assetTitle}</div>
                 <div className="mono-cap mt-1 truncate">{data?.path || '加载中...'}</div>
               </div>
               <button onClick={onClose} className="text-[var(--color-smoke)] hover:text-[var(--color-rust)] flex-shrink-0">
@@ -55,13 +55,13 @@ export function FolderBrowserModal({
                 <div className="py-12 text-center text-[13px] text-[var(--color-ash)]">文件夹为空</div>
               )}
               {!loading && data && data.files.map((file) => (
-                <div key={file.name} className="flex items-center gap-3 px-5 py-3 border-b border-[var(--color-hairline-faint)] last:border-b-0 hover:bg-[rgba(243,238,219,0.025)] transition-colors">
-                  <FileText className="w-3.5 h-3.5 text-[var(--color-ash)] shrink-0" strokeWidth={1.5} />
+                <div key={file.name} className="flex items-center gap-3 px-5 py-3 border-b border-[var(--color-hairline-faint)] last:border-b-0 hover:bg-black/[0.03] transition-colors">
+                  <FileText className="w-4 h-4 text-[var(--color-ash)] shrink-0" strokeWidth={1.5} />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] truncate text-[var(--color-bone)] font-mono">{file.name}</div>
                     <div className="mono-cap mt-0.5">{(file.size / 1024).toFixed(1)} KB</div>
                   </div>
-                  <span className="mono-cap shrink-0 uppercase">{file.suffix.replace('.', '')}</span>
+                  <span className="mono-cap shrink-0">{file.suffix.replace('.', '')}</span>
                 </div>
               ))}
             </div>

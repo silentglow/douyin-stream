@@ -6,27 +6,27 @@ import type { Asset } from '@/types';
 export function StatusLabel({ status, error }: { status: string; error?: string | null }) {
   if (status === 'completed') {
     return (
-      <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-patina)] tracking-[0.16em] uppercase">
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-patina)] px-2 py-0.5 rounded-full bg-[rgba(16,185,129,0.10)]">
         <span className="status-dot bg-[var(--color-patina)]" />已转写
       </span>
     );
   }
   if (status === 'failed' || error) {
     return (
-      <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-iron)] tracking-[0.16em] uppercase max-w-[160px] truncate">
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-iron)] px-2 py-0.5 rounded-full bg-[rgba(239,68,68,0.10)] max-w-[160px] truncate">
         <span className="status-dot bg-[var(--color-iron)]" />失败
       </span>
     );
   }
   if (status === 'pending' || status === 'queued' || status === 'none' || !status) {
     return (
-      <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-smoke)] tracking-[0.16em] uppercase">
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-smoke)] px-2 py-0.5 rounded-full bg-black/5">
         <span className="status-dot bg-[var(--color-smoke)]" />待转写
       </span>
     );
   }
   return (
-    <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-rust)] tracking-[0.16em] uppercase">
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-rust)] px-2 py-0.5 rounded-full bg-[rgba(0,113,227,0.10)]">
       <span className="status-dot bg-[var(--color-rust)] pulse-dot" />转写中
     </span>
   );
@@ -51,7 +51,7 @@ export const AssetListItem = memo(function AssetListItem({
       className={cn(
         'grid grid-cols-[auto_1fr_auto] items-center gap-4 px-6 py-4 border-b border-[var(--color-hairline-faint)] transition-colors group relative',
         canView || bulkMode ? 'cursor-pointer' : 'cursor-default',
-        isSelected ? 'bg-[rgba(255,106,47,0.06)]' : 'hover:bg-[rgba(255,255,255,0.015)]',
+        isSelected ? 'bg-[rgba(0,113,227,0.06)] dark:bg-[rgba(53,128,230,0.08)]' : 'hover:bg-black/[0.015] dark:hover:bg-white/[0.025]',
         asset.transcript_status === 'failed' && 'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2.5px] before:bg-[var(--color-iron)]'
       )}
       onClick={() => {
@@ -76,7 +76,7 @@ export const AssetListItem = memo(function AssetListItem({
       ) : (
         <div className="w-4 flex-shrink-0">
           {!asset.is_read && asset.transcript_status === 'completed' && (
-            <span className="w-2 h-2 rounded-full bg-[var(--color-rust)] block shadow-[0_0_8px_rgba(255,106,47,0.6)] animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-[var(--color-rust)] block shadow-[0_0_8px_var(--ring)] animate-pulse" />
           )}
         </div>
       )}
@@ -88,7 +88,7 @@ export const AssetListItem = memo(function AssetListItem({
             <Star className="w-3.5 h-3.5 text-[var(--color-ember)] fill-[var(--color-ember)] flex-shrink-0 self-center" />
           )}
           <div className={cn(
-            'font-sans font-medium text-[15.5px] leading-snug line-clamp-1 transition-colors',
+            'font-sans font-medium text-[15px] leading-snug line-clamp-1 transition-colors',
             canView
               ? 'text-[var(--color-bone)] group-hover:text-[var(--color-rust)]'
               : 'text-[var(--color-ash)]'
@@ -116,14 +116,14 @@ export const AssetListItem = memo(function AssetListItem({
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={(e) => onToggleStar(asset, e)}
-              className="w-8 h-8 rounded-lg bg-white/[0.02] border border-transparent hover:border-[var(--color-hairline)] flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-ember)] transition-all shadow-sm"
+              className="w-8 h-8 rounded-lg bg-black/[0.02] dark:bg-white/[0.03] border border-transparent hover:border-[var(--color-hairline)] dark:hover:border-white/10 flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-ember)] transition-all shadow-sm"
               title={asset.is_starred ? '取消收藏' : '收藏'}
             >
               <Star className={cn('w-4 h-4', asset.is_starred && 'fill-[var(--color-ember)] text-[var(--color-ember)]')} strokeWidth={1.5} />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onOpenMenu(asset); }}
-              className="w-8 h-8 rounded-lg bg-white/[0.02] border border-transparent hover:border-[var(--color-hairline)] flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-rust)] transition-all shadow-sm"
+              className="w-8 h-8 rounded-lg bg-black/[0.02] dark:bg-white/[0.03] border border-transparent hover:border-[var(--color-hairline)] dark:hover:border-white/10 flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-rust)] transition-all shadow-sm"
               title="更多"
             >
               <MoreHorizontal className="w-4 h-4" strokeWidth={1.5} />

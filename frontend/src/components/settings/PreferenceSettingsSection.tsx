@@ -63,7 +63,7 @@ export function PreferenceSettingsSection({
                 "px-3 py-2 rounded-lg text-sm font-medium transition-all",
                 exportFormat === fmt.value
                   ? "bg-accent text-white"
-                  : "bg-sunken text-fg-primary hover:bg-white/[0.04]"
+                  : "bg-sunken text-fg-primary hover:bg-black/[0.04]"
               )}
             >
               {fmt.label}

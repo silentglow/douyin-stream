@@ -88,12 +88,15 @@ export default function Settings() {
   const bilibiliReady = (settings?.status_summary.bilibili_accounts_count ?? 0) > 0;
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="h-14 flex items-center px-6 flex-shrink-0">
-        <h1 className="text-lg font-bold tracking-tight">设置</h1>
-      </div>
+    <div className="h-full overflow-y-auto page-enter">
+      {/* ═══ PRO HEADER ═══════════════════════════════════════════ */}
+      <header className="px-10 py-5 border-b border-[var(--color-hairline)] sticky top-0 z-10 backdrop-blur-md bg-[var(--color-ink)]/80">
+        <h1 className="font-sans text-[20px] font-bold text-[var(--color-bone)]">
+          系统设置
+        </h1>
+      </header>
 
-      <div className="px-6 pb-8 max-w-xl">
+      <div className="px-10 py-8 max-w-xl">
         {/* Account Settings Section */}
         <AccountSettingsSection
           settings={settings}
@@ -179,7 +182,7 @@ export default function Settings() {
 
         {/* System */}
         <div className="mb-6">
-          <div className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider mb-3">
+          <div className="text-[12px] font-semibold text-fg-muted tracking-wide mb-3">
             系统
           </div>
           <div className="bg-surface rounded-xl border border-border-subtle overflow-hidden divide-y divide-border-subtle">
@@ -230,7 +233,7 @@ export default function Settings() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-fg-primary">删除确认</h3>
-                <button onClick={() => setConfirmDelete(null)} className="p-1.5 rounded-lg hover:bg-white/[0.04] active:scale-[0.92] transition-colors">
+                <button onClick={() => setConfirmDelete(null)} className="p-1.5 rounded-lg hover:bg-black/[0.04] active:scale-[0.92] transition-colors">
                   <X className="w-4 h-4 text-fg-muted" />
                 </button>
               </div>
@@ -240,7 +243,7 @@ export default function Settings() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmDelete(null)}
-                  className="flex-1 py-2.5 rounded-lg bg-sunken text-sm font-medium hover:bg-white/[0.04] transition-colors text-fg-primary"
+                  className="flex-1 py-2.5 rounded-lg bg-sunken text-sm font-medium hover:bg-black/[0.04] transition-colors text-fg-primary"
                 >
                   取消
                 </button>
