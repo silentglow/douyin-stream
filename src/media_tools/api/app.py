@@ -1,12 +1,14 @@
 import asyncio
 import logging
+import os
 import sqlite3
 from contextlib import asynccontextmanager, suppress
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from media_tools.api.routers import assets, creators, douyin, metrics, scheduler, search, settings, tasks
@@ -284,10 +286,6 @@ def health_check():
 
 
 # Serve frontend static files in Docker/Production if built
-import os
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-
 frontend_dist = os.getenv("FRONTEND_DIST_DIR", "/app/frontend/dist")
 if os.path.exists(frontend_dist):
     # Mount /assets specifically so StaticFiles can handle content-types and caching
