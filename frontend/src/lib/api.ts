@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { toast } from 'sonner';
 
-const API_ORIGIN = import.meta.env.VITE_API_ORIGIN ?? 'http://localhost:8000';
+const API_ORIGIN = import.meta.env.VITE_API_ORIGIN
+  ?? (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000');
 export const API_BASE_URL = `${API_ORIGIN.replace(/\/$/, '')}/api/v1`;
 export const API_WS_URL = `${API_ORIGIN.replace(/^http/, 'ws').replace(/\/$/, '')}/api/v1/tasks/ws`;
 

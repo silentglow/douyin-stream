@@ -1,6 +1,6 @@
 version: "3.8"
 services:
-  backend:
+  app:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
@@ -9,6 +9,7 @@ services:
     volumes:
       - ../data:/app/data
       - ../config:/app/config
+      - ../downloads:/app/downloads
     env_file:
       - ../.env
     restart: unless-stopped

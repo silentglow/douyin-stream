@@ -283,5 +283,41 @@ def health_check():
     return result
 
 
+# Serve frontend static files in Docker/Production if built
+import os
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+frontend_dist = os.getenv("FRONTEND_DIST_DIR", "/app/frontend/dist")
+if os.path.exists(frontend_dist):
+    # Mount /assets specifically so StaticFiles can handle content-types and caching
+    assets_dir = os.path.join(frontend_dist, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/{fallback_path:path}")
+    def spa_fallback(fallback_path: str):
+        # If the path matches an actual file in dist (e.g. logo.png, favicon.ico), serve it
+        target_file = os.path.join(frontend_dist, fallback_path)
+        if os.path.exists(target_file) and os.path.isfile(target_file):
+            return FileResponse(target_file)
+
+        # Do not fallback for API requests
+        if (
+            fallback_path.startswith("api/")
+            or fallback_path.startswith("docs")
+            or fallback_path.startswith("redoc")
+            or fallback_path == "openapi.json"
+        ):
+            raise HTTPException(status_code=404, detail="Not Found")
+
+        # Otherwise fallback to index.html for SPA routing
+        index_file = os.path.join(frontend_dist, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+
+        raise HTTPException(status_code=404, detail="Not Found")
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
