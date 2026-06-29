@@ -83,9 +83,9 @@ export default function Settings() {
     );
   }
 
-  const qwenReady = settings?.status_summary.qwen_ready ?? false;
-  const douyinReady = settings?.status_summary.douyin_ready ?? false;
-  const bilibiliReady = (settings?.status_summary.bilibili_accounts_count ?? 0) > 0;
+  const qwenReady = settings?.status_summary?.qwen_ready ?? false;
+  const douyinReady = settings?.status_summary?.douyin_ready ?? false;
+  const bilibiliReady = (settings?.status_summary?.bilibili_accounts_count ?? 0) > 0;
 
   return (
     <div className="h-full overflow-y-auto page-enter">

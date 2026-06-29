@@ -25,8 +25,14 @@ export const createAssetSlice: StateCreator<StoreState, [], [], AssetSlice> = (s
     const promise = (async () => {
       try {
         const data = await getAssets();
-        set({ assets: data, assetsLoadedAt: Date.now(), _fetchingAssets: null });
-        return data;
+        if (Array.isArray(data)) {
+          set({ assets: data, assetsLoadedAt: Date.now(), _fetchingAssets: null });
+          return data;
+        } else {
+          console.error('getAssets returned non-array data:', data);
+          set({ _fetchingAssets: null });
+          return get().assets;
+        }
       } catch (error) {
         console.error('Failed to fetch assets', error);
         set({ _fetchingAssets: null });

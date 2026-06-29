@@ -91,7 +91,7 @@ export function useSettings() {
 
   // Load Qwen quota
   const loadQwenStatus = useCallback(async () => {
-    if (!settings?.status_summary.qwen_ready) return;
+    if (!settings?.status_summary?.qwen_ready) return;
     setIsLoadingQwenStatus(true);
     setQwenStatusError('');
     try {
@@ -112,7 +112,7 @@ export function useSettings() {
     } finally {
       setIsLoadingQwenStatus(false);
     }
-  }, [settings?.status_summary.qwen_ready, settings?.qwen_accounts]);
+  }, [settings?.status_summary?.qwen_ready, settings?.qwen_accounts]);
 
   useEffect(() => { loadQwenStatus(); }, [loadQwenStatus]);
 

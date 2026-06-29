@@ -174,20 +174,24 @@ export const createTaskSlice: StateCreator<StoreState, [], [], TaskSlice> = (set
     fetchTasksPromise = (async () => {
       try {
         const history = await getTaskHistory();
-        set((state) => {
-          const historyMap = new Map(history.map((t) => [t.task_id, t]));
-          // 保留 store 中 WS 已有但 REST 未返回的任务（正在运行中尚未持久化）
-          const wsOnlyTasks = state.tasks.filter((t) => !historyMap.has(t.task_id));
-          // REST 返回的任务：优先用 WS 的实时进度
-          const merged = history.map((t) => {
-            const wsTask = state.tasks.find((s) => s.task_id === t.task_id);
-            if (wsTask && wsTask.update_time && t.update_time) {
-              return new Date(wsTask.update_time) > new Date(t.update_time) ? wsTask : t;
-            }
-            return wsTask && wsTask.progress > t.progress ? wsTask : t;
+        if (Array.isArray(history)) {
+          set((state) => {
+            const historyMap = new Map(history.map((t) => [t.task_id, t]));
+            // 保留 store 中 WS 已有但 REST 未返回的任务（正在运行中尚未持久化）
+            const wsOnlyTasks = state.tasks.filter((t) => !historyMap.has(t.task_id));
+            // REST 返回的任务：优先用 WS 的实时进度
+            const merged = history.map((t) => {
+              const wsTask = state.tasks.find((s) => s.task_id === t.task_id);
+              if (wsTask && wsTask.update_time && t.update_time) {
+                return new Date(wsTask.update_time) > new Date(t.update_time) ? wsTask : t;
+              }
+              return wsTask && wsTask.progress > t.progress ? wsTask : t;
+            });
+            return { tasks: [...merged, ...wsOnlyTasks] };
           });
-          return { tasks: [...merged, ...wsOnlyTasks] };
-        });
+        } else {
+          console.error('getTaskHistory returned non-array:', history);
+        }
       } catch (error) {
         console.error('Failed to fetch initial task history', error);
       } finally {

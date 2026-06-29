@@ -19,8 +19,14 @@ export const createSettingsSlice: StateCreator<StoreState, [], [], SettingsSlice
     const promise = (async () => {
       try {
         const data = await getSettings();
-        set({ settings: data, _fetchingSettings: null });
-        return data;
+        if (data && typeof data === 'object' && 'status_summary' in data) {
+          set({ settings: data, _fetchingSettings: null });
+          return data;
+        } else {
+          console.error('getSettings returned invalid data:', data);
+          set({ _fetchingSettings: null });
+          return undefined;
+        }
       } catch (error) {
         console.error('Failed to fetch settings', error);
         set({ _fetchingSettings: null });

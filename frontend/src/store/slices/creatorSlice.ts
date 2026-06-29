@@ -25,8 +25,14 @@ export const createCreatorSlice: StateCreator<StoreState, [], [], CreatorSlice> 
     const promise = (async () => {
       try {
         const data = await getCreators();
-        set({ creators: data, creatorsLoadedAt: Date.now(), _fetchingCreators: null });
-        return data;
+        if (Array.isArray(data)) {
+          set({ creators: data, creatorsLoadedAt: Date.now(), _fetchingCreators: null });
+          return data;
+        } else {
+          console.error('getCreators returned non-array data:', data);
+          set({ _fetchingCreators: null });
+          return get().creators;
+        }
       } catch (error) {
         console.error('Failed to fetch creators', error);
         set({ _fetchingCreators: null });
