@@ -32,7 +32,7 @@ export function FolderBrowserModal({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="bg-[rgba(23,21,19,0.92)] backdrop-blur-2xl w-full sm:max-w-lg sm:mx-4 border border-black/10 rounded-2xl overflow-hidden max-h-[70vh] flex flex-col"
+            className="bg-[var(--color-paper)]/95 backdrop-blur-2xl w-full sm:max-w-lg sm:mx-4 border border-[var(--color-hairline-strong)] rounded-2xl overflow-hidden max-h-[70vh] flex flex-col shadow-[0_24px_64px_rgba(0,0,0,0.4)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-5 border-b border-[var(--color-hairline)] flex items-start justify-between gap-3">
@@ -55,7 +55,7 @@ export function FolderBrowserModal({
                 <div className="py-12 text-center text-[13px] text-[var(--color-ash)]">文件夹为空</div>
               )}
               {!loading && data && data.files.map((file) => (
-                <div key={file.name} className="flex items-center gap-3 px-5 py-3 border-b border-[var(--color-hairline-faint)] last:border-b-0 hover:bg-black/[0.03] transition-colors">
+                <div key={file.name} className="flex items-center gap-3 px-5 py-3 border-b border-[var(--color-hairline-faint)] last:border-b-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors">
                   <FileText className="w-4 h-4 text-[var(--color-ash)] shrink-0" strokeWidth={1.5} />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] truncate text-[var(--color-bone)] font-mono">{file.name}</div>

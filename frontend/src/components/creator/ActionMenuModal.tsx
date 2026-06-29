@@ -43,7 +43,7 @@ export function ActionMenuModal({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="bg-[rgba(23,21,19,0.92)] backdrop-blur-2xl w-full sm:max-w-sm sm:mx-4 border border-black/10 rounded-2xl overflow-hidden"
+            className="bg-[var(--color-paper)]/95 backdrop-blur-2xl w-full sm:max-w-sm sm:mx-4 border border-[var(--color-hairline-strong)] rounded-2xl overflow-hidden shadow-[0_24px_64px_rgba(0,0,0,0.4)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-5 border-b border-[var(--color-hairline)]">
@@ -52,31 +52,31 @@ export function ActionMenuModal({
             </div>
             <div>
               {asset.transcript_status === 'completed' && (
-                <button onClick={() => onViewTranscript(asset)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-black/[0.04] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
+                <button onClick={() => onViewTranscript(asset)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
                   <FileText className="w-4 h-4 text-[var(--color-rust)]" />
                   <span className="text-[14px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">查看转写</span>
                 </button>
               )}
-              <button onClick={(e) => onToggleRead(asset, e)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-black/[0.04] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
+              <button onClick={(e) => onToggleRead(asset, e)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
                 {asset.is_read ? <EyeOff className="w-4 h-4 text-[var(--color-ash)]" /> : <Eye className="w-4 h-4 text-[var(--color-rust)]" />}
                 <span className="text-[14px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">{asset.is_read ? '标记为未读' : '标记为已读'}</span>
               </button>
-              <button onClick={(e) => onToggleStar(asset, e)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-black/[0.04] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
+              <button onClick={(e) => onToggleStar(asset, e)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
                 <Star className={cn('w-4 h-4', asset.is_starred ? 'text-[var(--color-ember)] fill-[var(--color-ember)]' : 'text-[var(--color-ash)]')} />
                 <span className="text-[14px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">{asset.is_starred ? '取消收藏' : '收藏'}</span>
               </button>
               {asset.transcript_status === 'completed' && (
-                <button onClick={() => onExportTranscript(asset)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-black/[0.04] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
+                <button onClick={() => onExportTranscript(asset)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
                   <Download className="w-4 h-4 text-[var(--color-rust)]" />
                   <span className="text-[14px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">导出转写</span>
                 </button>
               )}
-              <button onClick={() => onViewFile(asset)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-black/[0.04] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
+              <button onClick={() => onViewFile(asset)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
                 <ExternalLink className="w-4 h-4 text-[var(--color-rust)]" />
                 <span className="text-[14px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">查看原文件</span>
               </button>
               {asset.folder_path && (
-                <button onClick={() => onBrowseFolder(asset)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-black/[0.04] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
+                <button onClick={() => onBrowseFolder(asset)} className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors text-left border-b border-[var(--color-hairline-faint)] group">
                   <FolderOpen className="w-4 h-4 text-[var(--color-rust)]" />
                   <span className="text-[14px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">浏览文件夹</span>
                 </button>

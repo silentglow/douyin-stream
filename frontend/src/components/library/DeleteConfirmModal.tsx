@@ -35,7 +35,7 @@ export function DeleteConfirmModal({
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-[rgba(23,21,19,0.92)] backdrop-blur-2xl p-7 w-full max-w-md border border-[var(--color-iron)]/30 rounded-2xl"
+            className="bg-[var(--color-paper)]/95 backdrop-blur-2xl p-7 w-full max-w-md border border-[var(--color-iron)]/30 rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,0.4)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="eyebrow text-[var(--color-iron)] mb-2">不可撤销</div>

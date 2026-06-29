@@ -20,7 +20,7 @@ export function StatusLabel({ status, error }: { status: string; error?: string 
   }
   if (status === 'pending' || status === 'queued' || status === 'none' || !status) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-smoke)] px-2 py-0.5 rounded-full bg-black/5">
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-smoke)] px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/5">
         <span className="status-dot bg-[var(--color-smoke)]" />待转写
       </span>
     );

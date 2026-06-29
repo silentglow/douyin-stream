@@ -284,7 +284,7 @@ export default function AppLayout() {
               title="浅色模式"
               className={`flex-1 py-1.5 rounded-md flex justify-center items-center transition-all ${
                 theme === 'light'
-                  ? 'bg-white dark:bg-zinc-800 text-[var(--color-rust)] shadow-sm font-semibold'
+                  ? 'bg-white dark:bg-[var(--color-paper)] text-[var(--color-rust)] shadow-sm font-semibold'
                   : 'text-[var(--color-ash)] hover:text-[var(--color-bone)]'
               }`}
             >
@@ -295,7 +295,7 @@ export default function AppLayout() {
               title="深色模式"
               className={`flex-1 py-1.5 rounded-md flex justify-center items-center transition-all ${
                 theme === 'dark'
-                  ? 'bg-white dark:bg-zinc-800 text-[var(--color-rust)] shadow-sm font-semibold'
+                  ? 'bg-white dark:bg-[var(--color-paper)] text-[var(--color-rust)] shadow-sm font-semibold'
                   : 'text-[var(--color-ash)] hover:text-[var(--color-bone)]'
               }`}
             >
@@ -306,7 +306,7 @@ export default function AppLayout() {
               title="跟随系统"
               className={`flex-1 py-1.5 rounded-md flex justify-center items-center transition-all ${
                 theme === 'system'
-                  ? 'bg-white dark:bg-zinc-800 text-[var(--color-rust)] shadow-sm font-semibold'
+                  ? 'bg-white dark:bg-[var(--color-paper)] text-[var(--color-rust)] shadow-sm font-semibold'
                   : 'text-[var(--color-ash)] hover:text-[var(--color-bone)]'
               }`}
             >

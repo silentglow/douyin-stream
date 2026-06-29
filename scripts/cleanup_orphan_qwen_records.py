@@ -274,8 +274,8 @@ async def delete_orphans_for_account(
     from media_tools.accounts.db_account_pool import (
         build_qwen_auth_state_path_for_account,
     )
-    from media_tools.transcribe.flow import delete_record
     from media_tools.common.http import RequestsApiContext
+    from media_tools.transcribe.flow import delete_record
 
     auth_state_path = build_qwen_auth_state_path_for_account(account_id)
     if not auth_state_path.exists():

@@ -36,7 +36,7 @@ export function CreatorActionMenuModal({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="bg-[rgba(23,21,19,0.92)] backdrop-blur-2xl w-full sm:max-w-sm sm:mx-4 border border-black/10 rounded-2xl overflow-hidden"
+            className="bg-[var(--color-paper)]/95 backdrop-blur-2xl w-full sm:max-w-sm sm:mx-4 border border-[var(--color-hairline-strong)] rounded-2xl overflow-hidden shadow-[0_24px_64px_rgba(0,0,0,0.4)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-5 border-b border-[var(--color-hairline)]">
@@ -46,14 +46,14 @@ export function CreatorActionMenuModal({
             <div>
               <button
                 onClick={onSync}
-                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-black/[0.04] transition-colors text-left border-b border-[var(--color-hairline-faint)] group"
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors text-left border-b border-[var(--color-hairline-faint)] group"
               >
                 <RefreshCw className="w-4 h-4 text-[var(--color-rust)]" />
                 <span className="text-[15px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">立即同步</span>
               </button>
               <button
                 onClick={onFullSync}
-                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-black/[0.04] transition-colors text-left border-b border-[var(--color-hairline-faint)] group"
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors text-left border-b border-[var(--color-hairline-faint)] group"
               >
                 <RefreshCw className="w-4 h-4 text-[var(--color-rust)]" />
                 <span className="text-[15px] text-[var(--color-bone)] group-hover:text-[var(--color-rust)] transition-colors">全量重拉</span>

@@ -243,7 +243,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
               
               <button
                 onClick={onClose}
-                className="p-1 rounded-md hover:bg-black/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] transition-colors cursor-pointer"
+                className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] transition-colors cursor-pointer"
               >
                 <X className="size-4" />
               </button>
@@ -259,7 +259,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                     className={cn(
                       'px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer',
                       filter === tab.key
-                        ? 'bg-black/5 text-[var(--color-rust)]'
+                        ? 'bg-black/5 dark:bg-white/5 text-[var(--color-rust)]'
                         : 'text-[var(--color-smoke)] hover:text-[var(--color-bone)]'
                     )}
                   >
@@ -272,7 +272,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                 <button
                   onClick={() => setSortBy(s => s === 'time' ? 'priority' : 'time')}
                   title="切换排序"
-                  className="p-1 rounded-md border border-black/5 bg-black/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] hover:bg-black/10 transition-all cursor-pointer"
+                  className="p-1 rounded-md border border-black/5 dark:border-white/5 bg-black/5 dark:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] hover:bg-black/10 dark:hover:bg-white/10 transition-all cursor-pointer"
                 >
                   <ArrowUpDown className="size-3.5" />
                 </button>
@@ -330,8 +330,8 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                       className={cn(
                         'relative overflow-hidden p-3 rounded-xl border flex flex-col justify-between transition-all duration-200 group',
                         isRunning
-                          ? 'bg-black/[0.015] border-black/[0.04]'
-                          : 'bg-transparent border-transparent hover:bg-black/[0.005]'
+                          ? 'bg-black/[0.015] dark:bg-white/[0.02] border-black/[0.04] dark:border-white/10'
+                          : 'bg-transparent border-transparent hover:bg-black/[0.005] dark:hover:bg-white/[0.01]'
                       )}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -346,7 +346,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                           ) : isSuccess ? (
                             <CheckCircle2 className="size-4 text-[var(--color-patina)]" strokeWidth={2} />
                           ) : (
-                            <div className="size-2 rounded-full bg-black/20 mt-1" />
+                            <div className="size-2 rounded-full bg-black/20 dark:bg-white/20 mt-1" />
                           )}
                         </div>
 
@@ -370,7 +370,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                               <button
                                 onClick={() => handleCancel(task)}
                                 title="停止任务"
-                                className="p-1 rounded-md hover:bg-black/5 text-[var(--color-smoke)] hover:text-[var(--color-iron)] cursor-pointer"
+                                className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-iron)] cursor-pointer"
                               >
                                 <Square className="size-3" strokeWidth={2.5} />
                               </button>
@@ -381,7 +381,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                                 <button
                                   onClick={() => handleRetry(task)}
                                   title={isPartial ? '只重试失败子任务' : '重试任务'}
-                                  className="p-1 rounded-md hover:bg-black/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] cursor-pointer"
+                                  className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] cursor-pointer"
                                 >
                                   <RotateCw className="size-3.5" />
                                 </button>
@@ -408,7 +408,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
 
                       {/* Thin Progress bar for running tasks */}
                       {isRunning && (
-                        <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-black/[0.03] overflow-hidden">
+                        <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-black/[0.03] dark:bg-white/[0.05] overflow-hidden">
                           <div
                             className="h-full bg-[var(--color-rust)] transition-all duration-300"
                             style={{ width: `${pct}%` }}
@@ -418,7 +418,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
 
                       {/* 文件级明细：运行中显示每个文件的实时阶段，完成后显示成/败结果 */}
                       {showFileRows && (
-                        <div className="mt-2 pl-7 pr-1 space-y-1 max-h-32 overflow-y-auto border-l border-black/[0.03]">
+                        <div className="mt-2 pl-7 pr-1 space-y-1 max-h-32 overflow-y-auto border-l border-[var(--color-hairline-strong)]">
                           {fileRows.map((sub, idx) => {
                             const ok = sub?.status === 'completed';
                             const bad = sub?.status === 'failed';
@@ -451,9 +451,9 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                                 ) : running ? (
                                   <Loader2 className="size-2.5 shrink-0 mt-[2px] animate-spin text-[var(--color-rust)]" />
                                 ) : skipped ? (
-                                  <div className="size-2 shrink-0 mt-[3px] rounded-full bg-black/15" />
+                                  <div className="size-2 shrink-0 mt-[3px] rounded-full bg-black/15 dark:bg-white/15" />
                                 ) : (
-                                  <div className="size-2 shrink-0 mt-[3px] rounded-full bg-black/25" />
+                                  <div className="size-2 shrink-0 mt-[3px] rounded-full bg-black/25 dark:bg-white/25" />
                                 )}
                                 <span className="truncate text-[var(--color-smoke)] flex-1" title={fileName}>
                                   {fileName}

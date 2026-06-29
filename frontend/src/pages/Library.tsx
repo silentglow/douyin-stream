@@ -79,7 +79,7 @@ export default function Library() {
             <button
               onClick={handleSelectFolder}
               disabled={scanning}
-              className="btn-sharp py-1.5 px-4 text-[13px] bg-white hover:bg-black/5"
+              className="btn-sharp py-1.5 px-4 text-[13px]"
             >
               {scanning ? <Loader2 className="w-3.5 h-3.5 animate-spin inline mr-1" /> : null}
               本地上传

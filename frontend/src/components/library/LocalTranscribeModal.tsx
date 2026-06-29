@@ -43,7 +43,7 @@ export function LocalTranscribeModal({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 8 }}
             transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-            className="bg-[rgba(23,21,19,0.92)] backdrop-blur-2xl w-full max-w-2xl max-h-[85vh] flex flex-col border border-black/10 rounded-2xl p-6 shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
+            className="bg-[var(--color-paper)]/95 backdrop-blur-2xl w-full max-w-2xl max-h-[85vh] flex flex-col border border-[var(--color-hairline-strong)] rounded-2xl p-6 shadow-[0_24px_64px_rgba(0,0,0,0.4)]"
             onClick={(e) => e.stopPropagation()}
           >
           <div className="flex items-baseline justify-between mb-4 pb-3 border-b border-[var(--color-hairline)] flex-shrink-0">
@@ -63,7 +63,7 @@ export function LocalTranscribeModal({
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto -mx-2">
             {scannedFiles.map((file) => (
-              <label key={file.path} className="flex items-center gap-3 px-2 py-2 hover:bg-black/[0.03] rounded-lg cursor-pointer transition-colors">
+              <label key={file.path} className="flex items-center gap-3 px-2 py-2 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] rounded-lg cursor-pointer transition-colors">
                 <input
                   type="checkbox"
                   checked={selectedFiles.has(file.path)}

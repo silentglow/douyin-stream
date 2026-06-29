@@ -38,7 +38,7 @@ const IconBtn = ({ onClick, title, active, disabled, children }: {
       'w-9 h-9 flex items-center justify-center rounded-lg border border-transparent transition-all duration-200',
       active
         ? 'text-[var(--color-rust)] bg-[rgba(0,113,227,0.08)] border-[var(--color-rust)]/25'
-        : 'text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/5 hover:border-black/5',
+        : 'text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/5 dark:hover:bg-white/5 hover:border-[var(--color-hairline)]',
       disabled && 'opacity-30 cursor-not-allowed'
     )}
   >
