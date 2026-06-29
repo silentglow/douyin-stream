@@ -98,6 +98,23 @@ chmod +x run.sh   # 仅首次
 
 脚本会自动检测并安装缺失的 Python / npm 依赖。
 
+### Docker 部署
+
+项目提供了完整的多阶段构建 Docker 镜像，会自动在容器内编译前端并打包 Python 后端，集成 `ffmpeg` 运行环境，开箱即用。
+
+1. **配置下载路径**：确保 `config/config.yaml` 存在，并设置下载目录为容器内挂载的持久化卷：
+   ```yaml
+   download_path: "/app/downloads"
+   ```
+
+2. **一键拉起服务**：
+   ```bash
+   cd deploy
+   docker compose up -d --build
+   ```
+
+启动完成后，直接在浏览器中通过 `http://localhost:8000`（或 `http://服务器IP:8000`）访问工作台即可。
+
 ---
 
 ##### 配置说明
