@@ -1,8 +1,21 @@
 import axios from 'axios';
 import { toast } from 'sonner';
 
-const API_ORIGIN = import.meta.env.VITE_API_ORIGIN
-  ?? (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000');
+const getApiOrigin = () => {
+  if (import.meta.env.VITE_API_ORIGIN) {
+    return import.meta.env.VITE_API_ORIGIN;
+  }
+  if (typeof window !== 'undefined') {
+    // If running in Vite development mode or on a dev port, use localhost:8000
+    if (import.meta.env.DEV || ['5173', '5174', '5175'].includes(window.location.port)) {
+      return 'http://localhost:8000';
+    }
+    return window.location.origin;
+  }
+  return 'http://localhost:8000';
+};
+
+const API_ORIGIN = getApiOrigin();
 export const API_BASE_URL = `${API_ORIGIN.replace(/\/$/, '')}/api/v1`;
 export const API_WS_URL = `${API_ORIGIN.replace(/^http/, 'ws').replace(/\/$/, '')}/api/v1/tasks/ws`;
 
