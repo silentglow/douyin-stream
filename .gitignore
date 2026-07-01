@@ -251,3 +251,4 @@ tests/**/__pycache__/
 # Un-ignore specific config files
 !config/auth_rules.yaml
 !config/config.yaml.example
+/config.yaml

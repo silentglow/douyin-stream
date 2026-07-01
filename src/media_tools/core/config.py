@@ -311,7 +311,7 @@ class AppConfig:
     @property
     def pipeline_output_dir(self) -> str:
         """Pipeline 输出目录"""
-        return _get_env_str("PIPELINE_OUTPUT_DIR", str(self.project_root / "data" / "transcripts"))
+        return _get_env_str("PIPELINE_OUTPUT_DIR", str(self.project_root / "transcripts"))
 
     @property
     def pipeline_delete_after_export(self) -> bool:
