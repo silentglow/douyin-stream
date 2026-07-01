@@ -146,7 +146,7 @@ status = await get_qwen_account_status()
 
 ## 2. 数据库设计 (SQLite: `data/media_tools.db`)
 
-项目运行时使用 `data/media_tools.db`（路径可通过 `config/config.yaml` 配置）。数据库使用 WAL 模式，支持并发读写。
+项目运行时使用 `data/media_tools.db`（路径由 `get_db_path()` 统一管理，默认 `data/media_tools.db`）。数据库使用 WAL 模式，支持并发读写。
 
 ### 2.1 核心业务表
 
@@ -193,6 +193,7 @@ status = await get_qwen_account_status()
 | **替换 SQLite 为 MySQL/PostgreSQL** | 当前 SQLite 已满足单机需求。如需多实例部署可考虑迁移 | P2 | 待评估 |
 | **剥离 Web 看板为独立服务** | 前端已独立为 SPA + FastAPI 后端，当前架构合理 | P3 | 不需要 |
 | **加入 Celery 任务队列** | 当前使用 asyncio + APScheduler 已足够，暂不需要引入额外依赖 | P3 | 不需要 |
+| **Docker 生产部署** | 多阶段构建（frontend 编译 + Python 后端 + ffmpeg），`docker compose` 一键拉起 | P1 | ✅ 已完成 |
 
 ### 3.2 并发控制体系
 

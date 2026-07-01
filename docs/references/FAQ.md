@@ -34,14 +34,14 @@
 - **原因**：前端通过 API 实时从后端获取数据，如果页面未刷新或 WebSocket 连接断开，可能显示旧数据。
 - **解决方案**：刷新页面即可。如果持续不更新，检查后端服务是否正常运行。
 
-### Q6: 为什么视频压缩后大小反而变大了？
-- **原因**：如果原始视频体积过小，重新编码的头部开销可能会大于压缩收益。
-- **解决方案**：工具默认会跳过小于 5MB 的文件。如果仍想强制跳过压缩，建议加上 `--no-skip-small` 并使用更低画质参数 `--crf 38` 或使用 `--aggressive` 模式。
+### Q6: 下载的视频文件存放在哪里？
+- 下载路径默认在 `data/downloads/` 目录下，可在 `config/config.yaml` 的 `download_path` 字段自定义。
+- 转写文稿默认输出到 `transcripts/` 目录。
 
 ## 🔒 安全与隐私
 
 ### Q7: Cookie 等敏感信息会被记录到日志或状态文件中吗？
-- **不会**。从 v2.2.1 起，所有写入 `.pipeline_state.json` 的错误信息都会经过自动脱敏处理，`cookie`、`tongyi_sso_ticket` 等敏感字段会被替换为 `[REDACTED]`，不会明文存储。
+- **不会**。从 v2.x 起，所有写入 `.pipeline_state.json` 的错误信息都会经过自动脱敏处理，`cookie`、`tongyi_sso_ticket` 等敏感字段会被替换为 `[REDACTED]`，不会明文存储。
 
 ### Q8: Cookie 存储在哪里？
 - 所有平台的 Cookie 统一存储在 SQLite 数据库 `Accounts_Pool` 表的 `cookie_data` 字段中，这是唯一事实源
@@ -62,7 +62,7 @@
 - 可在 Settings 页面的「导出格式」选项中切换
 
 ### Q10: 关闭「自动删除源视频」后，转写还会删除我的视频吗？
-- **不会**。从 v2.2.1 起，「自动删除源视频」设置仅影响 Pipeline 流水线（下载→转写→清理）中下载的视频。
+- **不会**。从 v2.x 起，「自动删除源视频」设置仅影响 Pipeline 流水线（下载→转写→清理）中下载的视频。
 - **本地文件扫描转写**（creator transcribe）永远不会删除用户的源视频文件，无论全局设置如何，只清理 `.cache` 临时目录。
 
 ## 🔄 服务重启与任务恢复
@@ -77,3 +77,11 @@
 - `QWEN_TRANSCRIBE_POLL_TIMEOUT_SECONDS` 控制单次等待 Qwen 转写完成的时间，默认 `21600` 秒（6 小时）。
 - 轮询超时只表示本地这次等待时间用完，不等于 Qwen 远端转写失败。系统会保留已有的 `record_id/gen_record_id`，下次点击重试时继续从远端记录恢复。
 - 只有明确的远端终态失败、记录失效、导出失败或下载失败，才会回退到完整 flow 并重新上传。
+
+### Q13: 如何用 Docker 部署？
+- 项目支持 Docker 自包含部署，无需手动安装 Python/Node.js/FFmpeg。
+- 步骤：
+  1. 确保 `config/config.yaml` 存在，`download_path` 设为容器内路径 `/app/downloads`
+  2. `cd deploy && docker compose up -d --build`
+  3. 浏览器打开 `http://localhost:8000` 使用工作台
+- 所有数据（数据库、下载文件、认证状态）持久化在宿主机 `data/` 目录中。

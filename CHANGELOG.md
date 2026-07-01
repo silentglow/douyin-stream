@@ -481,6 +481,34 @@
 - **后端 payload 结构化**：支持 `result_summary` 和 `subtasks` 字段
 - **异常处理优化**：宽泛异常捕获从 56 处减少到 9 处（减少 84%）
 
+---
+
+### 🚀 2026-06 ~ 2026-07 近期变更
+
+#### 🎉 新增
+
+- **Docker 自包含生产构建**：多阶段构建（frontend 编译 + Python 后端 + ffmpeg），一键 `docker compose up -d --build` 部署，浏览 `http://localhost:8000` 即可使用
+- **全局 UI/UX 重设计**：Editorial Operations Studio 设计语言——暖色近黑底 `#0c0b09`、奶白文字 `#f3eedb`、铜锈色强调 `#c66b3e`、Fraunces 衬线显示字体、JetBrains Mono 数据字体、Noto Serif SC 中文衬线，@number-flow/react 数字滚动动画，锐利边角、毛细分隔线
+- **双主题自适应**：全局 Modal 与组件适配暗色/亮色双主题（实际仅启用暗色，架构已预留）
+- **转写进度细粒度提示**：每文件实时状态（上传中 / 转写中 / 导出中 / 下载中），替代之前仅显示整体百分比的粗粒度反馈
+
+#### 🔧 改进
+
+- **转写续传与清理优化**：续传 fast-path 更可靠，本地文件转写后清理不再误删用户源文件
+- **Qwen 额度领取补齐**：奖励通知接口 `task/reward/notice` 纳入领取链路，提高领取成功率
+- **抖音创作者抓取完整性检测**：检测不完整的创作者 fetch 结果，避免漏抓
+- **转写默认多人讨论模式**：`roleSplitNum=0` 替代之前的单人模式，更适合对话/访谈类内容
+- **转写流水线入口与进度调度文档**：新增 `docs/references/API.md` Qwen API 参数对照和进度调度说明
+- **前端开发代理回退**：本地开发时 Vite 代理支持 fallback 到 8000 端口
+
+#### 🐛 修复
+
+- **上传工作线程进度回调 crash**：OSS multipart 上传进度回调在工作线程触发时缺少事件循环，修复 `no running event loop` 错误
+- **Schema pragma 不在 db core**：抖音相关代码避免在非 DB 核心模块使用 schema pragma
+- **Store slices 数据校验**：前端 Zustand slices 增加数组与对象类型校验，添加 settings status_summary 可选链防御
+- **Python lint E402**：修复 import 位置问题
+- **前端 Home.tsx regression**：修复页面行数约束回归
+
 ### 🐛 修复
 
 - 修复 `reconcileTranscripts` 前端类型缺少 `creators_removed`/`assets_removed` 字段

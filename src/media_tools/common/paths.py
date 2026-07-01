@@ -33,4 +33,4 @@ def get_transcripts_path() -> Path:
     custom_dir = get_runtime_setting("transcript_output_dir", "").strip()
     if custom_dir:
         return Path(custom_dir)
-    return get_project_root() / "data" / "transcripts"
+    return get_project_root() / "transcripts"

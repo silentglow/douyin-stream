@@ -1,6 +1,6 @@
 # Media Tools — 项目现状文档
 
-> 最后更新：2026-05-27
+> 最后更新：2026-07-01
 
 > 这是一份**当前状态快照**。历史变更见 [CHANGELOG.md](../CHANGELOG.md)。
 
@@ -18,7 +18,8 @@
 | 转写引擎 | Qwen HTTP API（已从 Playwright 迁移） |
 | 实时通信 | WebSocket 推送任务进度（含心跳保活） |
 | Python | 3.11+（`from __future__ import annotations` 全仓铺开，`str | None` 类型语法依赖此导入） |
-| 启动方式 | `./run.sh`（后端 8000 + 前端 5173） |
+| 启动方式 | `./run.sh`（后端 8000 + 前端 5173） 或 Docker（`docker compose up -d --build`） |
+| 部署 | Docker 多阶段构建（frontend 编译 + Python 后端 + ffmpeg），`deploy/Dockerfile` + `deploy/docker-compose.yml` |
 | CI | GitHub Actions（ruff lint + pytest） |
 | Lint | ruff（check + format）+ mypy（可选）+ pre-commit hooks |
 
@@ -258,6 +259,8 @@ B站对大量视频提供 AV1 编码（压缩率更高但兼容性差），Qwen 
 
 - [x] **全量 Bug 审计与修复**：完成系统性盘查，修复 20+ 处缺陷（Python 3.9 兼容性、变量遮蔽、缓存污染、缺少导入、连接缓存隔离、命名冲突、事务提交遗漏、列缺失防御、竞态条件等），测试套件从多失败修复至 302 passed / 3 skipped / 0 failed。
 
+- [x] **Docker 生产部署**：`deploy/Dockerfile` 多阶段构建（frontend 编译 + Python 后端 + ffmpeg），`deploy/docker-compose.yml` 一键拉起，访问 `http://localhost:8000` 即可使用。
+
 ### P3 — UI / 体验
 
 - [x] **Settings 页编辑式重设计**：已通过模块化拆分（AccountExpandable, PreferenceSettingsSection, ScheduleSettings等）与样式对齐完成编辑式重构，使代码完全符合 300 行以下规范，并解决备注状态隔离回归问题。
@@ -267,4 +270,5 @@ B站对大量视频提供 AV1 编码（压缩率更高但兼容性差），Qwen 
 ### P3 — 长期愿景（不做明确投入，按需触发）
 
 - [ ] **数据库迁移机制**：当 schema 变动频繁时考虑（SQLAlchemy 或简易迁移脚本）
+- [x] **Docker 部署**：Dockerfile + docker-compose 已就绪，见 `deploy/` 目录。
 - [ ] **多平台支持**：为小红书等平台预留扩展点
