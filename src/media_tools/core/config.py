@@ -354,6 +354,14 @@ class AppConfig:
         return _get_env_int("QWEN_OSS_PART_SIZE_MB", 0)
 
     @property
+    def qwen_oss_bypass_proxy(self) -> bool:
+        """是否在使用 Qwen OSS 上传时绕过系统代理。优先 SystemSettings → 环境变量，默认 True。"""
+        db_value = get_runtime_setting("qwen_oss_bypass_proxy", "")
+        if db_value != "":
+            return db_value.lower() in ("true", "1", "yes", "on")
+        return _get_env_bool("QWEN_OSS_BYPASS_PROXY", True)
+
+    @property
     def task_stale_minutes(self) -> int:
         """任务超时判定时间（分钟）。支持 MEDIA_TOOLS_TASK_STALE_MINUTES 环境变量覆盖。"""
         env_val = _get_env_int("MEDIA_TOOLS_TASK_STALE_MINUTES", 0)

@@ -44,6 +44,11 @@ async def _direct_put(url: str, data: bytes, mime_type: str, timeout: int = 120)
     """direct 模式:async PUT 数据到千问预签名 URL。
     网络错误重试 3 次(指数退避 1s/2s/4s);HTTP 4xx/5xx 立即抛错不重试。
     """
+    from media_tools.core.config import get_app_config
+
+    app_config = get_app_config()
+    trust_env = not app_config.qwen_oss_bypass_proxy
+
     last_error: BaseException | None = None
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(
@@ -53,6 +58,7 @@ async def _direct_put(url: str, data: bytes, mime_type: str, timeout: int = 120)
             pool=5.0,
         ),
         follow_redirects=False,
+        trust_env=trust_env,
     ) as client:
         for attempt in range(3):
             try:
@@ -77,9 +83,13 @@ def _build_oss2_bucket(token: dict[str, Any]) -> oss2.Bucket:
     """根据千问返回的 STS 临时凭证构造 oss2.Bucket。
     connect/read timeout 120s,容忍瞬时网络抖动(默认 60s 偶尔被快网抖动触发)。
     """
+    from media_tools.core.config import get_app_config
+
+    app_config = get_app_config()
     sts = token["sts"]
     auth = oss2.StsAuth(sts["accessKeyId"], sts["accessKeySecret"], sts["securityToken"])
-    return oss2.Bucket(auth, sts["endpoint"], sts["bucket"], connect_timeout=120)
+    proxies = {} if app_config.qwen_oss_bypass_proxy else None
+    return oss2.Bucket(auth, sts["endpoint"], sts["bucket"], connect_timeout=120, proxies=proxies)
 
 
 def _resumable_upload_via_oss2(
