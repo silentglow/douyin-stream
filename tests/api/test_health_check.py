@@ -51,10 +51,13 @@ def _create_test_db(db_path: Path) -> None:
     conn.close()
 
 
-def _run_script(db_path: Path) -> tuple[dict, int]:
+def _run_script(db_path: Path, transcripts_dir: Path | None = None) -> tuple[dict, int]:
     """调脚本返回 (报告 dict, exit code)"""
+    cmd = [sys.executable, str(SCRIPT_PATH), "--db", str(db_path)]
+    if transcripts_dir is not None:
+        cmd.extend(["--transcripts-dir", str(transcripts_dir)])
     result = subprocess.run(
-        [sys.executable, str(SCRIPT_PATH), "--db", str(db_path)],
+        cmd,
         capture_output=True,
         text=True,
     )
@@ -88,6 +91,27 @@ def test_completed_but_missing_file_detected(tmp_path):
     bucket = next(c for c in report["checks"] if c["name"] == "completed_transcript_file_missing")
     assert bucket["anomaly_count"] == 1
     assert bucket["samples"][0]["asset_id"] == "a-1"
+
+
+def test_completed_relative_transcript_resolves_against_transcripts_dir(tmp_path):
+    db = tmp_path / "test.db"
+    transcripts_dir = tmp_path / "transcripts"
+    transcript_file = transcripts_dir / "creator-x" / "existing.md"
+    transcript_file.parent.mkdir(parents=True)
+    transcript_file.write_text("# transcript", encoding="utf-8")
+    _create_test_db(db)
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "INSERT INTO media_assets (asset_id, title, transcript_path, transcript_status) "
+        "VALUES ('a-1', 'Test', 'creator-x/existing.md', 'completed')"
+    )
+    conn.commit()
+    conn.close()
+
+    report, code = _run_script(db, transcripts_dir)
+    assert code == 0
+    bucket = next(c for c in report["checks"] if c["name"] == "completed_transcript_file_missing")
+    assert bucket["anomaly_count"] == 0
 
 
 def test_run_saved_but_asset_not_completed_detected(tmp_path):

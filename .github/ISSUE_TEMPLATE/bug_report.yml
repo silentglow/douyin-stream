@@ -1,0 +1,84 @@
+name: Bug report
+description: Report a reproducible problem in Media Tools.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Please include enough detail for someone else to reproduce it without access to your machine.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Release tag, commit SHA, or branch name.
+      placeholder: "v0.2.0 or 0dad70e"
+    validations:
+      required: true
+  - type: dropdown
+    id: startup_mode
+    attributes:
+      label: Startup mode
+      options:
+        - Docker Compose
+        - Local ./run.sh
+        - Backend only
+        - Frontend only
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python, Node, npm, Docker, and ffmpeg versions.
+      render: shell
+      placeholder: |
+        macOS 15.5
+        python --version
+        node --version
+        npm --version
+        docker --version
+        ffmpeg -version
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: List exact steps from a fresh app state if possible.
+      placeholder: |
+        1. Start with ...
+        2. Open ...
+        3. Click ...
+        4. See error ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove cookies, tokens, account IDs, and private media names before posting.
+      render: shell
+  - type: checkboxes
+    id: diagnostics
+    attributes:
+      label: Diagnostics checked
+      options:
+        - label: I checked `docs/references/FAQ.md`.
+        - label: I checked `docs/references/INSTALLATION.md`.
+        - label: I ran `python scripts/health_check.py` when a local database existed.
+        - label: I removed secrets from logs and screenshots.
+

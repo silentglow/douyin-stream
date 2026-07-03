@@ -1,0 +1,38 @@
+name: Question or help request
+description: Ask for help with setup, usage, or expected behavior.
+title: "[Question]: "
+labels: ["question", "needs-triage"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What are you trying to do?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Include your startup mode, OS, and the page or command involved.
+      placeholder: |
+        Startup mode:
+        OS:
+        Page or command:
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you tried
+      description: Link the docs you checked and paste non-sensitive command output.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I checked the README quickstart.
+        - label: I checked `docs/references/INSTALLATION.md`.
+        - label: I checked `docs/references/FAQ.md`.
+        - label: I removed secrets from logs and screenshots.
+

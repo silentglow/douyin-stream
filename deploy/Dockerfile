@@ -26,13 +26,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install uv for fast dependency resolution
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy dependency files first for layer caching
-COPY pyproject.toml uv.lock ./
+# Copy package metadata and source before uv sync because the project itself is installed.
+COPY pyproject.toml uv.lock README.md ./
+COPY src/ src/
 RUN uv sync --frozen --no-dev
 
-# Copy backend code
-COPY src/ src/
-COPY config/ config/
+RUN mkdir -p config/transcribe
+COPY config/config.yaml.example config/auth_rules.yaml config/
+COPY config/transcribe/.env.example config/transcribe/accounts.example.json config/transcribe/
+RUN cp config/config.yaml.example config/config.yaml
 
 # Copy built frontend assets from Stage 1
 COPY --from=frontend-builder /frontend/dist/ /app/frontend/dist/

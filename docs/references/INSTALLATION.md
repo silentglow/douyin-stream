@@ -1,97 +1,155 @@
-# 安装指南 (Installation Guide)
+# Installation Guide
 
-本指南帮助你完成环境配置和项目安装。
+This guide is written for a fresh clone. Use Docker for the shortest path, or use local development when you want to edit code.
 
-## 1. 系统依赖
+## Prerequisites
 
-### Python 版本
-要求：**Python 3.11+**（项目使用 pyproject.toml 管理依赖，需要 3.11 及以上版本）。
+| Tool | Required for | Check |
+| --- | --- | --- |
+| Git | Clone the repository | `git --version` |
+| Docker + Compose | Recommended first run | `docker --version` and `docker compose version` |
+| Python 3.11+ | Local backend development | `python3.11 --version` |
+| Node.js 20+ and npm | Local frontend development | `node --version` and `npm --version` |
+| FFmpeg | Media processing and local transcription | `ffmpeg -version` |
 
-### FFmpeg（转写功能所需）
-**可选**：如果不需要视频转写功能，可跳过此步骤。
+FFmpeg install examples:
 
-| 操作系统 | 安装命令 / 下载方式 |
-| :--- | :--- |
-| **macOS** | `brew install ffmpeg` |
-| **Ubuntu/Debian** | `sudo apt install ffmpeg` |
-| **Windows** | `choco install ffmpeg` 或从 [FFmpeg 官网](https://ffmpeg.org/download.html) 下载并配置环境变量 |
+| OS | Command |
+| --- | --- |
+| macOS | `brew install ffmpeg` |
+| Ubuntu/Debian | `sudo apt install ffmpeg` |
+| Windows | `choco install ffmpeg` or install from <https://ffmpeg.org/download.html> and add it to `PATH` |
 
-## 2. 安装项目
+## Docker Quickstart
 
 ```bash
-# 克隆项目
-git clone https://github.com/guiqingjob/douyin-stream.git
+git clone https://github.com/silentglow/douyin-stream.git
 cd douyin-stream
-
-# 创建虚拟环境并安装依赖（推荐使用 uv）
-python3.11 -m venv .venv
-source .venv/bin/activate
-.venv/bin/.venv/bin/pip install -e .
-# 或使用 uv（更快）：
-# uv pip install -e .
-
-# 如需开发依赖（测试、lint 等）
-.venv/bin/pip install -e ".[dev]"
-```
-
-## 3. 初始化配置文件
-
-安装完所有依赖后，初始化你的个人配置：
-
-```bash
-# 复制模板文件（首次启动时）
 cp config/config.yaml.example config/config.yaml
-```
-
-## 4. 启动服务
-
-```bash
-# 一键启动（推荐）：同时启动后端 8000 + 前端 5173
-./run.sh
-
-# 或分步启动：
-./run.sh backend     # 仅启动 FastAPI 后端
-./run.sh frontend    # 仅启动 React 开发服务器
-```
-
-启动后在浏览器打开前端页面，通过 **Settings** 页面完成 Cookie 配置和账号添加。
-
-脚本会自动检测并安装缺失的 Python / npm 依赖。
-
-## 5. Docker 部署（可选）
-
-项目提供了完整的多阶段构建 Docker 镜像，自动编译前端、打包 Python 后端、集成 ffmpeg，开箱即用。
-
-```bash
-# 确保 config/config.yaml 存在并设置 download_path 为容器内路径
-# download_path: "/app/downloads"
-
 cd deploy
 docker compose up -d --build
 ```
 
-启动后通过 `http://localhost:8000` 访问工作台。持久化数据挂载在 `data/` 目录中。
+Open `http://localhost:8000`.
 
-## 6. 数据目录说明
+Useful commands:
 
+```bash
+cd deploy
+docker compose logs -f app
+docker compose ps
+docker compose down
+```
 
-项目所有运行时数据统一存储在 `data/` 目录下：
+The default configuration stores runtime data under the repository `data/` directory. In Docker this is mounted to `/app/data`, so the default download path `data/downloads` resolves to `/app/data/downloads` inside the container.
 
-| 目录 | 用途 |
-| :--- | :--- |
-| `data/` | 运行时数据根目录 |
-| `data/media_tools.db` | SQLite 数据库文件 |
-| `data/auth/` | 认证状态文件（Qwen 认证状态、账号池状态等） |
-| `data/auth/quota-usage.json` | Qwen 额度领取记录（按账号+日期组织） |
-| `data/downloads/` | 下载的视频文件 |
-| `transcripts/` | 转写文本文件 |
-| `data/logs/` | 日志文件 |
+## Local Development Setup
 
-配置模板存放在 `config/` 目录下：
+```bash
+git clone https://github.com/silentglow/douyin-stream.git
+cd douyin-stream
+python3.11 -m venv .venv
+.venv/bin/pip install -e ".[dev]"
+cp config/config.yaml.example config/config.yaml
+./run.sh
+```
 
-| 文件 | 用途 |
-| :--- | :--- |
-| `config/config.yaml.example` | 主配置模板（复制为 `config.yaml` 使用） |
-| `config/auth_rules.yaml` | Cookie 验证规则 |
+Open `http://localhost:5173`.
 
-> **注意**：旧版本中散落在项目根目录的 `.auth/`、`downloads/`、`logs/` 目录已迁移到 `data/` 下，`transcripts/` 为项目根目录下的转写输出。启动时系统会自动创建所需目录。
+Other local commands:
+
+```bash
+./run.sh backend
+./run.sh frontend
+./run.sh build
+```
+
+The local startup script expects `.venv/bin/python` to exist. Create the virtual environment first; the script will install missing project dependencies inside that environment when possible.
+
+## First-Run Configuration
+
+After the web UI opens:
+
+1. Go to Settings.
+2. Add at least one Douyin or Bilibili account cookie for download workflows.
+3. Add or rehydrate at least one Qwen account for transcription workflows.
+4. Confirm the download directory and transcript output format.
+5. Run one small download + transcription task before starting a large batch.
+
+Do not put cookies or Qwen tokens in screenshots, issues, or public logs.
+
+## Runtime Data
+
+| Path | Purpose |
+| --- | --- |
+| `data/media_tools.db` | SQLite runtime database |
+| `data/auth/` | Qwen and account auth state cache |
+| `data/downloads/` | Downloaded media files |
+| `data/logs/` | Runtime logs |
+| `transcripts/` | Transcript output for local development |
+| `config/config.yaml` | Local configuration copied from the example |
+
+`data/`, `transcripts/`, and local auth/config files are intentionally ignored by git.
+
+## Diagnostics Checklist
+
+Use this checklist before opening a bug report.
+
+### Environment
+
+```bash
+python3.11 --version
+node --version
+npm --version
+ffmpeg -version
+docker --version
+docker compose version
+```
+
+### Docker
+
+```bash
+docker compose -f deploy/docker-compose.yml config
+cd deploy && docker compose logs --tail=100 app
+```
+
+If `docker compose ... config` fails, the Compose file or local Docker installation is the issue. If config succeeds but the app exits, inspect container logs.
+
+### Local App
+
+```bash
+test -x .venv/bin/python
+.venv/bin/python -c "import media_tools"
+curl -fsS http://127.0.0.1:8000/api/health
+```
+
+The `curl` command only works after the backend is running.
+
+### Runtime Database
+
+```bash
+python scripts/health_check.py
+```
+
+This command expects `data/media_tools.db` to exist. On a fresh checkout before first startup, a missing database is expected. If your transcript files live outside the default `transcripts/` directory, pass `--transcripts-dir /path/to/transcripts`.
+
+### Account State
+
+Check these in the Settings page:
+
+- Douyin/Bilibili account is present and not expired.
+- Qwen account is authenticated.
+- Qwen quota is available.
+- Transcript export format is set to the expected value.
+
+## Common Installation Failures
+
+| Symptom | Likely cause | Next action |
+| --- | --- | --- |
+| `COPY frontend/package*.json` fails during Docker build | Docker context ignored frontend files | Ensure `.dockerignore` does not exclude `frontend/`; v0.2.0 keeps source files and ignores only `frontend/node_modules` and `frontend/dist` |
+| `env file ... .env not found` from Docker Compose | Old Compose config required a local `.env` file | Use the current `deploy/docker-compose.yml`, which does not require `.env` |
+| `未找到项目 venv` from `./run.sh` | Local virtual environment was not created | Run `python3.11 -m venv .venv && .venv/bin/pip install -e ".[dev]"` |
+| `ffmpeg` not found | FFmpeg is missing or not on `PATH` | Install FFmpeg and restart the shell or container |
+| Web UI cannot reach backend | Backend failed or port conflict | Check backend logs and whether port `8000` is already in use |
+| Download fails with auth errors | Platform cookie expired or missing | Re-add the account in Settings |
+| Transcription never starts | Qwen account missing, expired, or no quota | Rehydrate Qwen account and check quota in Settings |

@@ -1,87 +1,145 @@
-# 常见问题解答 (FAQ)
+# FAQ
 
-在使用抖音批量下载工具的过程中，您可能会遇到一些常见问题，以下是相关排查及解决方案。
+This FAQ focuses on setup, account state, download/transcription failures, and runtime diagnostics.
 
-## 🔑 Cookie 与登录相关
+## Setup And Startup
 
-### Q1: 下载时提示 Cookie 未配置或已过期
-- **原因**：未登录或配置的 Cookie 无效，导致请求被抖音服务器拦截。
-- **解决方案**：在 Settings 页面找到「抖音 Cookie」区域，点击「添加账号」，使用抖音 App 扫码登录。登录成功后 Cookie 会自动保存。
+### Docker build fails while copying frontend files
 
-### Q2: 为什么提示 Cookie 已过期？
-- **原因**：抖音的身份认证具有时效性。长时间不活动或异地登录会导致原 Cookie 失效。
-- **解决方案**：在 Settings 页面删除过期账号，重新扫码添加即可。
+- Symptom: Docker reports that `frontend/package*.json` or `frontend/` cannot be found.
+- Likely cause: the Docker build context is excluding frontend source files.
+- Next action: use the current `.dockerignore`, which ignores `frontend/node_modules`, `frontend/dist`, and `frontend/.vite`, but not the `frontend/` source directory.
 
-## ⚙️ 环境与依赖问题
+### Docker Compose reports `.env` is missing
 
-### Q3: 转写时提示 FFmpeg 未找到
-- **原因**：系统中没有安装 `ffmpeg` 或未配置系统环境变量。
-- **解决方案**：
+- Symptom: `docker compose up` or `docker compose config` fails before building the app.
+- Likely cause: an older Compose file required `../.env`.
+- Next action: use the current `deploy/docker-compose.yml`. Runtime configuration is handled by `config/config.yaml`, Settings, and explicit environment variables when needed.
+
+### `./run.sh` says the project virtual environment is missing
+
+- Symptom: `未找到项目 venv: .../.venv/bin/python`.
+- Likely cause: local development setup was skipped.
+- Next action:
+
+```bash
+python3.11 -m venv .venv
+.venv/bin/pip install -e ".[dev]"
+./run.sh
+```
+
+### The frontend opens but data does not load
+
+- Symptom: empty pages, network errors, or stale task state.
+- Likely cause: backend is not running, backend health check failed, or WebSocket connection dropped.
+- Next action:
+
+```bash
+curl -fsS http://127.0.0.1:8000/api/health
+cd deploy && docker compose logs --tail=100 app
+```
+
+Refresh the page after confirming the backend is healthy.
+
+## Accounts And Authentication
+
+### Download says the platform cookie is missing or expired
+
+- Symptom: download task fails with auth or cookie errors.
+- Likely cause: no Douyin/Bilibili account is configured, or the cookie expired.
+- Next action: open Settings, delete the expired account if needed, and add the account again.
+
+### Qwen transcription cannot start
+
+- Symptom: transcription task fails before upload or stays blocked at account selection.
+- Likely cause: no active Qwen account, expired Qwen auth state, or unavailable quota.
+- Next action: open Settings, rehydrate the Qwen account, then check quota status.
+
+### Are cookies written to logs?
+
+- Cookies and tokens should not be posted publicly. The app has redaction paths for known sensitive fields, but users should still review logs before opening issues.
+- Runtime account data is stored in the SQLite `Accounts_Pool` table and Qwen auth cache under `data/auth/`.
+- Do not include `config/config.yaml`, `data/auth/`, database files, or raw cookies in issues.
+
+## Media And Transcription
+
+### FFmpeg is not found
+
+- Symptom: local media processing or transcription preparation fails.
+- Likely cause: FFmpeg is not installed or is not available on `PATH`.
+- Next action:
   - macOS: `brew install ffmpeg`
-  - Ubuntu: `sudo apt install ffmpeg`
-  - Windows: 建议使用 `choco install ffmpeg` 或手动下载后配置 Path 环境变量。
+  - Ubuntu/Debian: `sudo apt install ffmpeg`
+  - Windows: `choco install ffmpeg` or install from the official FFmpeg site and update `PATH`
 
-## 📥 下载与数据相关
+### Some videos are skipped
 
-### Q4: 为什么有些视频没有被下载？
-- **原因**：
-  1. 系统默认开启了**增量更新**。若本地已存在相同 `aweme_id` 的视频，则会自动跳过。
-  2. 该视频可能被作者设置为私密或已被删除。
-  3. 你的请求过于频繁，触发了临时风控。
-- **排查建议**：您可以尝试在浏览器中打开对应博主主页，确认视频是否正常可见。如被风控，建议等待几个小时后再试。
+- Likely causes:
+  - the video already exists locally and incremental sync skipped it.
+  - the video is private or deleted.
+  - the platform temporarily rate-limited the account.
+  - the cookie cannot view that content.
+- Next action: open the creator page in a browser with the same account, confirm the video is visible, then retry later if rate-limited.
 
-### Q5: 为什么前端页面数据没有更新？
-- **原因**：前端通过 API 实时从后端获取数据，如果页面未刷新或 WebSocket 连接断开，可能显示旧数据。
-- **解决方案**：刷新页面即可。如果持续不更新，检查后端服务是否正常运行。
+### Where are downloads and transcripts stored?
 
-### Q6: 下载的视频文件存放在哪里？
-- 下载路径默认在 `data/downloads/` 目录下，可在 `config/config.yaml` 的 `download_path` 字段自定义。
-- 转写文稿默认输出到 `transcripts/` 目录。
+- Local development downloads default to `data/downloads/`.
+- Docker downloads default to `/app/data/downloads`, persisted as repository `data/downloads/`.
+- Transcript output defaults to `transcripts/` in local development.
+- Settings can change export format; deployment-level paths are controlled by `config/config.yaml`.
 
-## 🔒 安全与隐私
+### Which transcript formats are supported?
 
-### Q7: Cookie 等敏感信息会被记录到日志或状态文件中吗？
-- **不会**。从 v2.x 起，所有写入 `.pipeline_state.json` 的错误信息都会经过自动脱敏处理，`cookie`、`tongyi_sso_ticket` 等敏感字段会被替换为 `[REDACTED]`，不会明文存储。
+Supported export formats:
 
-### Q8: Cookie 存储在哪里？
-- 所有平台的 Cookie 统一存储在 SQLite 数据库 `Accounts_Pool` 表的 `cookie_data` 字段中，这是唯一事实源
-- Qwen 账号的认证状态存储在 `data/auth/` 目录下（纯 HTTP 方式，无需 Playwright）
-- 旧版 `auth_credentials` 表和 `.auth/` 目录作为兼容回退，已逐步废弃
-- Cookie 读取通过 `CookieManager` 统一接口，支持三平台轮换策略（最久未使用优先）
-- 环境变量 `QWEN_COOKIE_STRING` 仅用于测试场景，不建议在日常使用
+- `md`
+- `docx`
+- `pdf`
+- `srt`
+- `txt`
 
-## 📄 导出与转写
+Change the format in Settings before submitting new transcription tasks.
 
-### Q9: 支持哪些导出格式？
-- 目前支持 5 种格式：
-  - **MD**（Markdown）— 默认格式，适合阅读和编辑
-  - **DOCX**（Word 文档）— 适合正式文档场景
-  - **PDF** — 适合分享和归档
-  - **SRT**（字幕文件）— 适合视频字幕制作
-  - **TXT**（纯文本）— 适合最简输出
-- 可在 Settings 页面的「导出格式」选项中切换
+### Will transcription delete my original media file?
 
-### Q10: 关闭「自动删除源视频」后，转写还会删除我的视频吗？
-- **不会**。从 v2.x 起，「自动删除源视频」设置仅影响 Pipeline 流水线（下载→转写→清理）中下载的视频。
-- **本地文件扫描转写**（creator transcribe）永远不会删除用户的源视频文件，无论全局设置如何，只清理 `.cache` 临时目录。
+- Pipeline downloads can delete source video after successful transcription when auto-delete is enabled.
+- Local file transcription does not delete the user's original source file; it only cleans temporary files.
 
-## 🔄 服务重启与任务恢复
+## Task Recovery
 
-### Q11: 服务重启后，正在执行的任务会怎样？
-- 服务重启时，内存中的后台任务会全部丢失。系统启动时会自动将残留的 `RUNNING/PENDING` 任务标记为 `FAILED`，错误信息为"服务重启导致任务中断，请点击重试恢复。"
-- 前端会对这类任务显示**琥珀色醒目横幅**和**一键重试按钮**，点击即可重新提交任务
-- 对于转写任务，重试时会利用 `transcribe_runs` 表的断点续传机制，跳过已上传的文件，从失败阶段继续
-- 如果任务开启了「自动重试」，系统会自动重新提交（最多 2 次）
+### What happens after a service restart?
 
-### Q12: 转写轮询超时后为什么没有重新上传？
-- `QWEN_TRANSCRIBE_POLL_TIMEOUT_SECONDS` 控制单次等待 Qwen 转写完成的时间，默认 `21600` 秒（6 小时）。
-- 轮询超时只表示本地这次等待时间用完，不等于 Qwen 远端转写失败。系统会保留已有的 `record_id/gen_record_id`，下次点击重试时继续从远端记录恢复。
-- 只有明确的远端终态失败、记录失效、导出失败或下载失败，才会回退到完整 flow 并重新上传。
+- In-memory background tasks are lost.
+- On startup, stale `RUNNING` or `PENDING` tasks are marked failed so they can be retried.
+- Transcription retries use `transcribe_runs` data where possible to resume from uploaded or remote records instead of starting from scratch.
 
-### Q13: 如何用 Docker 部署？
-- 项目支持 Docker 自包含部署，无需手动安装 Python/Node.js/FFmpeg。
-- 步骤：
-  1. 确保 `config/config.yaml` 存在，`download_path` 设为容器内路径 `/app/downloads`
-  2. `cd deploy && docker compose up -d --build`
-  3. 浏览器打开 `http://localhost:8000` 使用工作台
-- 所有数据（数据库、下载文件、认证状态）持久化在宿主机 `data/` 目录中。
+### Why does a Qwen polling timeout not re-upload immediately?
+
+- `QWEN_TRANSCRIBE_POLL_TIMEOUT_SECONDS` controls how long the local app waits for Qwen completion in one attempt.
+- Timeout does not prove the remote record failed.
+- The app keeps `record_id` and `gen_record_id` so a later retry can resume from the remote record.
+
+## Diagnostics
+
+### How do I check local runtime consistency?
+
+```bash
+python scripts/health_check.py
+```
+
+This scans the local database and file system for missing transcript files, stuck tasks, and stale Qwen runs. It expects an initialized `data/media_tools.db`.
+
+If transcript files live outside the default `transcripts/` directory, run:
+
+```bash
+python scripts/health_check.py --transcripts-dir /path/to/transcripts
+```
+
+### What should I include in a bug report?
+
+- Version or commit SHA.
+- Startup mode: Docker or local.
+- OS, Python, Node, npm, Docker, and FFmpeg versions.
+- Exact reproduction steps.
+- Backend logs or browser errors with secrets removed.
+- Whether `python scripts/health_check.py` found anomalies.
