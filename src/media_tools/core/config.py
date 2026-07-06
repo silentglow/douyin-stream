@@ -25,6 +25,23 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
+def setup_system_proxies() -> None:
+    """自动将 macOS/Windows 系统级代理（例如 Clash 开启的系统代理）同步到当前进程及子进程的环境变量中。"""
+    try:
+        import urllib.request
+        proxies = urllib.request.getproxies()
+        for proto in ("http", "https"):
+            # 仅在用户未显式配置进程环境变量时自动同步系统代理
+            if proto in proxies and not os.getenv(f"{proto}_proxy"):
+                os.environ[f"{proto}_proxy"] = proxies[proto]
+                logger.info(f"自动将系统级 {proto.upper()} 代理同步到进程环境: {proxies[proto]}")
+    except Exception as e:
+        logger.warning(f"自动检测并设置系统代理失败: {e}")
+
+
+setup_system_proxies()
+
 from media_tools.store.db import get_db_connection
 
 
