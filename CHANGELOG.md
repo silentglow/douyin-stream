@@ -7,6 +7,19 @@
 
 ---
 
+## [Unreleased] - YOUTUBE INTEGRATION 2026-07
+
+### 🚀 新增 YouTube 支持与账号池管理
+
+- **YouTube 后端平台集成**：新增 `youtube.py` 后端核心适配器，基于 `yt-dlp` 进行 YouTube 频道、视频列表及单个视频解析下载，并适配 `progress_hook` 提供精准的下载进度百分比、网络速率及剩余时间实时推送。
+- **预提取性能优化 (Preflight Check)**：在获取 YouTube 频道基本信息时，使用 `extract_flat=True` 选项扁平化提取元数据，极速单次 HTTPS 请求返回，避免循环探测视频详情页导致触发 YouTube 人机验证（Sign in to confirm you're not a bot）机制。
+- **多平台 Cookie 管理**：扩展了 `cookie_manager.py` 和账号设置 API，支持录入 YouTube Netscape 格式的 Cookie 文本串，并在设置模块中实现 CRUD（包含备注更新）。
+- **网络代理配置**：在 `AppConfig` 中扩展了 `youtube_proxy` 属性，优先读取环境变量 `YOUTUBE_PROXY`，如未设置则优雅降级回退至 `BILIBILI_PROXY`。
+- **前端一键收录与下载交互**：
+  - 更新了 `discoverUtils.ts` 以支持检测 YouTube 频道及视频链接。
+  - 在设置页面渲染 YouTube Cookie 管理卡片组件。
+  - 在内容库探测面板针对 YouTube 频道和 B 站空间新增了 **“+ 收录为创作者”** 一键动作按钮，以便批量追踪监控同步。
+
 ## [Unreleased] - REFACTOR 2026-05
 
 ### 🔧 任务 5：工程化审计与全面修复

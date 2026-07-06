@@ -29,7 +29,8 @@
 |------|------|
 | 抖音创作者 | 通过主页 URL 添加，批量下载视频 |
 | B站 UP 主 | 通过空间链接添加，批量下载视频 |
-| 直接视频链接 | Discover 页面粘贴单个视频 URL（抖音/B站），直接下载/转写 |
+| YouTube 频道 | 通过频道 URL 添加，批量下载视频 |
+| 直接视频链接 | Discover 页面粘贴单个视频 URL（抖音/B站/YouTube），直接下载/转写 |
 | 本地文件 | 通过「本地转写」上传，独立存储于文件夹分组中，不归属于创作者 |
 
 ---
@@ -41,7 +42,7 @@
 | 方法 | 路径 | 用途 |
 |------|------|------|
 | GET | `/api/v1/creators/` | 列出所有创作者及资产统计 |
-| POST | `/api/v1/creators/` | 通过主页链接添加创作者（抖音/B站） |
+| POST | `/api/v1/creators/` | 通过主页链接添加创作者（抖音/B站/YouTube） |
 | DELETE | `/api/v1/creators/{uid}` | 删除创作者及全部关联资产 |
 
 ### 2.2 素材 `/api/v1/assets`
@@ -86,6 +87,9 @@
 | POST | `/api/v1/settings/douyin` | 添加抖音账号到账号池 |
 | DELETE | `/api/v1/settings/douyin/{account_id}` | 移除抖音账号 |
 | POST | `/api/v1/settings/bilibili/accounts` | 添加B站账号 |
+| POST | `/api/v1/settings/youtube/accounts` | 添加 YouTube 账号 |
+| DELETE | `/api/v1/settings/youtube/accounts/{account_id}` | 移除 YouTube 账号 |
+| PUT | `/api/v1/settings/youtube/accounts/{account_id}/remark` | 更新 YouTube 账号备注 |
 | POST | `/api/v1/settings/qwen` | 保存 Qwen Cookie |
 | POST | `/api/v1/settings/global` | 更新全局设置（自动删除/自动转写/导出格式） |
 
@@ -215,6 +219,12 @@ best[vcodec~='^avc']/bestvideo[vcodec~='^avc']+bestaudio/best/bestvideo+bestaudi
 ```
 
 B站对大量视频提供 AV1 编码（压缩率更高但兼容性差），Qwen 听悟对 AV1 返回 `recordStatus=40`，因此强制 fallback 到 AVC。
+
+### 6.5 YouTube 下载格式选择及代理说明
+
+- **格式选择**：同 B 站一致，优先选择 H.264(AVC) 编码，避免音频/视频转写时出现解码器不支持问题。
+- **代理支持**：由于网络限制，YouTube 下载与预解析需要通过代理进行。支持读取 `YOUTUBE_PROXY` 环境变量，无代理时自动回退使用 `BILIBILI_PROXY`。
+- **扁平提取 (Preflight)**：在预解析频道信息（即获取频道名称创建对应本地目录）时，强制配置 `extract_flat: True`，以极速单次 HTTP 请求返回，避免访问每个视频详情页时触发人机/请求受限（Sign in to confirm you're not a bot）崩溃。
 
 ### 6.5 任务三态
 
