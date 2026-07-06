@@ -309,6 +309,13 @@ def download_up_by_url(
     proxy = get_app_config().bilibili_proxy
     ydl_opts["proxy"] = proxy
 
+    import shutil
+    if shutil.which("aria2c"):
+        ydl_opts["external_downloader"] = "aria2c"
+        ydl_opts["external_downloader_args"] = {
+            "default": ["-x", "16", "-s", "16", "-j", "16", "-k", "1M"]
+        }
+
     # Cookie 配置 - 转换为 Netscape 格式文件
     # expires 使用 2038-01-01 (2145888000) 避免 session cookie 立即过期
     cookie_content: str | None = None

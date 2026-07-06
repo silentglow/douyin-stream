@@ -244,6 +244,13 @@ def download_channel_by_url(
     if proxy:
         ydl_opts["proxy"] = proxy
 
+    import shutil
+    if shutil.which("aria2c"):
+        ydl_opts["external_downloader"] = "aria2c"
+        ydl_opts["external_downloader_args"] = {
+            "default": ["-x", "16", "-s", "16", "-j", "16", "-k", "1M"]
+        }
+
     # Cookie 转换
     cookie_content: str | None = None
     if cookie:
