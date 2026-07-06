@@ -66,6 +66,8 @@ export function useSettings() {
   const [autoTranscribe, setAutoTranscribe] = useState(true);
   const [exportFormat, setExportFormat] = useState('md');
   const [transcriptOutputDir, setTranscriptOutputDir] = useState('');
+  const [youtubeProxy, setYoutubeProxy] = useState('');
+  const [bilibiliProxy, setBilibiliProxy] = useState('');
 
   // Quota
   const [qwenRemainingHoursById, setQwenRemainingHoursById] = useState<Record<string, number>>({});
@@ -94,6 +96,8 @@ export function useSettings() {
     setAutoTranscribe(settings.global_settings.auto_transcribe);
     setExportFormat(settings.global_settings.export_format || 'md');
     setTranscriptOutputDir(settings.global_settings.transcript_output_dir || '');
+    setYoutubeProxy(settings.global_settings.youtube_proxy || '');
+    setBilibiliProxy(settings.global_settings.bilibili_proxy || '');
   }, [settings]);
 
   // Load Qwen quota
@@ -298,41 +302,59 @@ export function useSettings() {
   const handleToggleAutoTranscribe = useCallback(async (value: boolean) => {
     setAutoTranscribe(value);
     try {
-      await updateGlobalSettings(autoDeleteVideo, value, exportFormat, transcriptOutputDir);
+      await updateGlobalSettings(autoDeleteVideo, value, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy);
       toast.success(value ? '已开启自动转写' : '已关闭自动转写');
     } catch {
       setAutoTranscribe(!value);
     }
-  }, [autoDeleteVideo, exportFormat, transcriptOutputDir]);
+  }, [autoDeleteVideo, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy]);
 
   const handleToggleAutoDelete = useCallback(async (value: boolean) => {
     setAutoDeleteVideo(value);
     try {
-      await updateGlobalSettings(value, autoTranscribe, exportFormat, transcriptOutputDir);
+      await updateGlobalSettings(value, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy);
       toast.success(value ? '已开启自动删除' : '已关闭自动删除');
     } catch {
       setAutoDeleteVideo(!value);
     }
-  }, [autoTranscribe, exportFormat, transcriptOutputDir]);
+  }, [autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy]);
 
   const handleChangeExportFormat = useCallback(async (format: string) => {
     const prev = exportFormat;
     setExportFormat(format);
     try {
-      await updateGlobalSettings(autoDeleteVideo, autoTranscribe, format, transcriptOutputDir);
+      await updateGlobalSettings(autoDeleteVideo, autoTranscribe, format, transcriptOutputDir, youtubeProxy, bilibiliProxy);
     } catch {
       setExportFormat(prev);
     }
-  }, [autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir]);
+  }, [autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy]);
 
   const handleSaveTranscriptOutputDir = useCallback(async () => {
     try {
-      await updateGlobalSettings(autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir);
+      await updateGlobalSettings(autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy);
       toast.success('转写输出目录已保存');
     } catch {
       toast.error('保存失败');
     }
-  }, [autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir]);
+  }, [autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy]);
+
+  const handleSaveYoutubeProxy = useCallback(async () => {
+    try {
+      await updateGlobalSettings(autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy);
+      toast.success('YouTube 代理已保存');
+    } catch {
+      toast.error('保存失败');
+    }
+  }, [autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy]);
+
+  const handleSaveBilibiliProxy = useCallback(async () => {
+    try {
+      await updateGlobalSettings(autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy);
+      toast.success('B 站代理已保存');
+    } catch {
+      toast.error('保存失败');
+    }
+  }, [autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy]);
 
   const handleClaimQuota = useCallback(async () => {
     setIsClaimingQuota(true);
@@ -416,6 +438,10 @@ export function useSettings() {
     setExportFormat,
     transcriptOutputDir,
     setTranscriptOutputDir,
+    youtubeProxy,
+    setYoutubeProxy,
+    bilibiliProxy,
+    setBilibiliProxy,
     qwenRemainingHoursById,
     isLoadingQwenStatus,
     qwenStatusError,
@@ -444,6 +470,8 @@ export function useSettings() {
     handleToggleAutoDelete,
     handleChangeExportFormat,
     handleSaveTranscriptOutputDir,
+    handleSaveYoutubeProxy,
+    handleSaveBilibiliProxy,
     handleClaimQuota,
     handleSaveRemark,
     handleUpdateQwenCookie,
