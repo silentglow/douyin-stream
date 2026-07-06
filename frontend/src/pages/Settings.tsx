@@ -54,6 +54,10 @@ export default function Settings() {
     exportFormat,
     transcriptOutputDir,
     setTranscriptOutputDir,
+    youtubeProxy,
+    setYoutubeProxy,
+    bilibiliProxy,
+    setBilibiliProxy,
     qwenRemainingHoursById,
     isLoadingQwenStatus,
     qwenStatusError,
@@ -80,6 +84,8 @@ export default function Settings() {
     handleToggleAutoDelete,
     handleChangeExportFormat,
     handleSaveTranscriptOutputDir,
+    handleSaveYoutubeProxy,
+    handleSaveBilibiliProxy,
     handleClaimQuota,
     handleSaveRemark,
     handleUpdateQwenCookie,
@@ -141,30 +147,17 @@ export default function Settings() {
           youtubeRemark={youtubeRemark}
           setYoutubeRemark={setYoutubeRemark}
           isAddingYoutube={isAddingYoutube}
-          youtubeCookieError={youtubeCookieError}
-          setYoutubeCookieError={setYoutubeCookieError}
-          handleAddYoutube={handleAddYoutube}
-          qwenReady={qwenReady}
-          qwenRemainingHoursById={qwenRemainingHoursById}
-          qwenCookie={qwenCookie}
-          setQwenCookie={setQwenCookie}
-          qwenRemark={qwenRemark}
-          setQwenRemark={setQwenRemark}
-          isAddingQwen={isAddingQwen}
-          qwenCookieError={qwenCookieError}
-          setQwenCookieError={setQwenCookieError}
-          handleSaveQwen={handleSaveQwen}
-          handleUpdateQwenCookie={handleUpdateQwenCookie}
-          editingRemarkQwen={editingRemarkQwen}
-          setEditingRemarkQwen={setEditingRemarkQwen}
-          editInputRef={editInputRef}
-          handleSaveRemark={handleSaveRemark}
-          isLoadingQwenStatus={isLoadingQwenStatus}
-          qwenStatusError={qwenStatusError}
-          loadQwenStatus={refreshSettings}
-          handleClaimQuota={handleClaimQuota}
-          isClaimingQuota={isClaimingQuota}
-          isDeleting={isDeleting}
+          youtubeCookieError={youtubeCookieError} setYoutubeCookieError={setYoutubeCookieError}
+          handleAddYoutube={handleAddYoutube} qwenReady={qwenReady}
+          qwenRemainingHoursById={qwenRemainingHoursById} qwenCookie={qwenCookie}
+          setQwenCookie={setQwenCookie} qwenRemark={qwenRemark} setQwenRemark={setQwenRemark}
+          isAddingQwen={isAddingQwen} qwenCookieError={qwenCookieError} setQwenCookieError={setQwenCookieError}
+          handleSaveQwen={handleSaveQwen} handleUpdateQwenCookie={handleUpdateQwenCookie}
+          editingRemarkQwen={editingRemarkQwen} setEditingRemarkQwen={setEditingRemarkQwen}
+          editInputRef={editInputRef} handleSaveRemark={handleSaveRemark}
+          isLoadingQwenStatus={isLoadingQwenStatus} qwenStatusError={qwenStatusError}
+          loadQwenStatus={refreshSettings} handleClaimQuota={handleClaimQuota}
+          isClaimingQuota={isClaimingQuota} isDeleting={isDeleting}
         />
 
         {/* Preferences Settings Section */}
@@ -178,6 +171,12 @@ export default function Settings() {
           transcriptOutputDir={transcriptOutputDir}
           setTranscriptOutputDir={setTranscriptOutputDir}
           handleSaveTranscriptOutputDir={handleSaveTranscriptOutputDir}
+          youtubeProxy={youtubeProxy}
+          setYoutubeProxy={setYoutubeProxy}
+          handleSaveYoutubeProxy={handleSaveYoutubeProxy}
+          bilibiliProxy={bilibiliProxy}
+          setBilibiliProxy={setBilibiliProxy}
+          handleSaveBilibiliProxy={handleSaveBilibiliProxy}
         />
 
         {/* Scheduler */}

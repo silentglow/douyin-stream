@@ -58,6 +58,8 @@ class GlobalSettingsRequest(BaseModel):
     auto_transcribe: bool | None = None
     export_format: str | None = None
     transcript_output_dir: str | None = None
+    youtube_proxy: str | None = None
+    bilibili_proxy: str | None = None
 
 
 class RemarkRequest(BaseModel):
@@ -76,6 +78,8 @@ def get_settings():
     auto_transcribe = get_runtime_setting_bool("auto_transcribe", False)
     export_format = get_runtime_setting("export_format", "md")
     transcript_output_dir = get_runtime_setting("transcript_output_dir", "")
+    youtube_proxy = get_runtime_setting("youtube_proxy", "")
+    bilibili_proxy = get_runtime_setting("bilibili_proxy", "")
     douyin_accounts_count = len(accounts)
     douyin_primary_configured = get_config().has_cookie()
     douyin_cookie_source = "pool" if douyin_accounts_count > 0 else ("config" if douyin_primary_configured else "none")
@@ -98,6 +102,8 @@ def get_settings():
             "auto_transcribe": auto_transcribe,
             "export_format": export_format,
             "transcript_output_dir": transcript_output_dir,
+            "youtube_proxy": youtube_proxy,
+            "bilibili_proxy": bilibili_proxy,
         },
         "status_summary": {
             "qwen_ready": qwen_configured or qwen_accounts_count > 0,
@@ -269,6 +275,8 @@ def update_global_settings(req: GlobalSettingsRequest):
             and req.auto_transcribe is None
             and req.export_format is None
             and req.transcript_output_dir is None
+            and req.youtube_proxy is None
+            and req.bilibili_proxy is None
         ):
             raise HTTPException(status_code=400, detail="No fields to update")
         if req.concurrency is not None:
@@ -296,6 +304,10 @@ def update_global_settings(req: GlobalSettingsRequest):
             if not os.path.isdir(target):
                 raise HTTPException(status_code=400, detail="transcript_output_dir 目录不存在")
             set_runtime_setting("transcript_output_dir", str(target))
+        if req.youtube_proxy is not None:
+            set_runtime_setting("youtube_proxy", req.youtube_proxy.strip())
+        if req.bilibili_proxy is not None:
+            set_runtime_setting("bilibili_proxy", req.bilibili_proxy.strip())
         return {"status": "success"}
     except HTTPException:
         raise

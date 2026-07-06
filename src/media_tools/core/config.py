@@ -325,12 +325,18 @@ class AppConfig:
 
     @property
     def bilibili_proxy(self) -> str:
-        """B站下载代理"""
+        """B站下载代理。优先从 SystemSettings 读取，fallback 到环境变量。"""
+        db_val = get_runtime_setting("bilibili_proxy", "")
+        if db_val:
+            return db_val
         return _get_env_str("BILIBILI_PROXY", "")
 
     @property
     def youtube_proxy(self) -> str:
-        """YouTube 下载代理，如果没有配置，则回退到 B站代理"""
+        """YouTube 下载代理。优先从 SystemSettings 读取，fallback 到环境变量，最后回退到 B站代理"""
+        db_val = get_runtime_setting("youtube_proxy", "")
+        if db_val:
+            return db_val
         val = _get_env_str("YOUTUBE_PROXY", "")
         if not val:
             val = self.bilibili_proxy

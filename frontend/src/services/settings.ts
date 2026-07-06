@@ -6,7 +6,15 @@ export const getSettings = async (signal?: AbortSignal): Promise<{
   qwen_accounts: Array<{id: string; status: string; last_used: string | null; remark: string; create_time: string}>;
   bilibili_accounts: Array<{id: string; status: string; last_used: string | null; remark: string; create_time: string}>;
   youtube_accounts: Array<{id: string; status: string; last_used: string | null; remark: string; create_time: string}>;
-  global_settings: {concurrency: number; auto_delete: boolean; auto_transcribe: boolean; export_format: string; transcript_output_dir: string};
+  global_settings: {
+    concurrency: number;
+    auto_delete: boolean;
+    auto_transcribe: boolean;
+    export_format: string;
+    transcript_output_dir: string;
+    youtube_proxy: string;
+    bilibili_proxy: string;
+  };
   status_summary: {
     qwen_ready: boolean;
     douyin_ready: boolean;
@@ -94,13 +102,27 @@ export const updateYoutubeAccountRemark = async (accountId: string, remark: stri
   return response.data;
 };
 
-export const updateGlobalSettings = async (autoDelete: boolean, autoTranscribe: boolean, exportFormat?: string, transcriptOutputDir?: string, signal?: AbortSignal): Promise<unknown> => {
+export const updateGlobalSettings = async (
+  autoDelete: boolean,
+  autoTranscribe: boolean,
+  exportFormat?: string,
+  transcriptOutputDir?: string,
+  youtubeProxy?: string,
+  bilibiliProxy?: string,
+  signal?: AbortSignal
+): Promise<unknown> => {
   const payload: Record<string, unknown> = { auto_delete: autoDelete, auto_transcribe: autoTranscribe };
   if (exportFormat !== undefined) {
     payload.export_format = exportFormat;
   }
   if (transcriptOutputDir !== undefined) {
     payload.transcript_output_dir = transcriptOutputDir;
+  }
+  if (youtubeProxy !== undefined) {
+    payload.youtube_proxy = youtubeProxy;
+  }
+  if (bilibiliProxy !== undefined) {
+    payload.bilibili_proxy = bilibiliProxy;
   }
   const response = await apiClient.post('/settings/global', payload, { signal });
   return response.data;
