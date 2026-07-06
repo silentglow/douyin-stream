@@ -35,6 +35,17 @@ interface AccountSettingsSectionProps {
   bilibiliCookieError: string;
   setBilibiliCookieError: (v: string) => void;
   handleAddBilibili: () => void;
+  editingRemarkYoutube: { id: string } | null;
+  setEditingRemarkYoutube: (v: { id: string } | null) => void;
+  youtubeReady: boolean;
+  youtubeCookie: string;
+  setYoutubeCookie: (v: string) => void;
+  youtubeRemark: string;
+  setYoutubeRemark: (v: string) => void;
+  isAddingYoutube: boolean;
+  youtubeCookieError: string;
+  setYoutubeCookieError: (v: string) => void;
+  handleAddYoutube: () => void;
   qwenReady: boolean;
   qwenRemainingHoursById: Record<string, number>;
   qwenCookie: string;
@@ -83,6 +94,17 @@ export function AccountSettingsSection({
   bilibiliCookieError,
   setBilibiliCookieError,
   handleAddBilibili,
+  editingRemarkYoutube,
+  setEditingRemarkYoutube,
+  youtubeReady,
+  youtubeCookie,
+  setYoutubeCookie,
+  youtubeRemark,
+  setYoutubeRemark,
+  isAddingYoutube,
+  youtubeCookieError,
+  setYoutubeCookieError,
+  handleAddYoutube,
   qwenReady,
   qwenRemainingHoursById,
   qwenCookie,
@@ -162,6 +184,40 @@ export function AccountSettingsSection({
           accountType="bilibili"
           editingRemark={editingRemarkBilibili}
           setEditingRemark={setEditingRemarkBilibili}
+          editInputRef={editInputRef}
+          handleSaveRemark={handleSaveRemark}
+          isLoadingQwenStatus={isLoadingQwenStatus}
+          qwenStatusError={qwenStatusError}
+          qwenRemainingHoursById={qwenRemainingHoursById}
+          qwenReady={qwenReady}
+          loadQwenStatus={loadQwenStatus}
+          handleClaimQuota={handleClaimQuota}
+          isClaimingQuota={isClaimingQuota}
+          isDeleting={isDeleting}
+        />
+      </SettingsItem>
+
+      <SettingsItem
+        icon={<Users className="w-4 h-4 text-warn" />}
+        iconBg="bg-warn/10"
+        label="YouTube Cookie"
+        value={youtubeReady ? `${(settings?.youtube_accounts || []).length} 个账号` : '未配置'}
+      >
+        <AccountExpandable
+          accounts={settings?.youtube_accounts || []}
+          cookie={youtubeCookie}
+          setCookie={setYoutubeCookie}
+          remark={youtubeRemark}
+          setRemark={setYoutubeRemark}
+          isAdding={isAddingYoutube}
+          cookieError={youtubeCookieError}
+          setCookieError={setYoutubeCookieError}
+          onAdd={handleAddYoutube}
+          onDelete={(id) => setConfirmDelete({ type: 'youtube', id, name: 'YouTube账号' })}
+          placeholder="粘贴 YouTube Cookie"
+          accountType="youtube"
+          editingRemark={editingRemarkYoutube}
+          setEditingRemark={setEditingRemarkYoutube}
           editInputRef={editInputRef}
           handleSaveRemark={handleSaveRemark}
           isLoadingQwenStatus={isLoadingQwenStatus}

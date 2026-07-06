@@ -5,6 +5,7 @@ export const getSettings = async (signal?: AbortSignal): Promise<{
   douyin_accounts: Array<{id: string; status: string; last_used: string | null; remark: string; create_time: string}>;
   qwen_accounts: Array<{id: string; status: string; last_used: string | null; remark: string; create_time: string}>;
   bilibili_accounts: Array<{id: string; status: string; last_used: string | null; remark: string; create_time: string}>;
+  youtube_accounts: Array<{id: string; status: string; last_used: string | null; remark: string; create_time: string}>;
   global_settings: {concurrency: number; auto_delete: boolean; auto_transcribe: boolean; export_format: string; transcript_output_dir: string};
   status_summary: {
     qwen_ready: boolean;
@@ -14,6 +15,7 @@ export const getSettings = async (signal?: AbortSignal): Promise<{
     douyin_cookie_source: 'config' | 'pool' | 'none';
     qwen_accounts_count: number;
     bilibili_accounts_count: number;
+    youtube_accounts_count: number;
     can_download: boolean;
     can_transcribe: boolean;
     can_run_pipeline: boolean;
@@ -74,6 +76,21 @@ export const deleteBilibiliAccount = async (accountId: string, signal?: AbortSig
 
 export const updateBilibiliAccountRemark = async (accountId: string, remark: string, signal?: AbortSignal): Promise<unknown> => {
   const response = await apiClient.put(`/settings/bilibili/accounts/${accountId}/remark`, { remark }, { signal });
+  return response.data;
+};
+
+export const addYoutubeAccount = async (cookieString: string, remark?: string, signal?: AbortSignal): Promise<unknown> => {
+  const response = await apiClient.post('/settings/youtube/accounts', { cookie_string: cookieString, remark: remark || '' }, { signal });
+  return response.data;
+};
+
+export const deleteYoutubeAccount = async (accountId: string, signal?: AbortSignal): Promise<unknown> => {
+  const response = await apiClient.delete(`/settings/youtube/accounts/${accountId}`, { signal });
+  return response.data;
+};
+
+export const updateYoutubeAccountRemark = async (accountId: string, remark: string, signal?: AbortSignal): Promise<unknown> => {
+  const response = await apiClient.put(`/settings/youtube/accounts/${accountId}/remark`, { remark }, { signal });
   return response.data;
 };
 

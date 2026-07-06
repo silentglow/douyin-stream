@@ -23,7 +23,7 @@ interface AccountExpandableProps {
   onUpdateCookie?: (id: string, newCookie: string) => void;
   placeholder: string;
   showQuota?: boolean;
-  accountType: 'qwen' | 'douyin' | 'bilibili';
+  accountType: 'qwen' | 'douyin' | 'bilibili' | 'youtube';
   editingRemark: { id: string } | null;
   setEditingRemark: (v: { id: string } | null) => void;
   editInputRef: React.RefObject<HTMLInputElement | null>;

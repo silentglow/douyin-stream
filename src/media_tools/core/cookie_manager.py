@@ -8,7 +8,7 @@ from media_tools.store.db import get_db_connection
 
 logger = get_logger(__name__)
 
-SUPPORTED_PLATFORMS = ("douyin", "bilibili", "qwen")
+SUPPORTED_PLATFORMS = ("douyin", "bilibili", "youtube", "qwen")
 
 
 @dataclass(frozen=True)

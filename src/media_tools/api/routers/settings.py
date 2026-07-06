@@ -47,6 +47,11 @@ class BilibiliAccountRequest(BaseModel):
     remark: str = ""
 
 
+class YoutubeAccountRequest(BaseModel):
+    cookie_string: str
+    remark: str = ""
+
+
 class GlobalSettingsRequest(BaseModel):
     concurrency: int | None = None
     auto_delete: bool | None = None
@@ -64,6 +69,7 @@ def get_settings():
     accounts = AccountRepository.list_by_platform("douyin")
     qwen_accounts = AccountRepository.list_by_platform("qwen")
     bilibili_accounts = AccountRepository.list_by_platform("bilibili")
+    youtube_accounts = AccountRepository.list_by_platform("youtube")
 
     concurrency = get_runtime_setting_int("concurrency", 10)
     auto_delete = get_runtime_setting_bool("auto_delete", True)
@@ -76,7 +82,8 @@ def get_settings():
     qwen_configured = has_qwen_auth_state()
     qwen_accounts_count = len(qwen_accounts)
     bilibili_accounts_count = len(bilibili_accounts)
-    can_download = douyin_primary_configured or douyin_accounts_count > 0 or bilibili_accounts_count > 0
+    youtube_accounts_count = len(youtube_accounts)
+    can_download = douyin_primary_configured or douyin_accounts_count > 0 or bilibili_accounts_count > 0 or youtube_accounts_count > 0
     can_transcribe = qwen_configured or qwen_accounts_count > 0
 
     return {
@@ -84,6 +91,7 @@ def get_settings():
         "douyin_accounts": accounts,
         "qwen_accounts": qwen_accounts,
         "bilibili_accounts": bilibili_accounts,
+        "youtube_accounts": youtube_accounts,
         "global_settings": {
             "concurrency": concurrency,
             "auto_delete": auto_delete,
@@ -99,6 +107,7 @@ def get_settings():
             "douyin_cookie_source": douyin_cookie_source,
             "qwen_accounts_count": qwen_accounts_count,
             "bilibili_accounts_count": bilibili_accounts_count,
+            "youtube_accounts_count": youtube_accounts_count,
             "can_download": can_download,
             "can_transcribe": can_transcribe,
             "can_run_pipeline": can_download and can_transcribe,
@@ -189,6 +198,45 @@ def delete_bilibili_account(account_id: str):
 def update_bilibili_account_remark(account_id: str, req: RemarkRequest):
     try:
         rowcount = AccountRepository.update_remark(account_id, "bilibili", req.remark)
+        if rowcount == 0:
+            raise HTTPException(status_code=404, detail="Account not found")
+        return {"status": "success"}
+    except HTTPException:
+        raise
+    except (sqlite3.Error, OSError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/youtube/accounts")
+def add_youtube_account(req: YoutubeAccountRequest):
+    try:
+        cookie = _validate_cookie_string(req.cookie_string)
+        account_id = str(uuid.uuid4())
+        AccountRepository.create(account_id, "youtube", cookie, req.remark)
+        return {"status": "success", "account_id": account_id}
+    except HTTPException:
+        raise
+    except (sqlite3.Error, OSError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/youtube/accounts/{account_id}")
+def delete_youtube_account(account_id: str):
+    try:
+        rowcount = AccountRepository.delete(account_id, "youtube")
+        if rowcount == 0:
+            raise HTTPException(status_code=404, detail="Account not found")
+        return {"status": "success"}
+    except HTTPException:
+        raise
+    except (sqlite3.Error, OSError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/youtube/accounts/{account_id}/remark")
+def update_youtube_account_remark(account_id: str, req: RemarkRequest):
+    try:
+        rowcount = AccountRepository.update_remark(account_id, "youtube", req.remark)
         if rowcount == 0:
             raise HTTPException(status_code=404, detail="Account not found")
         return {"status": "success"}

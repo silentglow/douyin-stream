@@ -1,4 +1,4 @@
-import { Loader2, Download, FileAudio, ExternalLink } from 'lucide-react';
+import { Loader2, Download, FileAudio, Plus, ExternalLink } from 'lucide-react';
 import { LinkInfo, PLATFORM_LABEL, TYPE_LABEL } from './discoverUtils';
 
 interface DirectLinkCardProps {
@@ -7,6 +7,8 @@ interface DirectLinkCardProps {
   submitting: boolean;
   onDirectDownload: () => void;
   onDirectTranscribe: () => void;
+  onCollect?: () => void;
+  collecting?: boolean;
 }
 
 export function DirectLinkCard({
@@ -15,6 +17,8 @@ export function DirectLinkCard({
   submitting,
   onDirectDownload,
   onDirectTranscribe,
+  onCollect,
+  collecting = false,
 }: DirectLinkCardProps) {
   return (
     <div className="max-w-xl">
@@ -36,12 +40,12 @@ export function DirectLinkCard({
           <ExternalLink className="w-3.5 h-3.5 mt-0.5 shrink-0" strokeWidth={1.5} />
           {url}
         </a>
-        {linkInfo.type === 'up_space' && (
+        {(linkInfo.type === 'up_space' || (linkInfo.platform === 'youtube' && linkInfo.type === 'profile')) && (
           <div className="text-[12px] text-[var(--color-ash)] mb-4">
-            将下载该 UP 主的最新视频（最多 20 个）
+            将同步该创作者的最新视频
           </div>
         )}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={onDirectDownload}
             disabled={submitting}
@@ -58,6 +62,16 @@ export function DirectLinkCard({
             {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileAudio className="w-3.5 h-3.5" />}
             下载 + 转写
           </button>
+          {(linkInfo.type === 'up_space' || linkInfo.type === 'profile') && onCollect && (
+            <button
+              onClick={onCollect}
+              disabled={collecting}
+              className="btn-sharp border-[var(--color-rust)] text-[var(--color-rust)] hover:bg-[rgba(0,113,227,0.05)] disabled:opacity-40 flex items-center gap-2"
+            >
+              {collecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+              收录为创作者
+            </button>
+          )}
         </div>
       </div>
     </div>

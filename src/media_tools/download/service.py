@@ -45,6 +45,8 @@ def resolve_platform(url: str) -> str:
     value = (url or "").lower()
     if "bilibili.com" in value or "b23.tv" in value:
         return "bilibili"
+    if "youtube.com" in value or "youtu.be" in value:
+        return "youtube"
     return "douyin"
 
 
@@ -62,6 +64,16 @@ def download_by_url(
         from media_tools.platform.bilibili import download_up_by_url
 
         raw = download_up_by_url(
+            url,
+            max_counts=max_counts,
+            skip_existing=skip_existing,
+            task_id=task_id,
+            disable_auto_transcribe=disable_auto_transcribe,
+        )
+    elif platform == "youtube":
+        from media_tools.platform.youtube import download_channel_by_url
+
+        raw = download_channel_by_url(
             url,
             max_counts=max_counts,
             skip_existing=skip_existing,

@@ -596,6 +596,14 @@ async def run_pipeline_for_user(
                 asyncio.to_thread(bilibili_download, url, max_counts, True, None, task_id),
                 timeout=600,
             )
+        elif platform == "youtube":
+            # YouTube使用 yt-dlp
+            from media_tools.platform.youtube import download_channel_by_url as youtube_download
+
+            dl_result = await asyncio.wait_for(
+                asyncio.to_thread(youtube_download, url, max_counts, True, None, task_id),
+                timeout=600,
+            )
         else:
             # 抖音使用 download_router（会自动选择 yt-dlp 视频或回退到 F2 用户主页）
             # disable_auto_transcribe=True：pipeline 模式由 run_pipeline_for_user 自己控制转写

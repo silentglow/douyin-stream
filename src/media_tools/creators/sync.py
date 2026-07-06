@@ -163,6 +163,9 @@ class CreatorSyncWorker(BaseWorker):
         if platform == "bilibili":
             logger.info(f"[创作者同步] 使用 yt-dlp 下载 B 站 UP 主 {display_name} (mid={sec_user_id or uid})")
             new_files = await self._download_bilibili(task_id, uid, sec_user_id, max_counts, skip_existing, last_result)
+        elif platform == "youtube":
+            logger.info(f"[创作者同步] 使用 yt-dlp 下载 YouTube 频道 {display_name} (channel_id={sec_user_id or uid})")
+            new_files = await self._download_youtube(task_id, uid, sec_user_id, max_counts, skip_existing, last_result)
         else:
             logger.info(f"[创作者同步] 使用 F2 下载抖音用户 {display_name} (sec_user_id={sec_user_id})")
             new_files = await self._download_douyin(
@@ -280,6 +283,40 @@ class CreatorSyncWorker(BaseWorker):
             )
             return new_files
         logger.warning(f"[B站下载] 返回格式异常: {type(result)}")
+        return []
+
+    async def _download_youtube(
+        self,
+        task_id: str,
+        uid: str,
+        sec_user_id: str,
+        max_counts: int | None,
+        skip_existing: bool,
+        last_result: dict[str, Any],
+    ) -> list[str]:
+        from media_tools.platform.youtube import download_channel_by_url
+
+        channel_id = sec_user_id or uid.split(":", 1)[-1]
+        url = f"https://www.youtube.com/channel/{channel_id}"
+        logger.info(f"[YouTube下载] 启动: {url} (max={max_counts or '全部'}, skip={skip_existing})")
+        try:
+            result = await asyncio.to_thread(
+                download_channel_by_url, url, max_counts, skip_existing, None, task_id, False, not skip_existing
+            )
+        except (RuntimeError, OSError, ValueError) as e:
+            error_msg = str(e)
+            logger.error(f"[YouTube下载] 失败: {error_msg}")
+            raise
+        if isinstance(result, dict):
+            last_result.update(result)
+            new_files = result.get("new_files") or []
+            uploader = result.get("uploader")
+            logger.info(
+                f"[YouTube下载] 结束: {len(new_files)} 个新文件"
+                f"{'，频道=' + uploader.get('nickname', '?') if uploader else ''}"
+            )
+            return new_files
+        logger.warning(f"[YouTube下载] 返回格式异常: {type(result)}")
         return []
 
     async def _download_douyin(

@@ -189,6 +189,41 @@ async def create_creator(req: CreatorCreateRequest):
                 },
             }
 
+        elif "youtube.com" in req.url or "youtu.be" in req.url:
+            from media_tools.platform.youtube import fetch_youtube_channel_info
+
+            try:
+                info = await asyncio.to_thread(fetch_youtube_channel_info, req.url)
+                nickname = info.get("nickname") or "YouTube Channel"
+                channel_id = info.get("channel_id") or ""
+                homepage_url = info.get("homepage_url") or req.url
+            except Exception as e:
+                logger.error(f"提取 YouTube 频道信息失败: {e}")
+                raise HTTPException(status_code=400, detail=f"无法获取 YouTube 频道信息，请检查链接或网络代理: {e}")
+
+            if not channel_id:
+                raise HTTPException(status_code=400, detail="无法解析 YouTube 频道 ID")
+
+            uid = f"youtube:{channel_id}"
+            created = CreatorRepository.upsert_youtube_creator(
+                uid=uid,
+                sec_user_id=channel_id,
+                nickname=nickname,
+                homepage_url=homepage_url,
+            )
+
+            return {
+                "status": "created" if created else "exists",
+                "creator": {
+                    "uid": uid,
+                    "nickname": nickname,
+                    "sec_user_id": channel_id,
+                    "platform": "youtube",
+                    "homepage_url": homepage_url,
+                    "sync_status": "active",
+                },
+            }
+
         from media_tools.douyin.core.following_mgr import add_user
 
         success, user_info = await asyncio.to_thread(add_user, req.url)

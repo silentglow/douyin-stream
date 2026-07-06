@@ -1,5 +1,5 @@
 export interface LinkInfo {
-  platform: 'douyin' | 'bilibili';
+  platform: 'douyin' | 'bilibili' | 'youtube';
   type: 'profile' | 'video' | 'up_space';
 }
 
@@ -17,12 +17,20 @@ export function detectLinkType(rawUrl: string): LinkInfo | null {
     return { platform: 'bilibili', type: 'video' };
   }
 
+  if (lower.includes('youtube.com') || lower.includes('youtu.be')) {
+    if (lower.includes('/channel/') || lower.includes('/c/') || lower.includes('/user/') || lower.includes('/@')) {
+      return { platform: 'youtube', type: 'profile' };
+    }
+    return { platform: 'youtube', type: 'video' };
+  }
+
   return null;
 }
 
 export const PLATFORM_LABEL: Record<string, string> = {
   douyin: '抖音',
   bilibili: 'B 站',
+  youtube: 'YouTube',
 };
 
 export const TYPE_LABEL: Record<string, string> = {

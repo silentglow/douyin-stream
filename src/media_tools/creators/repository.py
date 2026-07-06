@@ -213,6 +213,64 @@ class CreatorRepository:
             return not exists
 
     @staticmethod
+    def upsert_youtube_creator(
+        uid: str,
+        sec_user_id: str,
+        nickname: str,
+        homepage_url: str = "",
+    ) -> bool:
+        """插入或更新 YouTube 创作者。返回 True 表示新插入，False 表示更新。"""
+        with get_db_connection() as conn:
+            creator_columns = get_table_columns(conn, "creators")
+            cursor = conn.execute("SELECT uid FROM creators WHERE uid = ?", (uid,))
+            exists = cursor.fetchone() is not None
+
+            if exists:
+                # 已存在则更新
+                if "homepage_url" in creator_columns:
+                    conn.execute(
+                        (
+                            "UPDATE creators SET sec_user_id = ?, nickname = ?, homepage_url = ?"
+                            + (", platform = 'youtube'" if "platform" in creator_columns else "")
+                            + " WHERE uid = ?"
+                        ),
+                        (sec_user_id, nickname, homepage_url, uid),
+                    )
+                else:
+                    conn.execute(
+                        (
+                            "UPDATE creators SET sec_user_id = ?, nickname = ?"
+                            + (", platform = 'youtube'" if "platform" in creator_columns else "")
+                            + " WHERE uid = ?"
+                        ),
+                        (sec_user_id, nickname, uid),
+                    )
+            else:
+                # 不存在则插入
+                if "homepage_url" in creator_columns and "platform" in creator_columns:
+                    conn.execute(
+                        "INSERT INTO creators (uid, sec_user_id, nickname, homepage_url, platform, sync_status) VALUES (?, ?, ?, ?, 'youtube', 'active')",
+                        (uid, sec_user_id, nickname, homepage_url),
+                    )
+                elif "homepage_url" in creator_columns:
+                    conn.execute(
+                        "INSERT INTO creators (uid, sec_user_id, nickname, homepage_url, sync_status) VALUES (?, ?, ?, ?, 'active')",
+                        (uid, sec_user_id, nickname, homepage_url),
+                    )
+                elif "platform" in creator_columns:
+                    conn.execute(
+                        "INSERT INTO creators (uid, sec_user_id, nickname, platform, sync_status) VALUES (?, ?, ?, 'youtube', 'active')",
+                        (uid, sec_user_id, nickname),
+                    )
+                else:
+                    conn.execute(
+                        "INSERT INTO creators (uid, sec_user_id, nickname, sync_status) VALUES (?, ?, ?, 'active')",
+                        (uid, sec_user_id, nickname),
+                    )
+            conn.commit()
+            return not exists
+
+    @staticmethod
     def delete_with_assets(uid: str) -> tuple[str | None, list[dict[str, Any]]]:
         """级联删除创作者及其素材。返回 (nickname, assets_list) 用于后续文件清理。"""
         with get_db_connection() as conn:

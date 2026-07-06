@@ -244,6 +244,8 @@ export function CreatorScout({ onActiveChange, onCollected }: CreatorScoutProps)
                     submitting={submitting}
                     onDirectDownload={handleDirectDownload}
                     onDirectTranscribe={handleDirectTranscribe}
+                    onCollect={handleCollect}
+                    collecting={collecting}
                   />
                 )}
 

@@ -12,6 +12,9 @@ import {
   addBilibiliAccount,
   deleteBilibiliAccount,
   updateBilibiliAccountRemark,
+  addYoutubeAccount,
+  deleteYoutubeAccount,
+  updateYoutubeAccountRemark,
   updateGlobalSettings,
   getQwenStatus,
   claimQwenQuota,
@@ -38,14 +41,17 @@ export function useSettings() {
   const [qwenCookie, setQwenCookie] = useState('');
   const [douyinCookie, setDouyinCookie] = useState('');
   const [bilibiliCookie, setBilibiliCookie] = useState('');
+  const [youtubeCookie, setYoutubeCookie] = useState('');
   const [qwenRemark, setQwenRemark] = useState('');
   const [douyinRemark, setDouyinRemark] = useState('');
   const [bilibiliRemark, setBilibiliRemark] = useState('');
+  const [youtubeRemark, setYoutubeRemark] = useState('');
 
   // Loading states
   const [isAddingQwen, setIsAddingQwen] = useState(false);
   const [isAddingDouyin, setIsAddingDouyin] = useState(false);
   const [isAddingBilibili, setIsAddingBilibili] = useState(false);
+  const [isAddingYoutube, setIsAddingYoutube] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isClaimingQuota, setIsClaimingQuota] = useState(false);
 
@@ -53,6 +59,7 @@ export function useSettings() {
   const [qwenCookieError, setQwenCookieError] = useState('');
   const [douyinCookieError, setDouyinCookieError] = useState('');
   const [bilibiliCookieError, setBilibiliCookieError] = useState('');
+  const [youtubeCookieError, setYoutubeCookieError] = useState('');
 
   // Global settings
   const [autoDeleteVideo, setAutoDeleteVideo] = useState(true);
@@ -258,6 +265,36 @@ export function useSettings() {
     }
   }, [refreshSettings]);
 
+  const handleAddYoutube = useCallback(async () => {
+    if (!youtubeCookie.trim()) return;
+    setIsAddingYoutube(true);
+    try {
+      await addYoutubeAccount(youtubeCookie.trim(), youtubeRemark.trim() || undefined);
+      toast.success('YouTube 账号添加成功');
+      setYoutubeCookie('');
+      setYoutubeRemark('');
+      await refreshSettings(true);
+    } catch {
+      setYoutubeCookieError('添加失败，请检查 Cookie 有效性');
+    } finally {
+      setIsAddingYoutube(false);
+    }
+  }, [youtubeCookie, youtubeRemark, refreshSettings]);
+
+  const handleDeleteYoutube = useCallback(async (id: string) => {
+    setIsDeleting(id);
+    try {
+      await deleteYoutubeAccount(id);
+      toast.success('已删除');
+      await refreshSettings(true);
+    } catch {
+      toast.error('删除失败');
+    } finally {
+      setIsDeleting(null);
+      setConfirmDelete(null);
+    }
+  }, [refreshSettings]);
+
   const handleToggleAutoTranscribe = useCallback(async (value: boolean) => {
     setAutoTranscribe(value);
     try {
@@ -321,6 +358,7 @@ export function useSettings() {
       if (type === 'qwen') await updateQwenAccountRemark(id, remark);
       else if (type === 'douyin') await updateDouyinAccountRemark(id, remark);
       else if (type === 'bilibili') await updateBilibiliAccountRemark(id, remark);
+      else if (type === 'youtube') await updateYoutubeAccountRemark(id, remark);
       toast.success('备注已更新');
       await refreshSettings(true);
     } catch {
@@ -348,15 +386,20 @@ export function useSettings() {
     setDouyinCookie,
     bilibiliCookie,
     setBilibiliCookie,
+    youtubeCookie,
+    setYoutubeCookie,
     qwenRemark,
     setQwenRemark,
     douyinRemark,
     setDouyinRemark,
     bilibiliRemark,
     setBilibiliRemark,
+    youtubeRemark,
+    setYoutubeRemark,
     isAddingQwen,
     isAddingDouyin,
     isAddingBilibili,
+    isAddingYoutube,
     isDeleting,
     isClaimingQuota,
     qwenCookieError,
@@ -365,6 +408,8 @@ export function useSettings() {
     setDouyinCookieError,
     bilibiliCookieError,
     setBilibiliCookieError,
+    youtubeCookieError,
+    setYoutubeCookieError,
     autoDeleteVideo,
     autoTranscribe,
     exportFormat,
@@ -393,6 +438,8 @@ export function useSettings() {
     handleDeleteDouyin,
     handleAddBilibili,
     handleDeleteBilibili,
+    handleAddYoutube,
+    handleDeleteYoutube,
     handleToggleAutoTranscribe,
     handleToggleAutoDelete,
     handleChangeExportFormat,

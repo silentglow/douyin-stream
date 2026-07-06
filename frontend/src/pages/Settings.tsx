@@ -13,6 +13,7 @@ import { ScheduleSettings } from '@/components/settings/ScheduleSettings';
 export default function Settings() {
   const [editingRemarkDouyin, setEditingRemarkDouyin] = useState<{ id: string } | null>(null);
   const [editingRemarkBilibili, setEditingRemarkBilibili] = useState<{ id: string } | null>(null);
+  const [editingRemarkYoutube, setEditingRemarkYoutube] = useState<{ id: string } | null>(null);
   const [editingRemarkQwen, setEditingRemarkQwen] = useState<{ id: string } | null>(null);
 
   const {
@@ -24,15 +25,20 @@ export default function Settings() {
     setDouyinCookie,
     bilibiliCookie,
     setBilibiliCookie,
+    youtubeCookie,
+    setYoutubeCookie,
     qwenRemark,
     setQwenRemark,
     douyinRemark,
     setDouyinRemark,
     bilibiliRemark,
     setBilibiliRemark,
+    youtubeRemark,
+    setYoutubeRemark,
     isAddingQwen,
     isAddingDouyin,
     isAddingBilibili,
+    isAddingYoutube,
     isDeleting,
     isClaimingQuota,
     qwenCookieError,
@@ -41,6 +47,8 @@ export default function Settings() {
     setDouyinCookieError,
     bilibiliCookieError,
     setBilibiliCookieError,
+    youtubeCookieError,
+    setYoutubeCookieError,
     autoDeleteVideo,
     autoTranscribe,
     exportFormat,
@@ -66,6 +74,8 @@ export default function Settings() {
     handleDeleteDouyin,
     handleAddBilibili,
     handleDeleteBilibili,
+    handleAddYoutube,
+    handleDeleteYoutube,
     handleToggleAutoTranscribe,
     handleToggleAutoDelete,
     handleChangeExportFormat,
@@ -123,6 +133,17 @@ export default function Settings() {
           bilibiliCookieError={bilibiliCookieError}
           setBilibiliCookieError={setBilibiliCookieError}
           handleAddBilibili={handleAddBilibili}
+          editingRemarkYoutube={editingRemarkYoutube}
+          setEditingRemarkYoutube={setEditingRemarkYoutube}
+          youtubeReady={(settings?.status_summary?.youtube_accounts_count ?? 0) > 0}
+          youtubeCookie={youtubeCookie}
+          setYoutubeCookie={setYoutubeCookie}
+          youtubeRemark={youtubeRemark}
+          setYoutubeRemark={setYoutubeRemark}
+          isAddingYoutube={isAddingYoutube}
+          youtubeCookieError={youtubeCookieError}
+          setYoutubeCookieError={setYoutubeCookieError}
+          handleAddYoutube={handleAddYoutube}
           qwenReady={qwenReady}
           qwenRemainingHoursById={qwenRemainingHoursById}
           qwenCookie={qwenCookie}
@@ -248,9 +269,10 @@ export default function Settings() {
                   取消
                 </button>
                 <button
-                  onClick={() => {
+                   onClick={() => {
                     if (confirmDelete.type === 'douyin') handleDeleteDouyin(confirmDelete.id);
                     else if (confirmDelete.type === 'bilibili') handleDeleteBilibili(confirmDelete.id);
+                    else if (confirmDelete.type === 'youtube') handleDeleteYoutube(confirmDelete.id);
                     else if (confirmDelete.type === 'qwen') handleDeleteQwen(confirmDelete.id);
                   }}
                   className="flex-1 py-2.5 rounded-lg bg-err text-white text-sm font-medium hover:brightness-110 transition-all active:scale-[0.96]"
