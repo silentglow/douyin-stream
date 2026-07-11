@@ -114,7 +114,7 @@ export function PreferenceSettingsSection({
         icon={<Globe className="w-4 h-4 text-warn" />}
         iconBg="bg-warn/10"
         label="YouTube 代理"
-        value={youtubeProxy || '无代理（或直连）'}
+        value={youtubeProxy || '继承环境'}
       >
         <div className="pt-3 space-y-3">
           <div className="flex gap-2">
@@ -133,7 +133,7 @@ export function PreferenceSettingsSection({
             </button>
           </div>
           <div className="text-xs text-fg-muted">
-            留空将依次尝试系统环境变量 YOUTUBE_PROXY 或 BILIBILI_PROXY。
+            留空继承系统/环境代理；填 direct 强制直连。
           </div>
         </div>
       </SettingsItem>
@@ -141,7 +141,7 @@ export function PreferenceSettingsSection({
         icon={<Globe className="w-4 h-4 text-warn" />}
         iconBg="bg-warn/10"
         label="B 站代理"
-        value={bilibiliProxy || '无代理（或直连）'}
+        value={bilibiliProxy || '继承环境'}
       >
         <div className="pt-3 space-y-3">
           <div className="flex gap-2">
@@ -160,7 +160,7 @@ export function PreferenceSettingsSection({
             </button>
           </div>
           <div className="text-xs text-fg-muted">
-            留空将使用系统环境变量 BILIBILI_PROXY。
+            留空继承系统/环境代理；填 direct 强制直连。
           </div>
         </div>
       </SettingsItem>

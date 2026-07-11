@@ -102,28 +102,20 @@ export const updateYoutubeAccountRemark = async (accountId: string, remark: stri
   return response.data;
 };
 
+export type GlobalSettingsPatch = {
+  concurrency?: number;
+  auto_delete?: boolean;
+  auto_transcribe?: boolean;
+  export_format?: string;
+  transcript_output_dir?: string;
+  youtube_proxy?: string;
+  bilibili_proxy?: string;
+};
+
 export const updateGlobalSettings = async (
-  autoDelete: boolean,
-  autoTranscribe: boolean,
-  exportFormat?: string,
-  transcriptOutputDir?: string,
-  youtubeProxy?: string,
-  bilibiliProxy?: string,
+  payload: GlobalSettingsPatch,
   signal?: AbortSignal
 ): Promise<unknown> => {
-  const payload: Record<string, unknown> = { auto_delete: autoDelete, auto_transcribe: autoTranscribe };
-  if (exportFormat !== undefined) {
-    payload.export_format = exportFormat;
-  }
-  if (transcriptOutputDir !== undefined) {
-    payload.transcript_output_dir = transcriptOutputDir;
-  }
-  if (youtubeProxy !== undefined) {
-    payload.youtube_proxy = youtubeProxy;
-  }
-  if (bilibiliProxy !== undefined) {
-    payload.bilibili_proxy = bilibiliProxy;
-  }
   const response = await apiClient.post('/settings/global', payload, { signal });
   return response.data;
 };

@@ -304,10 +304,11 @@ def download_up_by_url(
         archive_path.parent.mkdir(parents=True, exist_ok=True)
         ydl_opts["download_archive"] = str(archive_path)
 
-    from media_tools.core.config import get_app_config
+    from media_tools.core.config import get_app_config, normalize_download_proxy
 
-    proxy = get_app_config().bilibili_proxy
-    ydl_opts["proxy"] = proxy
+    proxy = normalize_download_proxy(get_app_config().bilibili_proxy)
+    if proxy is not None:
+        ydl_opts["proxy"] = proxy
 
     import shutil
     if shutil.which("aria2c"):

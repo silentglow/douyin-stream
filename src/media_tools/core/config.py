@@ -25,17 +25,27 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+_DIRECT_PROXY_VALUES = {"direct", "none", "off", "false", "no_proxy", "no-proxy"}
+
+
+def _has_env_any(*keys: str) -> bool:
+    return any(key in os.environ for key in keys)
+
 
 def setup_system_proxies() -> None:
     """自动将 macOS/Windows 系统级代理（例如 Clash 开启的系统代理）同步到当前进程及子进程的环境变量中。"""
     try:
         import urllib.request
+
         proxies = urllib.request.getproxies()
         for proto in ("http", "https"):
             # 仅在用户未显式配置进程环境变量时自动同步系统代理
-            if proto in proxies and not os.getenv(f"{proto}_proxy"):
+            if proto in proxies and not _has_env_any(f"{proto}_proxy", f"{proto.upper()}_PROXY"):
                 os.environ[f"{proto}_proxy"] = proxies[proto]
                 logger.info(f"自动将系统级 {proto.upper()} 代理同步到进程环境: {proxies[proto]}")
+        if "no" in proxies and not _has_env_any("no_proxy", "NO_PROXY"):
+            os.environ["no_proxy"] = proxies["no"]
+            logger.info(f"自动将系统级代理直连规则同步到进程环境: {proxies['no']}")
     except Exception as e:
         logger.warning(f"自动检测并设置系统代理失败: {e}")
 
@@ -144,6 +154,22 @@ def get_runtime_setting_int(key: str, default: int = 0) -> int:
         return int(raw)
     except ValueError:
         return default
+
+
+def normalize_download_proxy(value: str) -> str | None:
+    """Normalize UI/env proxy values for yt-dlp.
+
+    Returns:
+        None: inherit yt-dlp/environment proxy behavior.
+        "": force direct connection (`--proxy ""`).
+        URL: explicit proxy.
+    """
+    stripped = (value or "").strip()
+    if not stripped:
+        return None
+    if stripped.lower() in _DIRECT_PROXY_VALUES:
+        return ""
+    return stripped
 
 
 def set_runtime_setting(key: str, value: str | bool | int) -> None:

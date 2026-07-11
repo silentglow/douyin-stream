@@ -14,6 +14,8 @@ from media_tools.core.config import (
     get_runtime_setting,
     get_runtime_setting_bool,
     get_runtime_setting_int,
+    normalize_download_proxy,
+    setup_system_proxies,
 )
 
 
@@ -149,6 +151,42 @@ class EnvVarHelperTests(unittest.TestCase):
 
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(_get_env_str("MISSING_VAR", "default"), "default")
+
+    def test_setup_system_proxies_syncs_no_proxy(self) -> None:
+        """System proxy sync must preserve bypass rules for localhost/intranet hosts."""
+        proxies = {
+            "http": "http://127.0.0.1:7890",
+            "https": "http://127.0.0.1:7890",
+            "no": "localhost,127.0.0.1,*.local",
+        }
+        with patch.dict(os.environ, {}, clear=True), patch("urllib.request.getproxies", return_value=proxies):
+            setup_system_proxies()
+
+            self.assertEqual(os.environ["http_proxy"], "http://127.0.0.1:7890")
+            self.assertEqual(os.environ["https_proxy"], "http://127.0.0.1:7890")
+            self.assertEqual(os.environ["no_proxy"], "localhost,127.0.0.1,*.local")
+
+    def test_setup_system_proxies_respects_explicit_env_even_if_empty(self) -> None:
+        """An existing env var, including an empty one, is an explicit user choice."""
+        proxies = {"http": "http://127.0.0.1:7890", "no": "localhost"}
+        with patch.dict(os.environ, {"HTTP_PROXY": "", "NO_PROXY": ""}, clear=True), patch(
+            "urllib.request.getproxies",
+            return_value=proxies,
+        ):
+            setup_system_proxies()
+
+            self.assertNotIn("http_proxy", os.environ)
+            self.assertNotIn("no_proxy", os.environ)
+            self.assertEqual(os.environ["HTTP_PROXY"], "")
+            self.assertEqual(os.environ["NO_PROXY"], "")
+
+    def test_normalize_download_proxy(self) -> None:
+        """Download proxy values distinguish inherit, direct, and explicit proxy."""
+        self.assertIsNone(normalize_download_proxy(""))
+        self.assertIsNone(normalize_download_proxy("   "))
+        self.assertEqual(normalize_download_proxy("direct"), "")
+        self.assertEqual(normalize_download_proxy("NO-PROXY"), "")
+        self.assertEqual(normalize_download_proxy(" http://127.0.0.1:7890 "), "http://127.0.0.1:7890")
 
 
 class RuntimeSettingTests(unittest.TestCase):

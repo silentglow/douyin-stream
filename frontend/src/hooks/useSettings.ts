@@ -302,59 +302,59 @@ export function useSettings() {
   const handleToggleAutoTranscribe = useCallback(async (value: boolean) => {
     setAutoTranscribe(value);
     try {
-      await updateGlobalSettings(autoDeleteVideo, value, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy);
+      await updateGlobalSettings({ auto_transcribe: value });
       toast.success(value ? '已开启自动转写' : '已关闭自动转写');
     } catch {
       setAutoTranscribe(!value);
     }
-  }, [autoDeleteVideo, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy]);
+  }, []);
 
   const handleToggleAutoDelete = useCallback(async (value: boolean) => {
     setAutoDeleteVideo(value);
     try {
-      await updateGlobalSettings(value, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy);
+      await updateGlobalSettings({ auto_delete: value });
       toast.success(value ? '已开启自动删除' : '已关闭自动删除');
     } catch {
       setAutoDeleteVideo(!value);
     }
-  }, [autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy]);
+  }, []);
 
   const handleChangeExportFormat = useCallback(async (format: string) => {
     const prev = exportFormat;
     setExportFormat(format);
     try {
-      await updateGlobalSettings(autoDeleteVideo, autoTranscribe, format, transcriptOutputDir, youtubeProxy, bilibiliProxy);
+      await updateGlobalSettings({ export_format: format });
     } catch {
       setExportFormat(prev);
     }
-  }, [autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy]);
+  }, [exportFormat]);
 
   const handleSaveTranscriptOutputDir = useCallback(async () => {
     try {
-      await updateGlobalSettings(autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy);
+      await updateGlobalSettings({ transcript_output_dir: transcriptOutputDir });
       toast.success('转写输出目录已保存');
     } catch {
       toast.error('保存失败');
     }
-  }, [autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy]);
+  }, [transcriptOutputDir]);
 
   const handleSaveYoutubeProxy = useCallback(async () => {
     try {
-      await updateGlobalSettings(autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy);
+      await updateGlobalSettings({ youtube_proxy: youtubeProxy });
       toast.success('YouTube 代理已保存');
     } catch {
       toast.error('保存失败');
     }
-  }, [autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy]);
+  }, [youtubeProxy]);
 
   const handleSaveBilibiliProxy = useCallback(async () => {
     try {
-      await updateGlobalSettings(autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy);
+      await updateGlobalSettings({ bilibili_proxy: bilibiliProxy });
       toast.success('B 站代理已保存');
     } catch {
       toast.error('保存失败');
     }
-  }, [autoDeleteVideo, autoTranscribe, exportFormat, transcriptOutputDir, youtubeProxy, bilibiliProxy]);
+  }, [bilibiliProxy]);
 
   const handleClaimQuota = useCallback(async () => {
     setIsClaimingQuota(true);

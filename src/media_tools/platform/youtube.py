@@ -100,9 +100,10 @@ def fetch_youtube_channel_info(url: str) -> dict[str, str]:
     }
 
     # 获取 YouTube 代理
-    from media_tools.core.config import get_app_config
-    proxy = get_app_config().youtube_proxy
-    if proxy:
+    from media_tools.core.config import get_app_config, normalize_download_proxy
+
+    proxy = normalize_download_proxy(get_app_config().youtube_proxy)
+    if proxy is not None:
         ydl_opts["proxy"] = proxy
 
     with YoutubeDL(ydl_opts) as ydl:
@@ -114,12 +115,12 @@ def fetch_youtube_channel_info(url: str) -> dict[str, str]:
     # YouTube API / webpage_url 返回 of info 对象在 playlist 时结构通常包含 channel, channel_id, channel_url
     nickname = info.get("channel") or info.get("uploader") or info.get("title") or "YouTube Channel"
     channel_id = info.get("channel_id") or info.get("id") or ""
-    
+
     if not channel_id:
         raise ValueError("无法获取 YouTube 频道 ID")
 
     homepage_url = info.get("channel_url") or info.get("webpage_url") or f"https://www.youtube.com/channel/{channel_id}"
-    
+
     return {
         "nickname": nickname,
         "channel_id": channel_id,
@@ -239,9 +240,10 @@ def download_channel_by_url(
         archive_path.parent.mkdir(parents=True, exist_ok=True)
         ydl_opts["download_archive"] = str(archive_path)
 
-    from media_tools.core.config import get_app_config
-    proxy = get_app_config().youtube_proxy
-    if proxy:
+    from media_tools.core.config import get_app_config, normalize_download_proxy
+
+    proxy = normalize_download_proxy(get_app_config().youtube_proxy)
+    if proxy is not None:
         ydl_opts["proxy"] = proxy
 
     import shutil
