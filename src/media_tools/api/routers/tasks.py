@@ -47,7 +47,9 @@ from media_tools.scheduler.progress import build_pipeline_progress
 from media_tools.scheduler.repository import TaskRepository
 from media_tools.scheduler.state import (
     _active_tasks,
+    clear_task_deletion,
     clear_task_pause_request,
+    request_task_deletion,
     request_task_pause,
 )
 from media_tools.services.cleanup import cleanup_paths_allowlist
@@ -145,6 +147,7 @@ async def delete_task(task_id: str = Path(..., min_length=1, max_length=128)):
         # 先 get 再 cancel，避免 rerun 期间 pop 错任务（identity 校验）
         active_task = _active_tasks.get(task_id)
         if active_task is not None:
+            request_task_deletion(task_id)
             set_cancel_event(task_id)
             try:
                 from media_tools.platform.bilibili import cancel_download
@@ -165,6 +168,8 @@ async def delete_task(task_id: str = Path(..., min_length=1, max_length=128)):
 
         clear_cancel_event(task_id)
         TaskRepository.delete(task_id)
+        if active_task is None or active_task.done():
+            clear_task_deletion(task_id)
         return {"status": "success", "message": "任务已删除"}
     except (sqlite3.Error, OSError) as e:
         logger.exception(f"delete_task failed for {task_id}")

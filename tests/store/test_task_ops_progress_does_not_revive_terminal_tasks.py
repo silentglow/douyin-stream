@@ -135,3 +135,18 @@ async def test_mark_task_paused_preserves_progress_and_notifies() -> None:
     assert '"url": "https://example.com"' in row["payload"]
     assert '"msg": "任务已暂停"' in row["payload"]
     notify.assert_awaited_once_with("t1", 0.4, "任务已暂停", "PAUSED", "pipeline")
+
+
+@pytest.mark.asyncio
+async def test_update_task_progress_does_not_recreate_deleted_task() -> None:
+    from media_tools.scheduler.state import clear_task_deletion, request_task_deletion
+
+    task_id = "deleted-progress-task"
+    request_task_deletion(task_id)
+    connection = AsyncMock()
+    try:
+        with patch.object(task_ops, "get_db_connection", new=connection):
+            await task_ops.update_task_progress(task_id, 0.5, "late progress", "pipeline")
+        connection.assert_not_called()
+    finally:
+        clear_task_deletion(task_id)

@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 _active_tasks: dict[str, asyncio.Task] = {}
 # 暂停会主动取消当前协程；该标记让 Worker 将取消解释为 PAUSED 而不是 CANCELLED。
 _pause_requested_tasks: set[str] = set()
+# 删除中的任务可能仍有不可立即中断的 worker；阻止迟到进度重新创建已删除记录。
+_deleted_task_ids: set[str] = set()
 
 
 def request_task_pause(task_id: str) -> None:
@@ -28,6 +30,18 @@ def is_task_pause_requested(task_id: str) -> bool:
 
 def clear_task_pause_request(task_id: str) -> None:
     _pause_requested_tasks.discard(task_id)
+
+
+def request_task_deletion(task_id: str) -> None:
+    _deleted_task_ids.add(task_id)
+
+
+def is_task_deleted(task_id: str) -> bool:
+    return task_id in _deleted_task_ids
+
+
+def clear_task_deletion(task_id: str) -> None:
+    _deleted_task_ids.discard(task_id)
 
 
 async def _task_heartbeat(task_id: str, interval: int = 30):
@@ -62,6 +76,7 @@ def _register_background_task(task_id: str, coro) -> asyncio.Task:
         if _active_tasks.get(task_id) is t:
             _active_tasks.pop(task_id, None)
         clear_cancel_event(task_id)
+        clear_task_deletion(task_id)
 
         if t.cancelled() or not t.done():
             return

@@ -59,10 +59,13 @@ def list_transcripts(
             elif status == "starred":
                 base_sql += " AND a.is_starred = 1"
 
-            # 需要按磁盘存在性过滤时，先多取再过滤（上限 500，本机工具可接受）
-            fetch_limit = limit if avail == "all" else min(500, max(limit * 5, 200))
-            base_sql += " ORDER BY a.create_time DESC LIMIT ? OFFSET ?"
-            params.extend([fetch_limit if avail != "all" else limit, offset if avail == "all" else 0])
+            # 磁盘存在性无法由 SQLite 可靠判断；过滤模式必须扫描完整结果集，
+            # 否则第 500 条之后的文稿会丢失，total 和后续分页也会不准确。
+            if avail == "all":
+                base_sql += " ORDER BY a.create_time DESC LIMIT ? OFFSET ?"
+                params.extend([limit, offset])
+            else:
+                base_sql += " ORDER BY a.create_time DESC"
 
             rows = conn.execute(base_sql, params).fetchall()
             transcripts_dir = get_transcripts_path()

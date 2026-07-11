@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Loader2, RefreshCw, MoreHorizontal, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatLastSync, openCreatorHomepage, platformLabel, resolveCreatorHomepage } from '@/lib/format';
@@ -18,7 +17,7 @@ interface CreatorRowProps {
 }
 
 /** DB 有记录但本地工作区明显更少 → 用户可能已外置归档 */
-export function archiveHint(creator: Creator): string | null {
+function archiveHint(creator: Creator): string | null {
   const dbTx = creator.transcript_completed_count || 0;
   const diskTx = creator.disk_transcript_completed_count;
   const dbAssets = creator.asset_count || 0;
@@ -33,7 +32,7 @@ export function archiveHint(creator: Creator): string | null {
   return null;
 }
 
-export const CREATOR_COL =
+const CREATOR_COL =
   'grid grid-cols-[2rem_minmax(0,1fr)_4.25rem_4.25rem_4.25rem_5.25rem_2.75rem_5rem] items-center gap-x-2 px-3 sm:px-4';
 
 function CheckBox({
@@ -94,17 +93,7 @@ export function CreatorRow({
   const localLow =
     typeof diskTx === 'number' && transcripts > 0 && diskTx < transcripts;
 
-  // 同步：请求中转圈；结束后再多转半拍，避免“闪一下就停”
-  const [syncSpin, setSyncSpin] = useState(false);
-  useEffect(() => {
-    if (isSyncing) {
-      setSyncSpin(true);
-      return;
-    }
-    if (!syncSpin) return;
-    const t = window.setTimeout(() => setSyncSpin(false), 420);
-    return () => window.clearTimeout(t);
-  }, [isSyncing, syncSpin]);
+
 
   return (
     <div
@@ -210,8 +199,8 @@ export function CreatorRow({
           <RefreshCw
             className={cn(
               'w-3.5 h-3.5',
-              syncSpin && (isSyncing ? 'ui-sync-spin-loop' : 'ui-sync-spin'),
-              syncSpin && 'text-[var(--color-rust)]',
+              isSyncing && 'ui-sync-spin-loop',
+              isSyncing && 'text-[var(--color-rust)]',
             )}
             strokeWidth={2}
           />

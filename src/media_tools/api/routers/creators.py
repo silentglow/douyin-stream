@@ -17,7 +17,7 @@ from media_tools.store.db import get_db_connection, resolve_query_value, resolve
 router = APIRouter(prefix="/api/v1/creators", tags=["creators"], redirect_slashes=False)
 logger = logging.getLogger(__name__)
 
-_DISK_COUNTS_TTL_SECONDS = 10.0
+_DISK_COUNTS_TTL_SECONDS = 60.0
 _disk_counts_cache: dict[str, tuple[float, dict[str, int]]] = {}
 _disk_counts_lock = threading.Lock()
 

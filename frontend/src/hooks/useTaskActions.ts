@@ -138,7 +138,7 @@ export function useTaskActions() {
       // 再拉一次，避免与 worker 竞态后 UI 状态不一致
       try {
         const fresh = await getTaskStatus(task.task_id);
-        updateTask({ task_id: task.task_id, ...fresh });
+        updateTask({ ...fresh, task_id: task.task_id });
       } catch {
         /* keep optimistic PAUSED */
       }
@@ -155,7 +155,7 @@ export function useTaskActions() {
       updateTask({ task_id: task.task_id, status: 'RUNNING', progress: 0 });
       try {
         const fresh = await getTaskStatus(task.task_id);
-        updateTask({ task_id: task.task_id, ...fresh });
+        updateTask({ ...fresh, task_id: task.task_id });
       } catch {
         /* keep optimistic RUNNING */
       }
@@ -172,7 +172,7 @@ export function useTaskActions() {
       updateTask({ task_id: task.task_id, status: 'CANCELLED' });
       try {
         const fresh = await getTaskStatus(task.task_id);
-        updateTask({ task_id: task.task_id, ...fresh });
+        updateTask({ ...fresh, task_id: task.task_id });
       } catch {
         /* keep optimistic CANCELLED */
       }

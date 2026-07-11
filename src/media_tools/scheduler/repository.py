@@ -206,6 +206,10 @@ class TaskRepository:
         - 已存在且非终态时更新进度
         - 已是 COMPLETED / FAILED / CANCELLED 时不会被覆盖（避免 worker 晚到的进度复活终态任务）
         """
+        from media_tools.scheduler.state import is_task_deleted
+
+        if is_task_deleted(task_id):
+            return
         now = datetime.now().isoformat()
         with get_db_connection() as conn:
             existing = conn.execute(

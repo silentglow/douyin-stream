@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from media_tools.api.websocket_manager import manager
 from media_tools.scheduler.repository import _merge_payload_from_db
 from media_tools.scheduler.retry import schedule_auto_retry
+from media_tools.scheduler.state import is_task_deleted
 from media_tools.store.db import get_db_connection
 
 logger = logging.getLogger(__name__)
@@ -181,6 +182,8 @@ async def update_task_progress(
     stage: str = "",
     pipeline_progress: dict | None = None,
 ):
+    if is_task_deleted(task_id):
+        return
     updated = False
     try:
         now = datetime.now().isoformat()

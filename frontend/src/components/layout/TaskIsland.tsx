@@ -750,7 +750,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                                 </>
                               )}
 
-                              {(isFailed || isPartial || state === 'stale') && (
+                              {(isFailed || isPartial) && (
                                 <ActionBtn
                                   variant="primary"
                                   disabled={busy}
