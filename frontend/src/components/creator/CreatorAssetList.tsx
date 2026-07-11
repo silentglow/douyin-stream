@@ -22,21 +22,27 @@ export function StatusLabel({
   }
   if (status === 'failed' || error) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-iron)] px-2 py-0.5 rounded-full bg-[rgba(239,68,68,0.10)] max-w-[160px] truncate">
-        <span className="status-dot bg-[var(--color-iron)]" />失败
+      <span
+        title={error || '转写失败'}
+        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-iron)] px-2 py-0.5 rounded-full bg-[rgba(239,68,68,0.10)] max-w-[160px] truncate"
+      >
+        <span className="status-dot bg-[var(--color-iron)]" />
+        失败
       </span>
     );
   }
   if (status === 'pending' || status === 'queued' || status === 'none' || !status) {
     return (
       <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-smoke)] px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/5">
-        <span className="status-dot bg-[var(--color-smoke)]" />待转写
+        <span className="status-dot bg-[var(--color-smoke)]" />
+        待转写
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-rust)] px-2 py-0.5 rounded-full bg-[rgba(0,113,227,0.10)]">
-      <span className="status-dot bg-[var(--color-rust)] pulse-dot" />转写中
+      <span className="status-dot bg-[var(--color-rust)] pulse-dot" />
+      转写中
     </span>
   );
 }
@@ -52,7 +58,13 @@ export interface AssetListItemProps {
 }
 
 export const AssetListItem = memo(function AssetListItem({
-  asset, bulkMode, isSelected, onToggleSelect, onViewTranscript, onToggleStar, onOpenMenu,
+  asset,
+  bulkMode,
+  isSelected,
+  onToggleSelect,
+  onViewTranscript,
+  onToggleStar,
+  onOpenMenu,
 }: AssetListItemProps) {
   const canView = asset.transcript_status === 'completed' && asset.transcript_path;
   return (
@@ -60,24 +72,46 @@ export const AssetListItem = memo(function AssetListItem({
       className={cn(
         'grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 md:px-6 py-3 border-b border-[var(--color-hairline-faint)] transition-colors group relative',
         canView || bulkMode ? 'cursor-pointer' : 'cursor-default',
-        isSelected ? 'bg-[rgba(0,113,227,0.06)] dark:bg-[rgba(53,128,230,0.08)]' : 'hover:bg-black/[0.015] dark:hover:bg-white/[0.025]',
-        asset.transcript_status === 'failed' && 'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2.5px] before:bg-[var(--color-iron)]'
+        isSelected
+          ? 'bg-[rgba(0,113,227,0.06)] dark:bg-[rgba(53,128,230,0.08)]'
+          : 'hover:bg-black/[0.015] dark:hover:bg-white/[0.025]',
+        asset.transcript_status === 'failed' &&
+          'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2.5px] before:bg-[var(--color-iron)]',
       )}
+      role={canView || bulkMode ? 'button' : undefined}
+      tabIndex={canView || bulkMode ? 0 : undefined}
+      aria-label={
+        bulkMode ? `选择 ${asset.title || '未命名视频'}` : canView ? `阅读 ${asset.title || '未命名视频'}` : undefined
+      }
       onClick={() => {
+        if (bulkMode) onToggleSelect(asset.asset_id);
+        else if (canView) onViewTranscript(asset);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
         if (bulkMode) onToggleSelect(asset.asset_id);
         else if (canView) onViewTranscript(asset);
       }}
     >
       {/* Checkbox in bulk mode */}
       {bulkMode ? (
-        <div className={cn(
-          'w-4 h-4 border rounded flex items-center justify-center shrink-0 transition-all',
-          isSelected
-            ? 'bg-[var(--color-rust)] border-[var(--color-rust)] shadow-sm shadow-[var(--color-rust)]/20'
-            : 'border-[var(--color-hairline-strong)]'
-        )}>
+        <div
+          className={cn(
+            'w-4 h-4 border rounded flex items-center justify-center shrink-0 transition-all',
+            isSelected
+              ? 'bg-[var(--color-rust)] border-[var(--color-rust)] shadow-sm shadow-[var(--color-rust)]/20'
+              : 'border-[var(--color-hairline-strong)]',
+          )}
+        >
           {isSelected && (
-            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
+            <svg
+              className="w-2.5 h-2.5 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={3.5}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           )}
@@ -96,18 +130,24 @@ export const AssetListItem = memo(function AssetListItem({
           {asset.is_starred && (
             <Star className="w-3.5 h-3.5 text-[var(--color-ember)] fill-[var(--color-ember)] flex-shrink-0 self-center" />
           )}
-          <div className={cn(
-            'font-sans font-medium text-[14px] leading-snug line-clamp-1 transition-colors',
-            canView
-              ? 'text-[var(--color-bone)] group-hover:text-[var(--color-rust)]'
-              : 'text-[var(--color-ash)]'
-          )}>
+          <div
+            className={cn(
+              'font-sans font-medium text-[14px] leading-snug line-clamp-1 transition-colors',
+              canView ? 'text-[var(--color-bone)] group-hover:text-[var(--color-rust)]' : 'text-[var(--color-ash)]',
+            )}
+          >
             {asset.title || '未命名视频'}
           </div>
         </div>
         <div className="mono-cap mt-1 flex items-center gap-2">
           {asset.create_time && (
-            <span>{new Date(asset.create_time).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })}</span>
+            <span>
+              {new Date(asset.create_time).toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+              })}
+            </span>
           )}
           {asset.transcript_status === 'running' && asset.transcript_retry_count ? (
             <>
@@ -126,16 +166,22 @@ export const AssetListItem = memo(function AssetListItem({
           videoStatus={asset.video_status}
         />
         {!bulkMode && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity">
             <button
               onClick={(e) => onToggleStar(asset, e)}
               className="w-8 h-8 rounded-lg bg-black/[0.02] dark:bg-white/[0.03] border border-transparent hover:border-[var(--color-hairline)] dark:hover:border-white/10 flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-ember)] transition-all shadow-sm"
               title={asset.is_starred ? '取消收藏' : '收藏'}
             >
-              <Star className={cn('w-4 h-4', asset.is_starred && 'fill-[var(--color-ember)] text-[var(--color-ember)]')} strokeWidth={1.5} />
+              <Star
+                className={cn('w-4 h-4', asset.is_starred && 'fill-[var(--color-ember)] text-[var(--color-ember)]')}
+                strokeWidth={1.5}
+              />
             </button>
             <button
-              onClick={(e) => { e.stopPropagation(); onOpenMenu(asset); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenMenu(asset);
+              }}
               className="w-8 h-8 rounded-lg bg-black/[0.02] dark:bg-white/[0.03] border border-transparent hover:border-[var(--color-hairline)] dark:hover:border-white/10 flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-rust)] transition-all shadow-sm"
               title="更多"
             >

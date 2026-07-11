@@ -58,7 +58,6 @@ function classifySubtaskError(sub: { error_type?: string; error?: string }): str
 
 function getTaskTitle(task: Task): string {
   const p = parsePayload(task.payload);
-  if (p && typeof p.msg === 'string') return p.msg;
   if (p && typeof p.creator_name === 'string') return `同步: ${p.creator_name}`;
   if (p && typeof p.uid === 'string') return `同步创作者: ${String(p.uid).slice(0, 8)}`;
 
@@ -76,7 +75,7 @@ function getTaskTitle(task: Task): string {
     case 'creator_transcribe':
       return '语音转写';
     default:
-      return task.task_type || '未命名任务';
+      return (p && typeof p.msg === 'string' && p.msg) || task.task_type || '未命名任务';
   }
 }
 
@@ -156,8 +155,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
 
   const rawTasks = useStore((state) => state.tasks);
   const fetchInitialTasks = useStore((state) => state.fetchInitialTasks);
-  const { handleClearHistory, handleRetry, handlePause, handleResume, handleCancel, handleDelete } =
-    useTaskActions();
+  const { handleClearHistory, handleRetry, handlePause, handleResume, handleCancel, handleDelete } = useTaskActions();
 
   useEffect(() => {
     fetchInitialTasks();
@@ -207,10 +205,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
   }, [activeTasks]);
 
   const sortedTasks = useMemo(() => sortTasks([...rawTasks]), [rawTasks]);
-  const filteredTasks = useMemo(
-    () => filterTasksByCategory(sortedTasks, filter),
-    [sortedTasks, filter],
-  );
+  const filteredTasks = useMemo(() => filterTasksByCategory(sortedTasks, filter), [sortedTasks, filter]);
 
   const hasNonRunning = useMemo(() => {
     return sortedTasks.some((t) => {
@@ -308,14 +303,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
           <>
             <div className="relative flex size-5 items-center justify-center shrink-0">
               <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 24 24">
-                <circle
-                  cx="12"
-                  cy="12"
-                  r={radius}
-                  fill="none"
-                  stroke="rgba(128,128,128,0.2)"
-                  strokeWidth="2"
-                />
+                <circle cx="12" cy="12" r={radius} fill="none" stroke="rgba(128,128,128,0.2)" strokeWidth="2" />
                 <circle
                   cx="12"
                   cy="12"
@@ -329,13 +317,9 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                   className="transition-[stroke-dashoffset] duration-500 ease-out"
                 />
               </svg>
-              <span className="font-mono text-[9px] font-bold text-[var(--color-rust)]">
-                {activeTasks.length}
-              </span>
+              <span className="font-mono text-[9px] font-bold text-[var(--color-rust)]">{activeTasks.length}</span>
             </div>
-            <span className="text-[12px] font-semibold tabular-nums tracking-wide">
-              {overallProgress}%
-            </span>
+            <span className="text-[12px] font-semibold tabular-nums tracking-wide">{overallProgress}%</span>
           </>
         ) : failedCount > 0 ? (
           <div className="relative">
@@ -440,7 +424,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
               </div>
 
               {/* List */}
-              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5">
                 {filteredTasks.length === 0 ? (
                   <div className="ui-pop-enter py-24 text-center px-6">
                     <ListTodo className="size-8 mx-auto text-[var(--color-smoke)] opacity-40 mb-3" />
@@ -475,12 +459,10 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                       : [];
                     const ppFiles = (() => {
                       const pp = parsed?.pipeline_progress as
-                        | { files?: Array<{ title?: string; status?: string; stage?: string }> }
-                        | undefined;
+                        { files?: Array<{ title?: string; status?: string; stage?: string }> } | undefined;
                       return Array.isArray(pp?.files) ? pp!.files! : [];
                     })();
-                    const fileRows =
-                      isRunning && ppFiles.length > 0 ? ppFiles : subtasks;
+                    const fileRows = isRunning && ppFiles.length > 0 ? ppFiles : subtasks;
                     const showFileRows = fileRows.length > 0;
 
                     return (
@@ -495,7 +477,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                           layout: { type: 'spring', stiffness: 420, damping: 34 },
                         }}
                         className={cn(
-                          'ui-task-card rounded-xl border p-4',
+                          'ui-task-card rounded-xl border p-3.5',
                           isRunning || isPaused
                             ? 'bg-black/[0.02] dark:bg-white/[0.03] border-[var(--color-hairline-strong)]'
                             : isFailed || isPartial
@@ -511,10 +493,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                           <div className="mt-0.5 shrink-0">
                             {busy || isRunning ? (
                               <Loader2
-                                className={cn(
-                                  'size-4 text-[var(--color-rust)]',
-                                  (busy || isRunning) && 'animate-spin',
-                                )}
+                                className={cn('size-4 text-[var(--color-rust)]', (busy || isRunning) && 'animate-spin')}
                                 strokeWidth={2.2}
                               />
                             ) : isPaused ? (
@@ -525,10 +504,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                               <AlertTriangle className="size-4 text-amber-500" strokeWidth={2.2} />
                             ) : isSuccess ? (
                               <CheckCircle2
-                                className={cn(
-                                  'size-4 text-[var(--color-patina)]',
-                                  flash === 'ok' && 'ui-check-pop',
-                                )}
+                                className={cn('size-4 text-[var(--color-patina)]', flash === 'ok' && 'ui-check-pop')}
                                 strokeWidth={2}
                               />
                             ) : (
@@ -547,8 +523,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                                   isRunning && 'bg-[rgba(0,113,227,0.10)] text-[var(--color-rust)]',
                                   isPaused && 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
                                   isSuccess && 'bg-[rgba(16,185,129,0.10)] text-[var(--color-patina)]',
-                                  (isFailed || isPartial) &&
-                                    'bg-[rgba(239,68,68,0.10)] text-[var(--color-iron)]',
+                                  (isFailed || isPartial) && 'bg-[rgba(239,68,68,0.10)] text-[var(--color-iron)]',
                                   !isRunning &&
                                     !isPaused &&
                                     !isSuccess &&
@@ -612,8 +587,10 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                                       ? String(sub.video_path).split('/').pop()
                                       : null) ||
                                     '?';
-                                  const stageText = 'stage' in (sub || {}) ? (sub as { stage?: string }).stage : undefined;
-                                  const errText = 'error' in (sub || {}) ? (sub as { error?: string }).error : undefined;
+                                  const stageText =
+                                    'stage' in (sub || {}) ? (sub as { stage?: string }).stage : undefined;
+                                  const errText =
+                                    'error' in (sub || {}) ? (sub as { error?: string }).error : undefined;
                                   let detail = '';
                                   let detailTitle = '';
                                   if (running && stageText) {
@@ -675,9 +652,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                                     onClick={() =>
                                       void withBusy(task.task_id, async () => {
                                         if (
-                                          confirm(
-                                            '确定暂停？\n\n注意：当前不支持断点续传。继续时会从头执行整条任务。',
-                                          )
+                                          confirm('确定暂停？\n\n注意：当前不支持断点续传。继续时会从头执行整条任务。')
                                         ) {
                                           await handlePause(task);
                                         }
@@ -726,9 +701,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                                     variant="primary"
                                     disabled={busy}
                                     title="从头重新执行"
-                                    onClick={() =>
-                                      void withBusy(task.task_id, () => handleResume(task))
-                                    }
+                                    onClick={() => void withBusy(task.task_id, () => handleResume(task))}
                                   >
                                     <Play className="size-3.5" fill="currentColor" />
                                     继续（从头）
@@ -755,9 +728,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                                   variant="primary"
                                   disabled={busy}
                                   title={isPartial ? '只重试失败的部分' : '重新提交任务'}
-                                  onClick={() =>
-                                    void withBusy(task.task_id, () => handleRetry(task))
-                                  }
+                                  onClick={() => void withBusy(task.task_id, () => handleRetry(task))}
                                 >
                                   <RotateCw className="size-3.5" />
                                   {isPartial ? '重试失败项' : '重试'}

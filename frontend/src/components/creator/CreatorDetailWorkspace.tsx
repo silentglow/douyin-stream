@@ -165,14 +165,16 @@ export function CreatorDetailWorkspace() {
               )}
             >
               {t.label}
-              <span
-                className={cn(
-                  'tabular-nums text-[11px]',
-                  'danger' in t && t.danger && t.count > 0 ? 'text-[var(--color-iron)]' : 'text-[var(--color-smoke)]',
-                )}
-              >
-                {t.count}
-              </span>
+              {t.count > 0 && (
+                <span
+                  className={cn(
+                    'tabular-nums text-[11px]',
+                    'danger' in t && t.danger ? 'text-[var(--color-iron)]' : 'text-[var(--color-smoke)]',
+                  )}
+                >
+                  {t.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -183,6 +185,18 @@ export function CreatorDetailWorkspace() {
               <span className="text-[12px] text-[var(--color-ash)] mr-1">
                 已选 <span className="font-semibold text-[var(--color-rust)] tabular-nums">{selectedAssets.size}</span>
               </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const visibleIds = filteredAssets.map((asset) => asset.asset_id);
+                  const allVisibleSelected = visibleIds.every((id) => selectedAssets.has(id));
+                  setSelectedAssets(allVisibleSelected ? new Set() : new Set(visibleIds));
+                }}
+                disabled={filteredAssets.length === 0}
+                className="h-8 px-2.5 rounded-lg text-[12px] font-medium text-[var(--color-rust)] hover:bg-[rgba(0,113,227,0.08)] disabled:opacity-40"
+              >
+                {filteredAssets.every((asset) => selectedAssets.has(asset.asset_id)) ? '取消全选' : '全选当前'}
+              </button>
               <button
                 type="button"
                 onClick={handleBulkExport}
