@@ -10,6 +10,7 @@ import { CreatorActionMenuModal } from '@/components/library/CreatorActionMenuMo
 import { DeleteConfirmModal } from '@/components/library/DeleteConfirmModal';
 import { LocalTranscribeModal } from '@/components/library/LocalTranscribeModal';
 import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const FILTERS = [
   { key: 'all', label: '全部' },
@@ -161,10 +162,10 @@ export default function Library() {
               type="button"
               onClick={() => setScoutOpen((v) => !v)}
               className={cn(
-                'h-9 px-3.5 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5 transition-colors',
+                'ui-press h-9 px-3.5 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5',
                 scoutOpen
                   ? 'bg-black/[0.06] dark:bg-white/[0.08] text-[var(--color-bone)]'
-                  : 'bg-[var(--color-rust)] text-white hover:brightness-110 shadow-sm',
+                  : 'bg-[var(--color-rust)] text-white hover:brightness-110 shadow-sm shadow-[var(--color-rust)]/20',
               )}
             >
               {scoutOpen ? (
@@ -209,8 +210,9 @@ export default function Library() {
               key={f.key}
               type="button"
               onClick={() => setFilter(f.key)}
+              data-active={filter === f.key}
               className={cn(
-                'h-8 px-2.5 text-[12px] font-medium rounded-md transition-all',
+                'ui-seg ui-press h-8 px-2.5 text-[12px] font-medium rounded-md',
                 filter === f.key
                   ? 'bg-[var(--color-paper)] text-[var(--color-bone)] shadow-sm'
                   : 'text-[var(--color-smoke)] hover:text-[var(--color-ash)]',
@@ -222,68 +224,79 @@ export default function Library() {
         </div>
       </section>
 
-      {/* Bulk action bar */}
-      {selectedCount > 0 && (
-        <div className="sticky top-[105px] z-[8] px-6 md:px-8 py-2 border-b border-[var(--color-rust)]/20 bg-[rgba(0,113,227,0.08)] backdrop-blur-md">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[13px] font-medium text-[var(--color-bone)] mr-1">
-              已选 <span className="text-[var(--color-rust)] tabular-nums">{selectedCount}</span>
-            </span>
-            <button
-              type="button"
-              disabled={bulkBusy}
-              onClick={() => openBulkRemove('keep_content')}
-              className="h-8 px-2.5 rounded-lg text-[12px] font-medium inline-flex items-center gap-1.5 bg-[var(--color-paper)] text-[var(--color-bone)] border border-[var(--color-hairline)] hover:border-[var(--color-rust)]/40 disabled:opacity-40"
-            >
-              <Archive className="w-3.5 h-3.5 text-[var(--color-rust)]" />
-              停跟并保留
-            </button>
-            <button
-              type="button"
-              disabled={bulkBusy}
-              onClick={() => openBulkRemove('purge')}
-              className="h-8 px-2.5 rounded-lg text-[12px] font-medium inline-flex items-center gap-1.5 text-[var(--color-iron)] hover:bg-[rgba(239,68,68,0.08)] disabled:opacity-40"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              彻底删除
-            </button>
-            <span className="w-px h-4 bg-[var(--color-hairline-strong)] mx-0.5 hidden sm:block" />
-            <button
-              type="button"
-              disabled={bulkBusy}
-              onClick={() => void handleBulkSyncSelection()}
-              className="h-8 px-2.5 rounded-lg text-[12px] font-medium inline-flex items-center gap-1.5 text-[var(--color-ash)] hover:bg-black/[0.04] dark:hover:bg-white/[0.05] disabled:opacity-40"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              增量同步
-            </button>
-            <button
-              type="button"
-              disabled={bulkBusy}
-              onClick={() => void handleBulkSetAutoOnSelection(true)}
-              className="h-8 px-2.5 rounded-lg text-[12px] font-medium text-[var(--color-ash)] hover:bg-black/[0.04] dark:hover:bg-white/[0.05] disabled:opacity-40"
-            >
-              开自动
-            </button>
-            <button
-              type="button"
-              disabled={bulkBusy}
-              onClick={() => void handleBulkSetAutoOnSelection(false)}
-              className="h-8 px-2.5 rounded-lg text-[12px] font-medium text-[var(--color-ash)] hover:bg-black/[0.04] dark:hover:bg-white/[0.05] disabled:opacity-40"
-            >
-              关自动
-            </button>
-            <div className="flex-1" />
-            <button
-              type="button"
-              onClick={clearSelection}
-              className="h-8 px-2 rounded-lg text-[12px] text-[var(--color-smoke)] hover:text-[var(--color-bone)]"
-            >
-              取消选择
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Bulk action bar — enter + exit */}
+      <AnimatePresence initial={false}>
+        {selectedCount > 0 && (
+          <motion.div
+            key="bulk-bar"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: [0.2, 0.9, 0.3, 1] }}
+            className="sticky top-[105px] z-[8] px-6 md:px-8 py-2 border-b border-[var(--color-rust)]/20 bg-[rgba(0,113,227,0.08)] backdrop-blur-md"
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[13px] font-medium text-[var(--color-bone)] mr-1">
+                已选 <span className="text-[var(--color-rust)] tabular-nums">{selectedCount}</span>
+              </span>
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => openBulkRemove('keep_content')}
+                className="ui-press h-8 px-2.5 rounded-lg text-[12px] font-medium inline-flex items-center gap-1.5 bg-[var(--color-paper)] text-[var(--color-bone)] border border-[var(--color-hairline)] hover:border-[var(--color-rust)]/40 disabled:opacity-40"
+              >
+                <Archive className="w-3.5 h-3.5 text-[var(--color-rust)]" />
+                停跟并保留
+              </button>
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => openBulkRemove('purge')}
+                className="ui-press h-8 px-2.5 rounded-lg text-[12px] font-medium inline-flex items-center gap-1.5 text-[var(--color-iron)] hover:bg-[rgba(239,68,68,0.08)] disabled:opacity-40"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                彻底删除
+              </button>
+              <span className="w-px h-4 bg-[var(--color-hairline-strong)] mx-0.5 hidden sm:block" />
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => void handleBulkSyncSelection()}
+                className="ui-press h-8 px-2.5 rounded-lg text-[12px] font-medium inline-flex items-center gap-1.5 text-[var(--color-ash)] hover:bg-black/[0.04] dark:hover:bg-white/[0.05] disabled:opacity-40"
+              >
+                <RefreshCw
+                  className={cn('w-3.5 h-3.5', bulkBusy && 'ui-sync-spin-loop text-[var(--color-rust)]')}
+                />
+                增量同步
+              </button>
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => void handleBulkSetAutoOnSelection(true)}
+                className="ui-press h-8 px-2.5 rounded-lg text-[12px] font-medium text-[var(--color-ash)] hover:bg-black/[0.04] dark:hover:bg-white/[0.05] disabled:opacity-40"
+              >
+                开自动
+              </button>
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => void handleBulkSetAutoOnSelection(false)}
+                className="ui-press h-8 px-2.5 rounded-lg text-[12px] font-medium text-[var(--color-ash)] hover:bg-black/[0.04] dark:hover:bg-white/[0.05] disabled:opacity-40"
+              >
+                关自动
+              </button>
+              <div className="flex-1" />
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="ui-press h-8 px-2 rounded-lg text-[12px] text-[var(--color-smoke)] hover:text-[var(--color-bone)]"
+              >
+                取消选择
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="px-6 md:px-8 pb-12 pt-4">
         {hasLocalAssets && (

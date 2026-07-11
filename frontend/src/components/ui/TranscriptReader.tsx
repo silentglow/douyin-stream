@@ -206,10 +206,10 @@ export function TranscriptReader({
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 6 }}
+      transition={{ duration: 0.22, ease: [0.2, 0.9, 0.3, 1] }}
       className="fixed inset-0 z-50 flex flex-col bg-[var(--color-ink)]"
     >
       {/* ═══ TOP BAR ════════════════════════════════════════════ */}
@@ -217,7 +217,7 @@ export function TranscriptReader({
         <div className="flex items-center gap-4 min-w-0">
           <button
             onClick={onClose}
-            className="flex items-center gap-2 text-[12px] text-[var(--color-ash)] hover:text-[var(--color-rust)] transition-colors"
+            className="ui-press flex items-center gap-2 text-[12px] text-[var(--color-ash)] hover:text-[var(--color-rust)]"
             title="返回 (Esc)"
           >
             <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} />

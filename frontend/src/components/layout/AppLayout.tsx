@@ -179,7 +179,7 @@ export default function AppLayout() {
                 to={item.to}
                 onClick={() => setTaskDrawerOpen(false)}
                 title={`${item.label} (${item.kbd})`}
-                className={`relative flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+                className={`relative flex items-center justify-between px-3 py-2.5 rounded-xl ui-press group ${
                   isActive
                     ? 'bg-black/[0.04] dark:bg-white/[0.05] text-[var(--color-rust)] font-semibold shadow-sm border border-black/[0.02] dark:border-white/[0.02]'
                     : 'text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/[0.02] dark:hover:bg-white/[0.02]'

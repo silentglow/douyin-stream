@@ -126,7 +126,7 @@ function ActionBtn({
       disabled={disabled}
       title={title}
       className={cn(
-        'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed',
+        'ui-press inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed',
         variant === 'default' &&
           'bg-black/[0.03] dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.08] text-[var(--color-bone)] hover:bg-black/[0.06] dark:hover:bg-white/[0.08]',
         variant === 'primary' &&
@@ -142,11 +142,17 @@ function ActionBtn({
   );
 }
 
+type FlashKind = 'ok' | 'err';
+
 export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
   const [filter, setFilter] = useState<TaskFilterCategory>('all');
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  const [flashMap, setFlashMap] = useState<Record<string, FlashKind>>({});
+  const [countBump, setCountBump] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const prevStatusRef = useRef<Map<string, string>>(new Map());
+  const prevActiveCountRef = useRef(0);
 
   const rawTasks = useStore((state) => state.tasks);
   const fetchInitialTasks = useStore((state) => state.fetchInitialTasks);
@@ -216,6 +222,61 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
   const radius = 9;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (overallProgress / 100) * circumference;
+  const [fabFlash, setFabFlash] = useState(false);
+
+  // 任务状态变化 → 卡片高亮；运行数变化 → 角标 bump
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    const nextFlash: Record<string, FlashKind> = {};
+    let hasFlash = false;
+    for (const task of rawTasks) {
+      const state = getTaskDisplayState(task);
+      const old = prev.get(task.task_id);
+      if (old && old !== state) {
+        if (state === 'success') {
+          nextFlash[task.task_id] = 'ok';
+          hasFlash = true;
+        } else if (state === 'failed' || state === 'stale' || state === 'partial') {
+          nextFlash[task.task_id] = 'err';
+          hasFlash = true;
+        }
+      }
+      prev.set(task.task_id, state);
+    }
+    // prune removed tasks
+    for (const id of [...prev.keys()]) {
+      if (!rawTasks.some((t) => t.task_id === id)) prev.delete(id);
+    }
+    if (hasFlash) {
+      setFlashMap((m) => ({ ...m, ...nextFlash }));
+      const t = window.setTimeout(() => {
+        setFlashMap((m) => {
+          const copy = { ...m };
+          for (const id of Object.keys(nextFlash)) delete copy[id];
+          return copy;
+        });
+      }, 900);
+      return () => window.clearTimeout(t);
+    }
+  }, [rawTasks]);
+
+  useEffect(() => {
+    if (prevActiveCountRef.current !== activeTasks.length) {
+      if (activeTasks.length > 0) {
+        setCountBump(true);
+        const t = window.setTimeout(() => setCountBump(false), 320);
+        prevActiveCountRef.current = activeTasks.length;
+        return () => window.clearTimeout(t);
+      }
+      if (prevActiveCountRef.current > 0 && activeTasks.length === 0 && failedCount === 0) {
+        setFabFlash(true);
+        const t = window.setTimeout(() => setFabFlash(false), 650);
+        prevActiveCountRef.current = 0;
+        return () => window.clearTimeout(t);
+      }
+      prevActiveCountRef.current = activeTasks.length;
+    }
+  }, [activeTasks.length, failedCount]);
 
   return (
     <>
@@ -224,13 +285,15 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
         ref={buttonRef}
         onClick={onToggle}
         className={cn(
-          'fixed bottom-6 right-6 z-40 flex items-center justify-center transition-all duration-300 cursor-pointer select-none outline-none',
-          isOpen && 'pointer-events-none opacity-0 scale-90',
+          'fixed bottom-6 right-6 z-40 flex items-center justify-center cursor-pointer select-none outline-none ui-press',
+          'transition-[opacity,transform,box-shadow,border-color,background-color] duration-300 ease-out',
+          isOpen && 'pointer-events-none opacity-0 scale-90 translate-y-1',
+          fabFlash && 'ui-task-fab-done',
           activeTasks.length > 0
-            ? 'h-11 px-4 rounded-full gap-2.5 bg-[var(--color-paper)] border border-black/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.28)] hover:border-[var(--color-rust)]/35 text-[var(--color-bone)]'
+            ? 'h-11 px-4 rounded-full gap-2.5 bg-[var(--color-paper)] border border-black/[0.08] dark:border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.28)] hover:border-[var(--color-rust)]/40 hover:scale-[1.03] text-[var(--color-bone)] ui-task-fab-active'
             : failedCount > 0
-              ? 'h-11 w-11 rounded-full bg-[rgba(239,68,68,0.12)] border border-red-500/25 shadow-[0_8px_24px_rgba(239,68,68,0.15)] hover:border-red-500/40 text-red-400'
-              : 'h-10 w-10 rounded-full bg-[var(--color-paper)]/70 backdrop-blur-md border border-black/[0.05] shadow-sm text-[var(--color-smoke)] hover:text-[var(--color-bone)] hover:border-black/[0.1] opacity-70 hover:opacity-100',
+              ? 'h-11 w-11 rounded-full bg-[rgba(239,68,68,0.12)] border border-red-500/25 shadow-[0_8px_24px_rgba(239,68,68,0.15)] hover:border-red-500/40 hover:scale-[1.04] text-red-400'
+              : 'h-10 w-10 rounded-full bg-[var(--color-paper)]/70 backdrop-blur-md border border-black/[0.05] dark:border-white/10 shadow-sm text-[var(--color-smoke)] hover:text-[var(--color-bone)] hover:border-black/[0.1] hover:scale-105 opacity-70 hover:opacity-100',
         )}
         title={
           activeTasks.length > 0
@@ -263,7 +326,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                   strokeDasharray={circumference}
                   strokeDashoffset={strokeDashoffset}
                   strokeLinecap="round"
-                  className="transition-all duration-300"
+                  className="transition-[stroke-dashoffset] duration-500 ease-out"
                 />
               </svg>
               <span className="font-mono text-[9px] font-bold text-[var(--color-rust)]">
@@ -277,7 +340,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
         ) : failedCount > 0 ? (
           <div className="relative">
             <AlertTriangle className="size-4" strokeWidth={2.2} />
-            <span className="absolute -top-1 -right-1 size-2 rounded-full bg-red-500" />
+            <span className="absolute -top-1 -right-1 size-2 rounded-full bg-red-500 animate-pulse" />
           </div>
         ) : (
           <ListTodo className="size-4" strokeWidth={1.8} />
@@ -292,7 +355,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
+              transition={{ duration: 0.18 }}
               className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px]"
               onClick={onClose}
             />
@@ -300,11 +363,11 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
             {/* Full-height task center */}
             <motion.aside
               ref={panelRef}
-              initial={{ x: 28, opacity: 0 }}
+              initial={{ x: 36, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 28, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-              className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-[440px] bg-[var(--color-paper)] border-l border-[var(--color-hairline)] shadow-[-12px_0_48px_rgba(0,0,0,0.18)] flex flex-col"
+              transition={{ type: 'spring', stiffness: 420, damping: 36, mass: 0.85 }}
+              className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-[440px] bg-[var(--color-paper)] border-l border-[var(--color-hairline)] shadow-[-16px_0_48px_rgba(0,0,0,0.2)] flex flex-col"
             >
               {/* Header */}
               <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-[var(--color-hairline)] flex-shrink-0">
@@ -312,12 +375,17 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                   <div className="flex items-center gap-2">
                     <h2 className="text-[17px] font-semibold text-[var(--color-bone)]">任务</h2>
                     {activeTasks.length > 0 && (
-                      <span className="px-2 py-0.5 rounded-md bg-[var(--color-rust)]/10 text-[11px] text-[var(--color-rust)] font-semibold">
+                      <span
+                        className={cn(
+                          'px-2 py-0.5 rounded-md bg-[var(--color-rust)]/10 text-[11px] text-[var(--color-rust)] font-semibold tabular-nums',
+                          countBump && 'ui-count-bump',
+                        )}
+                      >
                         {activeTasks.length} 运行中
                       </span>
                     )}
                     {failedCount > 0 && (
-                      <span className="px-2 py-0.5 rounded-md bg-[var(--color-iron)]/10 text-[11px] text-[var(--color-iron)] font-semibold">
+                      <span className="px-2 py-0.5 rounded-md bg-[var(--color-iron)]/10 text-[11px] text-[var(--color-iron)] font-semibold tabular-nums">
                         {failedCount} 需处理
                       </span>
                     )}
@@ -338,16 +406,17 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
 
               {/* Filters + clear */}
               <div className="px-5 py-3 flex items-center justify-between gap-3 border-b border-[var(--color-hairline)] flex-shrink-0">
-                <div className="flex items-center gap-1 flex-wrap">
+                <div className="flex items-center p-0.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] gap-0.5 flex-wrap">
                   {FILTER_TABS.map((tab) => (
                     <button
                       key={tab.key}
                       type="button"
                       onClick={() => setFilter(tab.key)}
+                      data-active={filter === tab.key}
                       className={cn(
-                        'px-2.5 py-1.5 text-[12px] font-medium rounded-lg transition-all cursor-pointer',
+                        'ui-seg ui-press px-2.5 py-1.5 text-[12px] font-medium rounded-md cursor-pointer',
                         filter === tab.key
-                          ? 'bg-black/5 dark:bg-white/8 text-[var(--color-rust)]'
+                          ? 'bg-[var(--color-paper)] text-[var(--color-rust)] shadow-sm'
                           : 'text-[var(--color-smoke)] hover:text-[var(--color-bone)]',
                       )}
                     >
@@ -363,7 +432,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                         void handleClearHistory();
                       }
                     }}
-                    className="text-[12px] font-medium text-[var(--color-iron)] hover:underline cursor-pointer shrink-0"
+                    className="ui-press text-[12px] font-medium text-[var(--color-iron)] hover:underline cursor-pointer shrink-0"
                   >
                     清除历史
                   </button>
@@ -373,7 +442,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
               {/* List */}
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
                 {filteredTasks.length === 0 ? (
-                  <div className="py-24 text-center px-6">
+                  <div className="ui-pop-enter py-24 text-center px-6">
                     <ListTodo className="size-8 mx-auto text-[var(--color-smoke)] opacity-40 mb-3" />
                     <div className="text-[14px] font-medium text-[var(--color-smoke)]">暂无任务</div>
                     <div className="text-[12px] text-[var(--color-ash)] mt-1">
@@ -381,7 +450,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                     </div>
                   </div>
                 ) : (
-                  filteredTasks.map((task) => {
+                  filteredTasks.map((task, index) => {
                     const state = getTaskDisplayState(task);
                     const isRunning = state === 'running';
                     const isPaused = state === 'paused';
@@ -392,6 +461,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                     const title = getTaskTitle(task);
                     const busy = busyIds.has(task.task_id);
                     const err = getTaskError(task);
+                    const flash = flashMap[task.task_id];
 
                     const parsed = parsePayload(task.payload);
                     const subtasks = Array.isArray(parsed?.subtasks)
@@ -414,15 +484,27 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                     const showFileRows = fileRows.length > 0;
 
                     return (
-                      <div
+                      <motion.div
                         key={task.task_id}
+                        layout
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: 0.22,
+                          delay: Math.min(index * 0.03, 0.18),
+                          layout: { type: 'spring', stiffness: 420, damping: 34 },
+                        }}
                         className={cn(
-                          'rounded-xl border p-4 transition-colors',
+                          'ui-task-card rounded-xl border p-4',
                           isRunning || isPaused
                             ? 'bg-black/[0.02] dark:bg-white/[0.03] border-[var(--color-hairline-strong)]'
                             : isFailed || isPartial
                               ? 'bg-[rgba(239,68,68,0.03)] border-[rgba(239,68,68,0.15)]'
-                              : 'bg-transparent border-[var(--color-hairline)]',
+                              : isSuccess
+                                ? 'bg-[rgba(16,185,129,0.04)] border-[rgba(16,185,129,0.12)]'
+                                : 'bg-transparent border-[var(--color-hairline)]',
+                          flash === 'ok' && 'ui-task-card-ok',
+                          flash === 'err' && 'ui-task-card-err',
                         )}
                       >
                         <div className="flex items-start gap-3">
@@ -442,7 +524,13 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                             ) : isPartial ? (
                               <AlertTriangle className="size-4 text-amber-500" strokeWidth={2.2} />
                             ) : isSuccess ? (
-                              <CheckCircle2 className="size-4 text-[var(--color-patina)]" strokeWidth={2} />
+                              <CheckCircle2
+                                className={cn(
+                                  'size-4 text-[var(--color-patina)]',
+                                  flash === 'ok' && 'ui-check-pop',
+                                )}
+                                strokeWidth={2}
+                              />
                             ) : (
                               <div className="size-2.5 rounded-full bg-black/20 dark:bg-white/20 mt-1" />
                             )}
@@ -504,7 +592,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                             {isRunning && (
                               <div className="mt-3 h-1.5 rounded-full bg-black/[0.06] dark:bg-white/[0.08] overflow-hidden">
                                 <div
-                                  className="h-full rounded-full bg-[var(--color-rust)] transition-all duration-300"
+                                  className="h-full rounded-full bg-[var(--color-rust)] ui-progress-bar"
                                   style={{ width: `${pct}%` }}
                                 />
                               </div>
@@ -695,7 +783,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })
                 )}

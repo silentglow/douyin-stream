@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Loader2, RefreshCw, MoreHorizontal, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatLastSync, openCreatorHomepage, platformLabel, resolveCreatorHomepage } from '@/lib/format';
@@ -57,14 +58,14 @@ function CheckBox({
         onChange();
       }}
       className={cn(
-        'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors',
+        'ui-press w-4 h-4 rounded border flex items-center justify-center shrink-0',
         checked || indeterminate
           ? 'bg-[var(--color-rust)] border-[var(--color-rust)]'
           : 'border-[var(--color-hairline-strong)] bg-transparent hover:border-[var(--color-ash)]',
       )}
     >
       {checked && !indeterminate && (
-        <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 12 12" fill="none">
+        <svg className="ui-check-pop w-2.5 h-2.5 text-white" viewBox="0 0 12 12" fill="none">
           <path d="M2.5 6.2L5 8.7L9.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
@@ -93,6 +94,18 @@ export function CreatorRow({
   const localLow =
     typeof diskTx === 'number' && transcripts > 0 && diskTx < transcripts;
 
+  // 同步：请求中转圈；结束后再多转半拍，避免“闪一下就停”
+  const [syncSpin, setSyncSpin] = useState(false);
+  useEffect(() => {
+    if (isSyncing) {
+      setSyncSpin(true);
+      return;
+    }
+    if (!syncSpin) return;
+    const t = window.setTimeout(() => setSyncSpin(false), 420);
+    return () => window.clearTimeout(t);
+  }, [isSyncing, syncSpin]);
+
   return (
     <div
       role="button"
@@ -106,10 +119,10 @@ export function CreatorRow({
       }}
       className={cn(
         CREATOR_COL,
-        'py-2.5 border-b border-[var(--color-hairline-faint)] cursor-pointer transition-colors group',
+        'ui-row py-2.5 border-b border-[var(--color-hairline-faint)] cursor-pointer group relative',
         selected
-          ? 'bg-[rgba(0,113,227,0.06)] dark:bg-[rgba(53,128,230,0.08)]'
-          : 'hover:bg-black/[0.02] dark:hover:bg-white/[0.03]',
+          ? 'bg-[rgba(0,113,227,0.07)] dark:bg-[rgba(53,128,230,0.1)] shadow-[inset_3px_0_0_var(--color-rust)]'
+          : 'hover:bg-black/[0.025] dark:hover:bg-white/[0.035]',
         isDeleting && 'opacity-50 pointer-events-none',
       )}
     >
@@ -142,7 +155,7 @@ export function CreatorRow({
           <button
             type="button"
             title="打开博主主页"
-            className="shrink-0 p-1.5 rounded-md text-[var(--color-smoke)] opacity-0 group-hover:opacity-100 hover:text-[var(--color-rust)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-all"
+            className="ui-press shrink-0 p-1.5 rounded-md text-[var(--color-smoke)] opacity-0 group-hover:opacity-100 hover:text-[var(--color-rust)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
             onClick={(e) => {
               e.stopPropagation();
               openCreatorHomepage(creator);
@@ -191,20 +204,23 @@ export function CreatorRow({
           type="button"
           onClick={onSync}
           disabled={isSyncing || isDeleting || creator.sync_status === 'unfollowed'}
-          className="h-8 w-8 rounded-lg inline-flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-rust)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors disabled:opacity-40"
+          className="ui-press h-8 w-8 rounded-lg inline-flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-rust)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] disabled:opacity-40"
           title="增量同步"
         >
-          {isSyncing ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <RefreshCw className="w-3.5 h-3.5" strokeWidth={2} />
-          )}
+          <RefreshCw
+            className={cn(
+              'w-3.5 h-3.5',
+              syncSpin && (isSyncing ? 'ui-sync-spin-loop' : 'ui-sync-spin'),
+              syncSpin && 'text-[var(--color-rust)]',
+            )}
+            strokeWidth={2}
+          />
         </button>
         <button
           type="button"
           onClick={onMore}
           disabled={isDeleting}
-          className="h-8 w-8 rounded-lg inline-flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors disabled:opacity-40"
+          className="ui-press h-8 w-8 rounded-lg inline-flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] disabled:opacity-40"
           title="更多"
         >
           {isDeleting ? (

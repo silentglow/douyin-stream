@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { ArrowLeft, RefreshCw, Loader2, X, Download, Trash2, Eye, Star, ExternalLink } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { TranscriptReader } from '@/components/ui/TranscriptReader';
@@ -62,6 +63,16 @@ export default function CreatorDetail() {
   }
 
   const homepageUrl = !isLocal && creator ? resolveCreatorHomepage(creator) : null;
+  const [syncSpin, setSyncSpin] = useState(false);
+  useEffect(() => {
+    if (syncing) {
+      setSyncSpin(true);
+      return;
+    }
+    if (!syncSpin) return;
+    const t = window.setTimeout(() => setSyncSpin(false), 420);
+    return () => window.clearTimeout(t);
+  }, [syncing, syncSpin]);
 
   return (
     <div className="h-full flex flex-col page-enter">
@@ -71,7 +82,7 @@ export default function CreatorDetail() {
           <button
             type="button"
             onClick={() => navigate('/library')}
-            className="h-9 w-9 rounded-lg inline-flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors shrink-0"
+            className="ui-press h-9 w-9 rounded-lg inline-flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] shrink-0"
             title="返回内容库"
           >
             <ArrowLeft className="w-4 h-4" strokeWidth={2} />
@@ -86,7 +97,7 @@ export default function CreatorDetail() {
                 <button
                   type="button"
                   onClick={() => openCreatorHomepage(creator)}
-                  className="shrink-0 p-1.5 rounded-md text-[var(--color-smoke)] hover:text-[var(--color-rust)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
+                  className="ui-press shrink-0 p-1.5 rounded-md text-[var(--color-smoke)] hover:text-[var(--color-rust)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
                   title="打开博主主页"
                 >
                   <ExternalLink className="w-3.5 h-3.5" strokeWidth={2} />
@@ -109,21 +120,23 @@ export default function CreatorDetail() {
                 type="button"
                 onClick={() => handleSync('incremental')}
                 disabled={syncing}
-                className="h-9 px-3.5 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5 bg-[var(--color-rust)] text-white hover:brightness-110 shadow-sm disabled:opacity-50 transition-all"
+                className="ui-press h-9 px-3.5 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5 bg-[var(--color-rust)] text-white hover:brightness-110 shadow-sm shadow-[var(--color-rust)]/25 disabled:opacity-50"
                 title="增量同步"
               >
-                {syncing ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-3.5 h-3.5" strokeWidth={2} />
-                )}
+                <RefreshCw
+                  className={cn(
+                    'w-3.5 h-3.5',
+                    syncSpin && (syncing ? 'ui-sync-spin-loop' : 'ui-sync-spin'),
+                  )}
+                  strokeWidth={2}
+                />
                 同步
               </button>
               <button
                 type="button"
                 onClick={() => handleSync('full')}
                 disabled={syncing}
-                className="h-9 px-2.5 rounded-lg text-[12px] font-medium text-[var(--color-smoke)] hover:text-[var(--color-iron)] hover:bg-[rgba(239,68,68,0.08)] disabled:opacity-40 transition-colors"
+                className="ui-press h-9 px-2.5 rounded-lg text-[12px] font-medium text-[var(--color-smoke)] hover:text-[var(--color-iron)] hover:bg-[rgba(239,68,68,0.08)] disabled:opacity-40"
                 title="全量重拉（危险）"
               >
                 全量
@@ -146,8 +159,9 @@ export default function CreatorDetail() {
               key={t.key}
               type="button"
               onClick={() => setTabFilter(t.key)}
+              data-active={tabFilter === t.key}
               className={cn(
-                'h-8 px-2.5 text-[12px] font-medium rounded-md transition-all inline-flex items-center gap-1',
+                'ui-seg ui-press h-8 px-2.5 text-[12px] font-medium rounded-md inline-flex items-center gap-1',
                 tabFilter === t.key
                   ? 'bg-[var(--color-paper)] text-[var(--color-bone)] shadow-sm'
                   : 'text-[var(--color-smoke)] hover:text-[var(--color-ash)]',
