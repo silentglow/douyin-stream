@@ -8,6 +8,7 @@ import {
 import type { FolderBrowseResult } from '@/lib/api';
 import type { Asset } from '@/types';
 import { toast } from 'sonner';
+import { FULL_SYNC_CONFIRM } from '@/lib/format';
 
 export function useCreatorDetail() {
   const { creatorUid } = useParams<{ creatorUid: string }>();
@@ -58,7 +59,17 @@ export function useCreatorDetail() {
         await markAsset(asset.asset_id, { is_read: true });
         setAssets((prev) => prev.map((a) => a.asset_id === asset.asset_id ? { ...a, is_read: true } : a));
       }
-    } catch { toast.error('获取转写内容失败'); }
+    } catch (err: unknown) {
+      setViewingAsset(null);
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404) {
+        toast.error('文稿文件不在本地', {
+          description: '可能已外置归档。数据库记录仍在；增量同步不会因此重下。若需阅读请把文件放回原路径，或从归档位置打开。',
+        });
+      } else {
+        toast.error('获取转写内容失败');
+      }
+    }
     finally { setTranscriptLoading(false); }
   }, []);
 
@@ -86,9 +97,7 @@ export function useCreatorDetail() {
 
   const handleSync = useCallback(async (mode: 'incremental' | 'full' = 'incremental') => {
     if (!creatorUid || syncing) return;
-    if (mode === 'full' && !window.confirm('全量重拉将重新下载该创作者的所有视频（包括本地已有的），可能消耗大量网络和磁盘。确定继续？')) {
-      return;
-    }
+    if (mode === 'full' && !window.confirm(FULL_SYNC_CONFIRM)) return;
     setSyncing(true);
     try {
       await triggerCreatorDownload(decodeURIComponent(creatorUid), mode);

@@ -105,6 +105,28 @@ Change the format in Settings before submitting new transcription tasks.
 - Pipeline downloads can delete source video after successful transcription when auto-delete is enabled.
 - Local file transcription does not delete the user's original source file; it only cleans temporary files.
 
+### I moved transcript files out of the project. Will auto-sync re-download everything?
+
+- No. Incremental sync and auto-follow use the database (`last_fetch_time`, `video_metadata` aweme IDs), not “is the file still on disk?”.
+- Moved/archived files remain “known history”. Only **new** videos after the last sync are fetched.
+- **全量重拉 (full sync)** is different: it re-downloads everything and ignores that archive workflow. Avoid it after you have archived content.
+
+### Where did the transcripts page go?
+
+- The dedicated 文稿库 page was removed. Open **内容库 → creator → completed item** to read.
+- Old `/transcripts` URLs redirect to the content library.
+
+### How do I stop following a creator but keep transcripts?
+
+- In the content library, open **⋯ → 移除创作者…** (or multi-select → **停跟并保留**).
+- Choose **停跟，保留文稿**: `auto_sync` off, status `unfollowed`, assets and files kept.
+- Choose **彻底删除** only when you want creator + DB assets + local files gone.
+
+### Why does pause then continue re-run the whole task?
+
+- Workers do not persist execution checkpoints. Pause stops the current coroutine; resume restarts the workflow with original parameters.
+- The UI labels this as “继续（从头）” intentionally.
+
 ## Task Recovery
 
 ### What happens after a service restart?

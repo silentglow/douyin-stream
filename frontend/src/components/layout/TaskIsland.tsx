@@ -1,13 +1,31 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
 import { useStore } from '@/store/useStore';
 import { useTaskActions } from '@/hooks/useTaskActions';
-import { getTaskDisplayState, sortTasks, filterTasksByCategory, getTaskMessage, type TaskFilterCategory } from '@/lib/task-utils';
+import {
+  getTaskDisplayState,
+  sortTasks,
+  filterTasksByCategory,
+  getTaskMessage,
+  getTaskError,
+  type TaskFilterCategory,
+} from '@/lib/task-utils';
 import type { Task } from '@/lib/api';
-import { Loader2, CheckCircle2, AlertTriangle, RotateCw, Trash2, ArrowUpDown, X, ListTodo, Square, Pause, Play } from 'lucide-react';
+import {
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
+  RotateCw,
+  Trash2,
+  X,
+  ListTodo,
+  Square,
+  Pause,
+  Play,
+  Info,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-// Helper to parse payload
 function parsePayload(payload?: string): Record<string, unknown> | null {
   if (!payload) return null;
   try {
@@ -17,7 +35,6 @@ function parsePayload(payload?: string): Record<string, unknown> | null {
   }
 }
 
-// 失败子任务的错误分类标签（搬自原 TaskItemHelpers.resolveSubtaskErrorInfo，精简版）
 const ERROR_LABELS: Record<string, string> = {
   timeout: '网络超时',
   network: '网络异常',
@@ -39,37 +56,46 @@ function classifySubtaskError(sub: { error_type?: string; error?: string }): str
   return ERROR_LABELS[type] || type.toUpperCase();
 }
 
-// Helper to resolve a friendly task title
 function getTaskTitle(task: Task): string {
   const p = parsePayload(task.payload);
   if (p && typeof p.msg === 'string') return p.msg;
   if (p && typeof p.creator_name === 'string') return `同步: ${p.creator_name}`;
-  if (p && typeof p.uid === 'string') return `同步创作者: ${p.uid.slice(0, 8)}`;
-  
+  if (p && typeof p.uid === 'string') return `同步创作者: ${String(p.uid).slice(0, 8)}`;
+
   switch (task.task_type) {
     case 'creator_sync_full':
     case 'creator_sync_incremental':
       return '同步创作者内容';
     case 'pipeline':
-      return '音视频下载 + 转写工作流';
+      return '下载 + 转写';
     case 'local_transcribe':
-      return '本地媒体文件转写';
+      return '本地媒体转写';
     case 'download':
-      return '音视频批量下载';
+      return '批量下载';
     case 'transcribe':
-      return '音频语音转写';
+    case 'creator_transcribe':
+      return '语音转写';
     default:
       return task.task_type || '未命名任务';
   }
 }
 
-// TABS DEFINITION
 const FILTER_TABS: { key: TaskFilterCategory; label: string }[] = [
-  { key: 'all',         label: '全部' },
-  { key: 'download',    label: '下载' },
-  { key: 'transcribe',  label: '转写' },
-  { key: 'sync',        label: '同步' },
+  { key: 'all', label: '全部' },
+  { key: 'download', label: '下载' },
+  { key: 'transcribe', label: '转写' },
+  { key: 'sync', label: '同步' },
 ];
+
+const STATE_LABEL: Record<string, string> = {
+  running: '进行中',
+  paused: '已暂停',
+  success: '已完成',
+  partial: '部分失败',
+  failed: '失败',
+  stale: '已中断',
+  unknown: '未知',
+};
 
 interface TaskIslandProps {
   isOpen: boolean;
@@ -77,39 +103,83 @@ interface TaskIslandProps {
   onClose: () => void;
 }
 
+function ActionBtn({
+  onClick,
+  title,
+  variant = 'default',
+  disabled,
+  children,
+}: {
+  onClick: () => void;
+  title?: string;
+  variant?: 'default' | 'danger' | 'primary' | 'warn';
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      disabled={disabled}
+      title={title}
+      className={cn(
+        'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed',
+        variant === 'default' &&
+          'bg-black/[0.03] dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.08] text-[var(--color-bone)] hover:bg-black/[0.06] dark:hover:bg-white/[0.08]',
+        variant === 'primary' &&
+          'bg-[rgba(0,113,227,0.10)] border-[rgba(0,113,227,0.25)] text-[var(--color-rust)] hover:bg-[rgba(0,113,227,0.16)]',
+        variant === 'warn' &&
+          'bg-[rgba(245,158,11,0.10)] border-[rgba(245,158,11,0.25)] text-amber-700 dark:text-amber-400 hover:bg-[rgba(245,158,11,0.16)]',
+        variant === 'danger' &&
+          'bg-[rgba(239,68,68,0.08)] border-[rgba(239,68,68,0.22)] text-[var(--color-iron)] hover:bg-[rgba(239,68,68,0.14)]',
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
   const [filter, setFilter] = useState<TaskFilterCategory>('all');
-  const [sortBy, setSortBy] = useState<'time' | 'priority'>('time');
-  const popoverRef = useRef<HTMLDivElement>(null);
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const rawTasks = useStore((state) => state.tasks);
   const fetchInitialTasks = useStore((state) => state.fetchInitialTasks);
-  const { handleClearHistory, handleRetry, handlePause, handleResume, handleCancel, handleDelete } = useTaskActions();
+  const { handleClearHistory, handleRetry, handlePause, handleResume, handleCancel, handleDelete } =
+    useTaskActions();
 
-  // Load initial tasks on mount
   useEffect(() => {
     fetchInitialTasks();
   }, [fetchInitialTasks]);
 
-  // Close HUD on click outside
+  // Escape closes panel
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        isOpen &&
-        popoverRef.current &&
-        !popoverRef.current.contains(e.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(e.target as Node)
-      ) {
-        onClose();
-      }
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
 
-  // Compute status metrics
+  const withBusy = async (taskId: string, fn: () => Promise<void>) => {
+    setBusyIds((prev) => new Set(prev).add(taskId));
+    try {
+      await fn();
+    } finally {
+      setBusyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+    }
+  };
+
   const activeTasks = useMemo(() => {
     return rawTasks.filter((t) => {
       const s = getTaskDisplayState(t);
@@ -120,7 +190,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
   const failedCount = useMemo(() => {
     return rawTasks.filter((t) => {
       const s = getTaskDisplayState(t);
-      return s === 'failed' || s === 'stale';
+      return s === 'failed' || s === 'stale' || s === 'partial';
     }).length;
   }, [rawTasks]);
 
@@ -130,17 +200,11 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
     return Math.round((total / activeTasks.length) * 100);
   }, [activeTasks]);
 
-  const sortedTasks = useMemo(() => {
-    const tasks = [...rawTasks];
-    if (sortBy === 'priority') {
-      return tasks.sort((a, b) => (b.priority || 0) - (a.priority || 0));
-    }
-    return sortTasks(tasks);
-  }, [rawTasks, sortBy]);
-
-  const filteredTasks = useMemo(() => {
-    return filterTasksByCategory(sortedTasks, filter);
-  }, [sortedTasks, filter]);
+  const sortedTasks = useMemo(() => sortTasks([...rawTasks]), [rawTasks]);
+  const filteredTasks = useMemo(
+    () => filterTasksByCategory(sortedTasks, filter),
+    [sortedTasks, filter],
+  );
 
   const hasNonRunning = useMemo(() => {
     return sortedTasks.some((t) => {
@@ -149,30 +213,36 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
     });
   }, [sortedTasks]);
 
-  // SVG circle math
   const radius = 9;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (overallProgress / 100) * circumference;
 
   return (
     <>
-      {/* 1. FLOATING BUBBLE (Dynamic Island) */}
+      {/* 唯一入口：状态球。有任务/失败时才显眼；空闲时收成淡图标，点开才是完整任务面板。 */}
       <button
         ref={buttonRef}
         onClick={onToggle}
         className={cn(
-          'fixed bottom-6 right-6 z-40 flex items-center justify-center transition-all duration-300 shadow-[0_12px_40px_rgba(0,0,0,0.5)] border cursor-pointer select-none outline-none',
+          'fixed bottom-6 right-6 z-40 flex items-center justify-center transition-all duration-300 cursor-pointer select-none outline-none',
+          isOpen && 'pointer-events-none opacity-0 scale-90',
           activeTasks.length > 0
-            ? 'h-10 px-4 rounded-full bg-[var(--color-paper)] border-black/[0.08] hover:border-[var(--color-rust)]/35 text-[var(--color-bone)] gap-2.5'
+            ? 'h-11 px-4 rounded-full gap-2.5 bg-[var(--color-paper)] border border-black/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.28)] hover:border-[var(--color-rust)]/35 text-[var(--color-bone)]'
             : failedCount > 0
-              ? 'h-10 w-10 rounded-full bg-[rgba(239,68,68,0.1)] border-red-500/25 hover:border-red-500/40 text-red-400'
-              : 'h-10 w-10 rounded-full bg-[var(--color-paper)]/40 hover:bg-[var(--color-paper)]/70 backdrop-blur-md border-black/[0.04] hover:border-black/[0.08] text-[var(--color-smoke)] hover:text-[var(--color-bone)]'
+              ? 'h-11 w-11 rounded-full bg-[rgba(239,68,68,0.12)] border border-red-500/25 shadow-[0_8px_24px_rgba(239,68,68,0.15)] hover:border-red-500/40 text-red-400'
+              : 'h-10 w-10 rounded-full bg-[var(--color-paper)]/70 backdrop-blur-md border border-black/[0.05] shadow-sm text-[var(--color-smoke)] hover:text-[var(--color-bone)] hover:border-black/[0.1] opacity-70 hover:opacity-100',
         )}
-        title={activeTasks.length > 0 ? `${activeTasks.length} 项任务运行中...` : '任务中心 (⌘5)'}
+        title={
+          activeTasks.length > 0
+            ? `${activeTasks.length} 项进行中 · 打开任务`
+            : failedCount > 0
+              ? `${failedCount} 项需处理 · 打开任务`
+              : '打开任务 (⌘`)'
+        }
+        aria-label="打开任务"
       >
         {activeTasks.length > 0 ? (
           <>
-            {/* Circular Progress Ring */}
             <div className="relative flex size-5 items-center justify-center shrink-0">
               <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 24 24">
                 <circle
@@ -180,7 +250,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                   cy="12"
                   r={radius}
                   fill="none"
-                  stroke="rgba(255, 255, 255, 0.05)"
+                  stroke="rgba(128,128,128,0.2)"
                   strokeWidth="2"
                 />
                 <circle
@@ -196,17 +266,12 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                   className="transition-all duration-300"
                 />
               </svg>
-              <span className="font-mono text-[9px] font-bold text-[var(--color-rust)] mt-[0.5px]">
+              <span className="font-mono text-[9px] font-bold text-[var(--color-rust)]">
                 {activeTasks.length}
               </span>
             </div>
-            
-            {/* Label */}
-            <span className="text-[12px] font-semibold tracking-wide">
+            <span className="text-[12px] font-semibold tabular-nums tracking-wide">
               {overallProgress}%
-            </span>
-            <span className="relative flex size-1.5 shrink-0 rounded-full bg-[var(--color-rust)]">
-              <span className="absolute inset-0 rounded-full bg-[var(--color-rust)] animate-ping opacity-75" />
             </span>
           </>
         ) : failedCount > 0 ? (
@@ -219,302 +284,424 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
         )}
       </button>
 
-      {/* 2. HUD POPOVER PANEL */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            ref={popoverRef}
-            initial={{ opacity: 0, y: 15, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 15, scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-            className="fixed bottom-20 right-6 z-40 w-[380px] max-w-[calc(100vw-3rem)] bg-[var(--color-paper)]/95 backdrop-blur-2xl border border-black/[0.06] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex flex-col overflow-hidden max-h-[460px]"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-hairline)] flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[13.5px] font-semibold text-[var(--color-bone)]">任务队列</span>
-                {activeTasks.length > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-md bg-[var(--color-rust)]/10 text-[9.5px] text-[var(--color-rust)] font-bold">
-                    {activeTasks.length} 运行中
-                  </span>
-                )}
-              </div>
-              
-              <button
-                onClick={onClose}
-                className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] transition-colors cursor-pointer"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
+          <>
+            {/* Scrim */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px]"
+              onClick={onClose}
+            />
 
-            {/* Filter controls */}
-            <div className="px-5 py-2.5 flex items-center justify-between gap-4 border-b border-[var(--color-hairline)] bg-black/[0.005] flex-shrink-0">
-              <div className="flex items-center gap-1.5">
-                {FILTER_TABS.map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setFilter(tab.key)}
-                    className={cn(
-                      'px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer',
-                      filter === tab.key
-                        ? 'bg-black/5 dark:bg-white/5 text-[var(--color-rust)]'
-                        : 'text-[var(--color-smoke)] hover:text-[var(--color-bone)]'
+            {/* Full-height task center */}
+            <motion.aside
+              ref={panelRef}
+              initial={{ x: 28, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 28, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+              className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-[440px] bg-[var(--color-paper)] border-l border-[var(--color-hairline)] shadow-[-12px_0_48px_rgba(0,0,0,0.18)] flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-[var(--color-hairline)] flex-shrink-0">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-[17px] font-semibold text-[var(--color-bone)]">任务</h2>
+                    {activeTasks.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-md bg-[var(--color-rust)]/10 text-[11px] text-[var(--color-rust)] font-semibold">
+                        {activeTasks.length} 运行中
+                      </span>
                     )}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setSortBy(s => s === 'time' ? 'priority' : 'time')}
-                  title="切换排序"
-                  className="p-1 rounded-md border border-black/5 dark:border-white/5 bg-black/5 dark:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] hover:bg-black/10 dark:hover:bg-white/10 transition-all cursor-pointer"
-                >
-                  <ArrowUpDown className="size-3.5" />
-                </button>
-                {hasNonRunning && (
-                  <button
-                    onClick={handleClearHistory}
-                    title="清除历史任务"
-                    className="p-1 rounded-md text-[var(--color-iron)] hover:bg-[var(--color-iron)]/10 transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Task list */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 select-none">
-              {filteredTasks.length === 0 ? (
-                <div className="py-20 text-center">
-                  <div className="text-[14px] font-medium text-[var(--color-smoke)]">暂无队列任务</div>
-                  <div className="text-[11px] text-[var(--color-ash)] mt-1">当前分类下没有相关任务</div>
+                    {failedCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-md bg-[var(--color-iron)]/10 text-[11px] text-[var(--color-iron)] font-semibold">
+                        {failedCount} 需处理
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[12px] text-[var(--color-ash)] mt-1.5 leading-relaxed">
+                    进度、失败与操作都在这里。暂停后恢复会从头执行，不是断点续传。
+                  </p>
                 </div>
-              ) : (
-                filteredTasks.map((task) => {
-                  const state = getTaskDisplayState(task);
-                  const isRunning = state === 'running';
-                  const isPaused = state === 'paused';
-                  const isFailed = state === 'failed' || state === 'stale';
-                  const isPartial = state === 'partial';
-                  const isSuccess = state === 'success';
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] transition-colors cursor-pointer"
+                  title="关闭 (Esc)"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
 
-                  const pct = Math.round((task.progress || 0) * 100);
-                  const title = getTaskTitle(task);
-
-                  // 提取 subtasks：本地转写/批量下载等多文件任务每个文件一条
-                  // 是用户最关心的"哪个文件成了/挂了"信息
-                  const parsed = parsePayload(task.payload);
-                  const subtasks = Array.isArray(parsed?.subtasks)
-                    ? (parsed.subtasks as Array<{ title?: string; status?: string; error?: string; error_type?: string; video_path?: string }>)
-                    : [];
-                  // 运行中：从 pipeline_progress.files 取每个文件的实时阶段；完成后回退到 subtasks
-                  const ppFiles = (() => {
-                    const pp = parsed?.pipeline_progress as
-                      | { files?: Array<{ title?: string; status?: string; stage?: string }> }
-                      | undefined;
-                    return Array.isArray(pp?.files) ? pp!.files! : [];
-                  })();
-                  const fileRows: Array<{ title?: string; status?: string; stage?: string; error?: string; error_type?: string; video_path?: string }> =
-                    isRunning && ppFiles.length > 0 ? ppFiles : subtasks;
-                  const showFileRows = fileRows.length > 0;
-
-                  return (
-                    <div
-                      key={task.task_id}
+              {/* Filters + clear */}
+              <div className="px-5 py-3 flex items-center justify-between gap-3 border-b border-[var(--color-hairline)] flex-shrink-0">
+                <div className="flex items-center gap-1 flex-wrap">
+                  {FILTER_TABS.map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setFilter(tab.key)}
                       className={cn(
-                        'relative overflow-hidden p-3 rounded-xl border flex flex-col justify-between transition-all duration-200 group',
-                        isRunning || isPaused
-                          ? 'bg-black/[0.015] dark:bg-white/[0.02] border-black/[0.04] dark:border-white/10'
-                          : 'bg-transparent border-transparent hover:bg-black/[0.005] dark:hover:bg-white/[0.01]'
+                        'px-2.5 py-1.5 text-[12px] font-medium rounded-lg transition-all cursor-pointer',
+                        filter === tab.key
+                          ? 'bg-black/5 dark:bg-white/8 text-[var(--color-rust)]'
+                          : 'text-[var(--color-smoke)] hover:text-[var(--color-bone)]',
                       )}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        {/* Icon */}
-                        <div className="mt-[2px] shrink-0">
-                          {isRunning ? (
-                            <Loader2 className="size-4 animate-spin text-[var(--color-rust)]" strokeWidth={2.2} />
-                          ) : isPaused ? (
-                            <div className="size-2 rounded-full bg-warning mt-1" />
-                          ) : isFailed ? (
-                            <AlertTriangle className="size-4 text-[var(--color-iron)]" strokeWidth={2.2} />
-                          ) : isSuccess ? (
-                            <CheckCircle2 className="size-4 text-[var(--color-patina)]" strokeWidth={2} />
-                          ) : (
-                            <div className="size-2 rounded-full bg-black/20 dark:bg-white/20 mt-1" />
-                          )}
-                        </div>
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                {hasNonRunning && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm('清除所有已结束的历史任务记录？进行中的任务不受影响。')) {
+                        void handleClearHistory();
+                      }
+                    }}
+                    className="text-[12px] font-medium text-[var(--color-iron)] hover:underline cursor-pointer shrink-0"
+                  >
+                    清除历史
+                  </button>
+                )}
+              </div>
 
-                        {/* Title & Stage */}
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[12px] font-semibold text-[var(--color-bone)] truncate leading-tight">
-                            {title}
-                          </div>
-                          <div className="text-[10px] text-[var(--color-smoke)] mt-0.5 font-medium truncate">
-                            {getTaskMessage(task) || (isRunning ? '正在运行中...' : isPaused ? '任务已暂停' : isSuccess ? '已成功完成' : isFailed ? '执行失败' : '排队中')}
-                          </div>
-                        </div>
+              {/* List */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+                {filteredTasks.length === 0 ? (
+                  <div className="py-24 text-center px-6">
+                    <ListTodo className="size-8 mx-auto text-[var(--color-smoke)] opacity-40 mb-3" />
+                    <div className="text-[14px] font-medium text-[var(--color-smoke)]">暂无任务</div>
+                    <div className="text-[12px] text-[var(--color-ash)] mt-1">
+                      在内容库发起同步、下载或转写后会出现在这里
+                    </div>
+                  </div>
+                ) : (
+                  filteredTasks.map((task) => {
+                    const state = getTaskDisplayState(task);
+                    const isRunning = state === 'running';
+                    const isPaused = state === 'paused';
+                    const isFailed = state === 'failed' || state === 'stale';
+                    const isPartial = state === 'partial';
+                    const isSuccess = state === 'success';
+                    const pct = Math.round((task.progress || 0) * 100);
+                    const title = getTaskTitle(task);
+                    const busy = busyIds.has(task.task_id);
+                    const err = getTaskError(task);
 
-                        {/* Percent or Action */}
-                        <div className="shrink-0 flex items-center justify-end text-right min-w-[32px] gap-0.5">
-                          {isRunning ? (
-                            <>
-                              <span className="font-mono text-[11px] font-bold text-[var(--color-rust)]">
-                                {pct}%
+                    const parsed = parsePayload(task.payload);
+                    const subtasks = Array.isArray(parsed?.subtasks)
+                      ? (parsed!.subtasks as Array<{
+                          title?: string;
+                          status?: string;
+                          error?: string;
+                          error_type?: string;
+                          video_path?: string;
+                        }>)
+                      : [];
+                    const ppFiles = (() => {
+                      const pp = parsed?.pipeline_progress as
+                        | { files?: Array<{ title?: string; status?: string; stage?: string }> }
+                        | undefined;
+                      return Array.isArray(pp?.files) ? pp!.files! : [];
+                    })();
+                    const fileRows =
+                      isRunning && ppFiles.length > 0 ? ppFiles : subtasks;
+                    const showFileRows = fileRows.length > 0;
+
+                    return (
+                      <div
+                        key={task.task_id}
+                        className={cn(
+                          'rounded-xl border p-4 transition-colors',
+                          isRunning || isPaused
+                            ? 'bg-black/[0.02] dark:bg-white/[0.03] border-[var(--color-hairline-strong)]'
+                            : isFailed || isPartial
+                              ? 'bg-[rgba(239,68,68,0.03)] border-[rgba(239,68,68,0.15)]'
+                              : 'bg-transparent border-[var(--color-hairline)]',
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 shrink-0">
+                            {busy || isRunning ? (
+                              <Loader2
+                                className={cn(
+                                  'size-4 text-[var(--color-rust)]',
+                                  (busy || isRunning) && 'animate-spin',
+                                )}
+                                strokeWidth={2.2}
+                              />
+                            ) : isPaused ? (
+                              <Pause className="size-4 text-amber-500" strokeWidth={2.2} />
+                            ) : isFailed ? (
+                              <AlertTriangle className="size-4 text-[var(--color-iron)]" strokeWidth={2.2} />
+                            ) : isPartial ? (
+                              <AlertTriangle className="size-4 text-amber-500" strokeWidth={2.2} />
+                            ) : isSuccess ? (
+                              <CheckCircle2 className="size-4 text-[var(--color-patina)]" strokeWidth={2} />
+                            ) : (
+                              <div className="size-2.5 rounded-full bg-black/20 dark:bg-white/20 mt-1" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="text-[13px] font-semibold text-[var(--color-bone)] leading-snug line-clamp-2">
+                                {title}
+                              </div>
+                              <span
+                                className={cn(
+                                  'shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-md',
+                                  isRunning && 'bg-[rgba(0,113,227,0.10)] text-[var(--color-rust)]',
+                                  isPaused && 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                                  isSuccess && 'bg-[rgba(16,185,129,0.10)] text-[var(--color-patina)]',
+                                  (isFailed || isPartial) &&
+                                    'bg-[rgba(239,68,68,0.10)] text-[var(--color-iron)]',
+                                  !isRunning &&
+                                    !isPaused &&
+                                    !isSuccess &&
+                                    !isFailed &&
+                                    !isPartial &&
+                                    'bg-black/5 dark:bg-white/5 text-[var(--color-smoke)]',
+                                )}
+                              >
+                                {STATE_LABEL[state] || task.status}
+                                {isRunning ? ` ${pct}%` : ''}
                               </span>
-                              <button
-                                onClick={() => handlePause(task)}
-                                title="暂停任务"
-                                className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] cursor-pointer"
-                              >
-                                <Pause className="size-3" strokeWidth={2.5} />
-                              </button>
-                              <button
-                                onClick={() => handleCancel(task)}
-                                title="停止任务"
-                                className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-iron)] cursor-pointer"
-                              >
-                                <Square className="size-3" strokeWidth={2.5} />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  if (confirm(`确定关闭并删除此任务？\n${getTaskTitle(task)}`)) handleDelete(task);
-                                }}
-                                title="关闭并删除任务"
-                                className="p-1 rounded-md hover:bg-[var(--color-iron)]/10 text-[var(--color-smoke)] hover:text-[var(--color-iron)] cursor-pointer"
-                              >
-                                <Trash2 className="size-3" />
-                              </button>
-                            </>
-                          ) : isPaused ? (
-                            <>
-                              <button
-                                onClick={() => handleResume(task)}
-                                title="继续任务（将从头重新执行）"
-                                className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-patina)] cursor-pointer"
-                              >
-                                <Play className="size-3.5" fill="currentColor" />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  if (confirm(`确定关闭并删除此任务？\n${getTaskTitle(task)}`)) handleDelete(task);
-                                }}
-                                title="关闭并删除任务"
-                                className="p-1 rounded-md hover:bg-[var(--color-iron)]/10 text-[var(--color-smoke)] hover:text-[var(--color-iron)] cursor-pointer"
-                              >
-                                <Trash2 className="size-3" />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              {(isFailed || isPartial) && (
-                                <button
-                                  onClick={() => handleRetry(task)}
-                                  title={isPartial ? '只重试失败子任务' : '重试任务'}
-                                  className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] cursor-pointer"
+                            </div>
+
+                            <div className="text-[12px] text-[var(--color-ash)] mt-1 leading-relaxed line-clamp-2">
+                              {getTaskMessage(task) ||
+                                (isRunning
+                                  ? '正在运行…'
+                                  : isPaused
+                                    ? '已暂停 · 继续将从头执行'
+                                    : isSuccess
+                                      ? '已完成'
+                                      : isFailed
+                                        ? '执行失败'
+                                        : '排队中')}
+                            </div>
+
+                            {err && (isFailed || isPartial || isPaused) && (
+                              <div className="mt-2 text-[11px] text-[var(--color-iron)] leading-relaxed bg-[rgba(239,68,68,0.06)] rounded-lg px-2.5 py-2">
+                                {err}
+                              </div>
+                            )}
+
+                            {isPaused && (
+                              <div className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400/90 leading-relaxed">
+                                <Info className="size-3.5 shrink-0 mt-0.5" strokeWidth={2} />
+                                <span>暂停没有断点：点「继续」会重新跑整条流水线，已完成的部分可能被跳过或重做。</span>
+                              </div>
+                            )}
+
+                            {/* Progress */}
+                            {isRunning && (
+                              <div className="mt-3 h-1.5 rounded-full bg-black/[0.06] dark:bg-white/[0.08] overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-[var(--color-rust)] transition-all duration-300"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            )}
+
+                            {/* File rows */}
+                            {showFileRows && (
+                              <div className="mt-3 space-y-1 max-h-36 overflow-y-auto border-l-2 border-[var(--color-hairline-strong)] pl-3">
+                                {fileRows.map((sub, idx) => {
+                                  const ok = sub?.status === 'completed';
+                                  const bad = sub?.status === 'failed';
+                                  const skipped = sub?.status === 'skipped';
+                                  const running = sub?.status === 'running';
+                                  const fileName =
+                                    sub?.title ||
+                                    (sub && 'video_path' in sub && sub.video_path
+                                      ? String(sub.video_path).split('/').pop()
+                                      : null) ||
+                                    '?';
+                                  const stageText = 'stage' in (sub || {}) ? (sub as { stage?: string }).stage : undefined;
+                                  const errText = 'error' in (sub || {}) ? (sub as { error?: string }).error : undefined;
+                                  let detail = '';
+                                  let detailTitle = '';
+                                  if (running && stageText) {
+                                    detail = stageText;
+                                    detailTitle = stageText;
+                                  } else if (bad) {
+                                    if (errText) {
+                                      const label = classifySubtaskError(
+                                        sub as { error_type?: string; error?: string },
+                                      );
+                                      detail = label ? `[${label}]` : errText.slice(0, 40);
+                                      detailTitle = `${label ? label + ' — ' : ''}${errText}`;
+                                    } else if (stageText) {
+                                      detail = stageText;
+                                      detailTitle = stageText;
+                                    }
+                                  }
+                                  return (
+                                    <div key={idx} className="flex items-start gap-1.5 text-[11px] leading-snug">
+                                      {ok ? (
+                                        <CheckCircle2 className="size-3 shrink-0 mt-0.5 text-[var(--color-patina)]" />
+                                      ) : bad ? (
+                                        <AlertTriangle className="size-3 shrink-0 mt-0.5 text-[var(--color-iron)]" />
+                                      ) : running ? (
+                                        <Loader2 className="size-3 shrink-0 mt-0.5 animate-spin text-[var(--color-rust)]" />
+                                      ) : skipped ? (
+                                        <div className="size-2 shrink-0 mt-1 rounded-full bg-black/15 dark:bg-white/15" />
+                                      ) : (
+                                        <div className="size-2 shrink-0 mt-1 rounded-full bg-black/25 dark:bg-white/25" />
+                                      )}
+                                      <span className="truncate text-[var(--color-smoke)] flex-1" title={fileName}>
+                                        {fileName}
+                                      </span>
+                                      {detail && (
+                                        <span
+                                          className={cn(
+                                            'shrink-0 text-[10px] truncate max-w-[140px]',
+                                            bad ? 'text-[var(--color-iron)]' : 'text-[var(--color-ash)]',
+                                          )}
+                                          title={detailTitle}
+                                        >
+                                          {detail}
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Actions — large, labeled */}
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              {isRunning && (
+                                <>
+                                  <ActionBtn
+                                    variant="warn"
+                                    disabled={busy}
+                                    title="暂停后恢复将从头执行"
+                                    onClick={() =>
+                                      void withBusy(task.task_id, async () => {
+                                        if (
+                                          confirm(
+                                            '确定暂停？\n\n注意：当前不支持断点续传。继续时会从头执行整条任务。',
+                                          )
+                                        ) {
+                                          await handlePause(task);
+                                        }
+                                      })
+                                    }
+                                  >
+                                    <Pause className="size-3.5" strokeWidth={2.5} />
+                                    暂停
+                                  </ActionBtn>
+                                  <ActionBtn
+                                    variant="danger"
+                                    disabled={busy}
+                                    title="停止任务"
+                                    onClick={() =>
+                                      void withBusy(task.task_id, async () => {
+                                        if (confirm(`确定停止任务？\n${title}`)) {
+                                          await handleCancel(task);
+                                        }
+                                      })
+                                    }
+                                  >
+                                    <Square className="size-3.5" strokeWidth={2.5} />
+                                    停止
+                                  </ActionBtn>
+                                  <ActionBtn
+                                    variant="danger"
+                                    disabled={busy}
+                                    title="停止并删除记录"
+                                    onClick={() =>
+                                      void withBusy(task.task_id, async () => {
+                                        if (confirm(`确定删除此任务？\n${title}`)) {
+                                          await handleDelete(task);
+                                        }
+                                      })
+                                    }
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                    删除
+                                  </ActionBtn>
+                                </>
+                              )}
+
+                              {isPaused && (
+                                <>
+                                  <ActionBtn
+                                    variant="primary"
+                                    disabled={busy}
+                                    title="从头重新执行"
+                                    onClick={() =>
+                                      void withBusy(task.task_id, () => handleResume(task))
+                                    }
+                                  >
+                                    <Play className="size-3.5" fill="currentColor" />
+                                    继续（从头）
+                                  </ActionBtn>
+                                  <ActionBtn
+                                    variant="danger"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      void withBusy(task.task_id, async () => {
+                                        if (confirm(`确定删除此任务？\n${title}`)) {
+                                          await handleDelete(task);
+                                        }
+                                      })
+                                    }
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                    删除
+                                  </ActionBtn>
+                                </>
+                              )}
+
+                              {(isFailed || isPartial || state === 'stale') && (
+                                <ActionBtn
+                                  variant="primary"
+                                  disabled={busy}
+                                  title={isPartial ? '只重试失败的部分' : '重新提交任务'}
+                                  onClick={() =>
+                                    void withBusy(task.task_id, () => handleRetry(task))
+                                  }
                                 >
                                   <RotateCw className="size-3.5" />
-                                </button>
+                                  {isPartial ? '重试失败项' : '重试'}
+                                </ActionBtn>
                               )}
-                              {isSuccess && !isFailed && !isPartial && (
-                                <span className="text-[10px] text-[var(--color-patina)] font-medium mr-1">完成</span>
+
+                              {!isRunning && !isPaused && (
+                                <ActionBtn
+                                  variant="danger"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void withBusy(task.task_id, async () => {
+                                      if (confirm(`确定删除此任务记录？\n${title}`)) {
+                                        await handleDelete(task);
+                                      }
+                                    })
+                                  }
+                                >
+                                  <Trash2 className="size-3.5" />
+                                  删除
+                                </ActionBtn>
                               )}
-                              {!isRunning && !isPaused && !isSuccess && !isFailed && !isPartial && (
-                                <span className="text-[10px] text-[var(--color-smoke)] mr-1">等待</span>
-                              )}
-                              <button
-                                onClick={() => {
-                                  if (confirm(`确定删除此任务？\n${getTaskTitle(task)}`)) handleDelete(task);
-                                }}
-                                title="删除任务"
-                                className="p-1 rounded-md hover:bg-[var(--color-iron)]/10 text-[var(--color-smoke)] hover:text-[var(--color-iron)] cursor-pointer"
-                              >
-                                <Trash2 className="size-3" />
-                              </button>
-                            </>
-                          )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-
-                      {/* Thin Progress bar for running tasks */}
-                      {isRunning && (
-                        <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-black/[0.03] dark:bg-white/[0.05] overflow-hidden">
-                          <div
-                            className="h-full bg-[var(--color-rust)] transition-all duration-300"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      )}
-
-                      {/* 文件级明细：运行中显示每个文件的实时阶段，完成后显示成/败结果 */}
-                      {showFileRows && (
-                        <div className="mt-2 pl-7 pr-1 space-y-1 max-h-32 overflow-y-auto border-l border-[var(--color-hairline-strong)]">
-                          {fileRows.map((sub, idx) => {
-                            const ok = sub?.status === 'completed';
-                            const bad = sub?.status === 'failed';
-                            const skipped = sub?.status === 'skipped';
-                            const running = sub?.status === 'running';
-                            const fileName = sub?.title || (sub?.video_path ? sub.video_path.split('/').pop() : null) || '?';
-                            const stageText = sub?.stage;
-                            const errText = sub?.error;
-                            let detail = '';
-                            let detailTitle = '';
-                            if (running && stageText) {
-                              detail = stageText;
-                              detailTitle = stageText;
-                            } else if (bad) {
-                              if (errText) {
-                                const label = classifySubtaskError(sub);
-                                detail = label ? `[${label}]` : errText.slice(0, 40);
-                                detailTitle = `${label ? label + ' — ' : ''}${errText}`;
-                              } else if (stageText) {
-                                detail = stageText;
-                                detailTitle = stageText;
-                              }
-                            }
-                            return (
-                              <div key={idx} className="flex items-start gap-1.5 text-[10px] leading-snug">
-                                {ok ? (
-                                  <CheckCircle2 className="size-2.5 shrink-0 mt-[2px] text-[var(--color-patina)]" />
-                                ) : bad ? (
-                                  <AlertTriangle className="size-2.5 shrink-0 mt-[2px] text-[var(--color-iron)]" />
-                                ) : running ? (
-                                  <Loader2 className="size-2.5 shrink-0 mt-[2px] animate-spin text-[var(--color-rust)]" />
-                                ) : skipped ? (
-                                  <div className="size-2 shrink-0 mt-[3px] rounded-full bg-black/15 dark:bg-white/15" />
-                                ) : (
-                                  <div className="size-2 shrink-0 mt-[3px] rounded-full bg-black/25 dark:bg-white/25" />
-                                )}
-                                <span className="truncate text-[var(--color-smoke)] flex-1" title={fileName}>
-                                  {fileName}
-                                </span>
-                                {detail && (
-                                  <span
-                                    className={cn(
-                                      'shrink-0 text-[9px] truncate max-w-[150px]',
-                                      bad ? 'text-[var(--color-iron)]' : 'text-[var(--color-ash)]',
-                                    )}
-                                    title={detailTitle}
-                                  >
-                                    {detail}
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </motion.div>
+                    );
+                  })
+                )}
+              </div>
+            </motion.aside>
+          </>
         )}
       </AnimatePresence>
     </>

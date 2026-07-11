@@ -3,11 +3,20 @@ import { Star, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Asset } from '@/types';
 
-export function StatusLabel({ status, error }: { status: string; error?: string | null }) {
+export function StatusLabel({
+  status,
+  error,
+  videoStatus,
+}: {
+  status: string;
+  error?: string | null;
+  videoStatus?: string;
+}) {
   if (status === 'completed') {
     return (
       <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-patina)] px-2 py-0.5 rounded-full bg-[rgba(16,185,129,0.10)]">
-        <span className="status-dot bg-[var(--color-patina)]" />已转写
+        <span className="status-dot bg-[var(--color-patina)]" />
+        {videoStatus === 'archived' ? '已转写 · 视频已归档' : '已转写'}
       </span>
     );
   }
@@ -111,7 +120,11 @@ export const AssetListItem = memo(function AssetListItem({
 
       {/* Status + actions */}
       <div className="flex items-center gap-4 flex-shrink-0">
-        <StatusLabel status={asset.transcript_status} error={asset.transcript_last_error} />
+        <StatusLabel
+          status={asset.transcript_status}
+          error={asset.transcript_last_error}
+          videoStatus={asset.video_status}
+        />
         {!bulkMode && (
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button

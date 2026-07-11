@@ -1,13 +1,23 @@
 import {
-  Search, Loader2, X, ArrowRight,
+  Search, Loader2, X, ArrowRight, Plus, Upload, MoreHorizontal,
+  Archive, Trash2, RefreshCw,
 } from 'lucide-react';
 import { useLibraryDetail } from '@/hooks/useLibraryDetail';
 import { cn } from '@/lib/utils';
-import { CreatorCard } from '@/components/library/CreatorCard';
+import { CreatorListHeader, CreatorRow } from '@/components/library/CreatorRow';
 import { CreatorScout } from '@/components/library/CreatorScout';
 import { CreatorActionMenuModal } from '@/components/library/CreatorActionMenuModal';
 import { DeleteConfirmModal } from '@/components/library/DeleteConfirmModal';
 import { LocalTranscribeModal } from '@/components/library/LocalTranscribeModal';
+import { useEffect, useRef, useState } from 'react';
+
+const FILTERS = [
+  { key: 'all', label: '全部' },
+  { key: 'following', label: '跟进中' },
+  { key: 'unfollowed', label: '已停跟' },
+  { key: 'auto', label: '自动' },
+  { key: 'transcript', label: '有文稿' },
+] as const;
 
 export default function Library() {
   const {
@@ -34,13 +44,25 @@ export default function Library() {
     transcribing,
     deleteAfter,
     toggleDeleteAfter,
-    deleteConfirm,
-    setDeleteConfirm,
+    removeDialog,
+    setRemoveDialog,
+    selectedUids,
+    bulkBusy,
+    allFilteredSelected,
+    someFilteredSelected,
     filteredCreators,
     handleSync,
     handleDeleteCreator,
-    executeDeleteCreator,
+    executeRemove,
+    openBulkRemove,
+    toggleSelectUid,
+    clearSelection,
+    toggleSelectAllFiltered,
+    handleBulkSetAutoOnSelection,
+    handleBulkSyncSelection,
     handleToggleAutoSync,
+    handleRefollow,
+    handleBulkAutoSync,
     handleSelectFolder,
     toggleFileSelection,
     handleStartLocalTranscribe,
@@ -49,147 +71,293 @@ export default function Library() {
     autoCount,
   } = useLibraryDetail();
 
+  const [scoutOpen, setScoutOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+  const selectedCount = selectedUids.size;
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [moreOpen]);
 
   return (
     <div className="h-full overflow-y-auto page-enter">
-      {/* ═══ PRO HEADER ═══════════════════════════════════════════ */}
-      <header className="px-10 py-5 border-b border-[var(--color-hairline)] sticky top-0 z-10 backdrop-blur-md bg-[var(--color-ink)]/80">
-        <div className="flex items-center justify-between gap-6">
-          <div className="flex items-center gap-5">
-            <h1 className="font-sans text-[20px] font-bold text-[var(--color-bone)]">
+      <header className="px-6 md:px-8 py-3.5 border-b border-[var(--color-hairline)] sticky top-0 z-10 backdrop-blur-xl bg-[var(--color-ink)]/85">
+        <div className="flex items-center gap-4">
+          <div className="flex items-baseline gap-3 min-w-0 shrink-0">
+            <h1 className="text-[17px] font-semibold text-[var(--color-bone)] tracking-tight">
               内容库
             </h1>
-            <div className="h-5 w-[1px] bg-[var(--color-hairline-strong)]" />
-            <div className="flex items-center gap-4 text-[13px] text-[var(--color-ash)] font-medium">
-              <div>
-                <span className="text-[var(--color-bone)] font-semibold">{totalAssets}</span> 影像
-              </div>
-              <div className="w-1 h-1 rounded-full bg-[var(--color-hairline-strong)]" />
-              <div>
-                <span className="text-[var(--color-bone)] font-semibold">{totalTranscribed}</span> 已转写
-              </div>
-              <div className="w-1 h-1 rounded-full bg-[var(--color-hairline-strong)]" />
-              <div>
-                <span className="text-[var(--color-rust)] font-semibold">{autoCount}</span> 自动同步
-              </div>
-            </div>
+            <span className="hidden sm:inline text-[12px] text-[var(--color-smoke)] tabular-nums">
+              {creators.length} 人 · {totalAssets} 收录 · {totalTranscribed} 文稿
+              {autoCount > 0 && (
+                <span className="text-[var(--color-rust)]"> · {autoCount} 自动</span>
+              )}
+            </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex-1" />
+
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
+              type="button"
               onClick={handleSelectFolder}
               disabled={scanning}
-              className="btn-sharp py-1.5 px-4 text-[13px]"
+              className="h-9 px-3 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5 text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors disabled:opacity-40"
             >
-              {scanning ? <Loader2 className="w-3.5 h-3.5 animate-spin inline mr-1" /> : null}
-              本地上传
+              {scanning ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Upload className="w-3.5 h-3.5" strokeWidth={2} />
+              )}
+              <span className="hidden sm:inline">本地上传</span>
             </button>
+
+            <div className="relative" ref={moreRef}>
+              <button
+                type="button"
+                onClick={() => setMoreOpen((v) => !v)}
+                className="h-9 w-9 rounded-lg inline-flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
+                title="全局操作"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+              {moreOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-56 rounded-xl border border-[var(--color-hairline)] bg-[var(--color-paper)] shadow-lg py-1 z-30">
+                  <button
+                    type="button"
+                    disabled={creators.length === 0 || autoCount >= creators.length}
+                    className="w-full px-3.5 py-2.5 text-left text-[13px] text-[var(--color-bone)] hover:bg-black/[0.03] dark:hover:bg-white/[0.04] disabled:opacity-40"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      void handleBulkAutoSync(true);
+                    }}
+                  >
+                    全部开启自动跟进
+                  </button>
+                  <button
+                    type="button"
+                    disabled={autoCount === 0}
+                    className="w-full px-3.5 py-2.5 text-left text-[13px] text-[var(--color-bone)] hover:bg-black/[0.03] dark:hover:bg-white/[0.04] disabled:opacity-40"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      void handleBulkAutoSync(false);
+                    }}
+                  >
+                    全部关闭自动跟进
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
-              onClick={() => { const el = document.getElementById('add-creator-input'); el?.focus(); }}
-              className="btn-sharp btn-primary py-1.5 px-4 text-[13px]"
+              type="button"
+              onClick={() => setScoutOpen((v) => !v)}
+              className={cn(
+                'h-9 px-3.5 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5 transition-colors',
+                scoutOpen
+                  ? 'bg-black/[0.06] dark:bg-white/[0.08] text-[var(--color-bone)]'
+                  : 'bg-[var(--color-rust)] text-white hover:brightness-110 shadow-sm',
+              )}
             >
-              + 添加创作者
+              {scoutOpen ? (
+                '收起'
+              ) : (
+                <>
+                  <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  添加
+                </>
+              )}
             </button>
           </div>
         </div>
       </header>
 
-      {/* ═══ ADD / SCOUT ═══ */}
-      <CreatorScout />
+      {scoutOpen && (
+        <div className="border-b border-[var(--color-hairline)] bg-[var(--color-paper)]/40">
+          <CreatorScout onCollected={() => setScoutOpen(false)} />
+        </div>
+      )}
 
-      {/* ═══ CONTROL STRIP ══════════════════════════════════════ */}
-      <section className="px-10 py-5 border-b border-[var(--color-hairline)] flex items-center gap-8">
-        {/* Search */}
-        <div className="flex items-center gap-3 flex-1 max-w-md border-b border-[var(--color-hairline)] pb-2">
-          <Search className="w-3.5 h-3.5 text-[var(--color-smoke)]" strokeWidth={1.5} />
+      <section className="px-6 md:px-8 py-2.5 border-b border-[var(--color-hairline)] flex items-center gap-3 flex-wrap sticky top-[57px] z-[9] bg-[var(--color-ink)]/90 backdrop-blur-md">
+        <div className="flex items-center gap-2 h-9 flex-1 min-w-[160px] max-w-xs rounded-lg bg-black/[0.03] dark:bg-white/[0.04] px-2.5 border border-transparent focus-within:border-[var(--color-rust)]/30 focus-within:bg-transparent transition-colors">
+          <Search className="w-3.5 h-3.5 text-[var(--color-smoke)] shrink-0" strokeWidth={2} />
           <input
             type="text"
-            placeholder="搜索创作者..."
+            placeholder="搜索…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent text-[15px] text-[var(--color-bone)] placeholder:text-[var(--color-smoke)] outline-none"
+            className="flex-1 bg-transparent text-[13px] text-[var(--color-bone)] placeholder:text-[var(--color-smoke)] outline-none min-w-0"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="text-[var(--color-smoke)] hover:text-[var(--color-rust)]">
+            <button type="button" onClick={() => setSearch('')} className="text-[var(--color-smoke)] hover:text-[var(--color-bone)] p-0.5">
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* Filter */}
-        <div className="flex items-center gap-1">
-          {(['all', 'video', 'transcript'] as const).map((f) => (
+        <div className="flex items-center p-0.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] gap-0.5 flex-wrap">
+          {FILTERS.map((f) => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
+              key={f.key}
+              type="button"
+              onClick={() => setFilter(f.key)}
               className={cn(
-                'px-3 py-2 text-[12px] font-medium transition-colors border-b',
-                filter === f
-                  ? 'text-[var(--color-rust)] border-[var(--color-rust)]'
-                  : 'text-[var(--color-smoke)] hover:text-[var(--color-bone)] border-transparent'
+                'h-8 px-2.5 text-[12px] font-medium rounded-md transition-all',
+                filter === f.key
+                  ? 'bg-[var(--color-paper)] text-[var(--color-bone)] shadow-sm'
+                  : 'text-[var(--color-smoke)] hover:text-[var(--color-ash)]',
               )}
             >
-              {f === 'all' ? '全部' : f === 'video' ? '有视频' : '有文稿'}
+              {f.label}
             </button>
           ))}
         </div>
       </section>
 
-      {/* ═══ ROSTER GRID ════════════════════════════════════════ */}
-      <div className="px-10 pb-12 pt-8">
-        {/* Roster section header */}
-        <div className="flex items-baseline justify-between mb-6 pb-3 border-b border-[var(--color-hairline-strong)]">
-          <h2 className="font-display text-[28px] text-[var(--color-bone)] leading-none">
-            名册
-            <span className="ml-3 text-[14px] text-[var(--color-smoke)] font-sans">
-              {filteredCreators.length} / {creators.length}
+      {/* Bulk action bar */}
+      {selectedCount > 0 && (
+        <div className="sticky top-[105px] z-[8] px-6 md:px-8 py-2 border-b border-[var(--color-rust)]/20 bg-[rgba(0,113,227,0.08)] backdrop-blur-md">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[13px] font-medium text-[var(--color-bone)] mr-1">
+              已选 <span className="text-[var(--color-rust)] tabular-nums">{selectedCount}</span>
             </span>
-          </h2>
-          {hasLocalAssets && (
             <button
-              onClick={() => navigate('/library/local:upload')}
-              className="flex items-center gap-2 group"
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => openBulkRemove('keep_content')}
+              className="h-8 px-2.5 rounded-lg text-[12px] font-medium inline-flex items-center gap-1.5 bg-[var(--color-paper)] text-[var(--color-bone)] border border-[var(--color-hairline)] hover:border-[var(--color-rust)]/40 disabled:opacity-40"
             >
-              <span className="text-[12px] text-[var(--color-ash)] group-hover:text-[var(--color-rust)] transition-colors">
-                本地素材 · {localAssetCount}
-              </span>
-              <ArrowRight className="w-3.5 h-3.5 text-[var(--color-ash)] group-hover:text-[var(--color-rust)] transition-colors" />
+              <Archive className="w-3.5 h-3.5 text-[var(--color-rust)]" />
+              停跟并保留
             </button>
-          )}
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => openBulkRemove('purge')}
+              className="h-8 px-2.5 rounded-lg text-[12px] font-medium inline-flex items-center gap-1.5 text-[var(--color-iron)] hover:bg-[rgba(239,68,68,0.08)] disabled:opacity-40"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              彻底删除
+            </button>
+            <span className="w-px h-4 bg-[var(--color-hairline-strong)] mx-0.5 hidden sm:block" />
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => void handleBulkSyncSelection()}
+              className="h-8 px-2.5 rounded-lg text-[12px] font-medium inline-flex items-center gap-1.5 text-[var(--color-ash)] hover:bg-black/[0.04] dark:hover:bg-white/[0.05] disabled:opacity-40"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              增量同步
+            </button>
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => void handleBulkSetAutoOnSelection(true)}
+              className="h-8 px-2.5 rounded-lg text-[12px] font-medium text-[var(--color-ash)] hover:bg-black/[0.04] dark:hover:bg-white/[0.05] disabled:opacity-40"
+            >
+              开自动
+            </button>
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => void handleBulkSetAutoOnSelection(false)}
+              className="h-8 px-2.5 rounded-lg text-[12px] font-medium text-[var(--color-ash)] hover:bg-black/[0.04] dark:hover:bg-white/[0.05] disabled:opacity-40"
+            >
+              关自动
+            </button>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="h-8 px-2 rounded-lg text-[12px] text-[var(--color-smoke)] hover:text-[var(--color-bone)]"
+            >
+              取消选择
+            </button>
+          </div>
         </div>
+      )}
 
-        {/* Roster grid */}
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="ed-card h-[160px] skeleton" />
-            ))}
-          </div>
-        ) : filteredCreators.length === 0 ? (
-          <div className="py-20 text-center">
-            <div className="font-display text-[32px] text-[var(--color-smoke)] mb-3">
-              {search ? '无匹配' : '名册为空'}
-            </div>
-            {!search && (
-              <div className="text-[13px] text-[var(--color-ash)]">
-                在上方粘贴主页链接以收录
+      <div className="px-6 md:px-8 pb-12 pt-4">
+        {hasLocalAssets && (
+          <button
+            type="button"
+            onClick={() => navigate('/library/local:upload')}
+            className="w-full mb-3 flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-[var(--color-hairline)] hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors group text-left"
+          >
+            <div className="min-w-0">
+              <div className="text-[13px] font-medium text-[var(--color-bone)] group-hover:text-[var(--color-rust)]">
+                本地素材
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 stagger">
-            {filteredCreators.map((creator) => (
-              <CreatorCard
+              <div className="text-[11px] text-[var(--color-smoke)]">
+                {localAssetCount} 条上传转写
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-[var(--color-smoke)] group-hover:text-[var(--color-rust)] shrink-0" />
+          </button>
+        )}
+
+        <div className="rounded-xl border border-[var(--color-hairline)] overflow-hidden bg-[var(--color-paper)]/40">
+          <CreatorListHeader
+            allSelected={allFilteredSelected}
+            someSelected={someFilteredSelected}
+            onToggleAll={toggleSelectAllFiltered}
+          />
+
+          {loading ? (
+            <div className="py-16 flex justify-center">
+              <Loader2 className="w-5 h-5 animate-spin text-[var(--color-smoke)]" />
+            </div>
+          ) : filteredCreators.length === 0 ? (
+            <div className="py-16 text-center px-6">
+              <div className="text-[14px] font-medium text-[var(--color-smoke)] mb-2">
+                {search ? '无匹配' : '还没有创作者'}
+              </div>
+              {!search && (
+                <button
+                  type="button"
+                  onClick={() => setScoutOpen(true)}
+                  className="text-[13px] text-[var(--color-rust)] hover:underline"
+                >
+                  添加第一位
+                </button>
+              )}
+            </div>
+          ) : (
+            filteredCreators.map((creator) => (
+              <CreatorRow
                 key={creator.uid}
                 creator={creator}
                 isSyncing={syncingIds.has(creator.uid)}
                 isDeleting={deletingIds.has(creator.uid)}
-                onClick={() => navigate(`/library/${encodeURIComponent(creator.uid)}`)}
+                selected={selectedUids.has(creator.uid)}
+                onToggleSelect={() => toggleSelectUid(creator.uid)}
+                onOpen={() => navigate(`/library/${encodeURIComponent(creator.uid)}`)}
                 onSync={(e) => handleSync(creator.uid, e)}
-                onMore={(e) => { e.stopPropagation(); setActionMenuCreator({ uid: creator.uid, nickname: creator.nickname || '' }); }}
+                onToggleAutoSync={() => handleToggleAutoSync(creator.uid)}
+                onMore={(e) => {
+                  e.stopPropagation();
+                  setActionMenuCreator({ uid: creator.uid, nickname: creator.nickname || '' });
+                }}
               />
-            ))}
-          </div>
+            ))
+          )}
+        </div>
+
+        {!loading && filteredCreators.length > 0 && (
+          <p className="mt-3 text-[11px] text-[var(--color-smoke)] leading-relaxed">
+            显示 {filteredCreators.length}/{creators.length}
+            {' · '}
+            勾选左侧方框可批量停跟 / 删除 / 同步
+            {creators.length >= 500 ? ' · 列表上限 500' : ''}
+          </p>
         )}
       </div>
 
@@ -209,20 +377,23 @@ export default function Library() {
 
       <CreatorActionMenuModal
         creator={actionMenuCreator}
+        creatorMeta={allCreators.find((c) => c.uid === actionMenuCreator?.uid) || null}
         onClose={() => setActionMenuCreator(null)}
         onSync={() => { handleSync(actionMenuCreator!.uid, { stopPropagation: () => { } }); setActionMenuCreator(null); }}
         onFullSync={() => { handleSync(actionMenuCreator!.uid, { stopPropagation: () => { } }, 'full'); setActionMenuCreator(null); }}
         isAutoSync={!!allCreators.find((c) => c.uid === actionMenuCreator?.uid)?.auto_sync}
         onToggleAutoSync={() => handleToggleAutoSync(actionMenuCreator!.uid)}
         onDelete={() => handleDeleteCreator(actionMenuCreator!.uid)}
+        onRefollow={() => handleRefollow(actionMenuCreator!.uid)}
       />
 
       <DeleteConfirmModal
-        deleteConfirm={deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        deleting={deletingIds.has(deleteConfirm?.uid || '')}
-        onCheckboxChange={(checked) => setDeleteConfirm((prev) => prev ? { ...prev, deleteAssets: checked } : null)}
-        onConfirm={executeDeleteCreator}
+        targets={removeDialog?.targets ?? null}
+        mode={removeDialog?.mode ?? 'keep_content'}
+        onClose={() => setRemoveDialog(null)}
+        deleting={bulkBusy || (!!removeDialog && removeDialog.targets.some((t) => deletingIds.has(t.uid)))}
+        onModeChange={(mode) => setRemoveDialog((prev) => (prev ? { ...prev, mode } : null))}
+        onConfirm={executeRemove}
       />
     </div>
   );

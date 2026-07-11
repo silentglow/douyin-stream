@@ -98,5 +98,20 @@ def extract_transcript_preview(file_path: Path | str, max_chars: int = PREVIEW_C
 
 
 def extract_transcript_text(file_path: Path | str) -> str:
-    """Return the full transcript body (for DB-backed search)."""
-    return _read_body(file_path)
+    """Return full transcript with paragraph structure preserved.
+
+    Used by the in-app reader and by FTS indexing. Prefer real line breaks so
+    speakers / timestamps remain readable — do not collapse to a single line.
+    """
+    path = Path(file_path)
+    suffix = path.suffix.lower()
+
+    if suffix == ".docx":
+        return _read_docx_text(path)
+    if suffix == ".pdf":
+        return _read_pdf_text(path)
+
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except (OSError, UnicodeDecodeError):
+        return ""

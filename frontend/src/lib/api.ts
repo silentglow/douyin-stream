@@ -71,6 +71,8 @@ export {
   addCreator,
   deleteCreator,
   toggleCreatorAutoSync,
+  bulkSetCreatorAutoSync,
+  refollowCreator,
 } from '@/services/creators';
 
 export {
@@ -161,7 +163,35 @@ export {
 export type { DashboardData, HealthCheck } from '@/services/dashboard';
 
 // ── Transcripts ──
-export async function getTranscripts(status: 'all' | 'unread' | 'starred' = 'all', limitOrSignal?: number | AbortSignal) {
+export type TranscriptListItem = {
+  asset_id: string;
+  title: string;
+  creator_uid: string;
+  creator_name: string | null;
+  create_time: string;
+  is_read: boolean;
+  is_starred: boolean;
+  transcript_status: string;
+  transcript_path: string;
+  transcript_preview?: string;
+  /** 本地磁盘是否仍有文件 */
+  file_exists?: boolean;
+  availability?: 'local' | 'missing';
+};
+
+export async function getTranscripts(
+  status: 'all' | 'unread' | 'starred' = 'all',
+  limitOrSignal?: number | AbortSignal,
+  options?: {
+    availability?: 'all' | 'local' | 'missing';
+    limit?: number;
+    signal?: AbortSignal;
+  },
+): Promise<{
+  items: TranscriptListItem[];
+  total: number;
+  stats?: { local: number; missing: number; page?: number; scanned?: number };
+}> {
   const params: Record<string, string | number> = { status };
   let signal: AbortSignal | undefined;
   if (typeof limitOrSignal === 'number') {
@@ -169,6 +199,9 @@ export async function getTranscripts(status: 'all' | 'unread' | 'starred' = 'all
   } else if (limitOrSignal instanceof AbortSignal) {
     signal = limitOrSignal;
   }
+  if (options?.availability) params.availability = options.availability;
+  if (options?.limit != null) params.limit = options.limit;
+  if (options?.signal) signal = options.signal;
   const res = await apiClient.get('/transcripts', { params, signal });
   return res.data;
 }

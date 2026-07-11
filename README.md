@@ -7,19 +7,34 @@
 ![Python](https://img.shields.io/badge/Python-3.11%2B-brightgreen?logo=python&logoColor=white)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Media Tools is a local-first content operations workbench for people who collect, transcribe, and read video material. It currently supports Douyin/Bilibili creator workflows, Qwen cloud transcription, background task tracking, transcript export, and browser-based reading.
+Media Tools is a local-first content operations workbench for people who collect, transcribe, and read video material. It currently supports Douyin / Bilibili / YouTube creator workflows, Qwen cloud transcription, background task tracking, transcript export, and in-app reading from the content library.
 
 The project is designed as a single-machine tool. It is not a hosted SaaS service, does not include multi-user accounts, and keeps runtime data on your own machine by default.
 
 ## What It Does
 
-- Manage Douyin/Bilibili creators and sync their public video metadata.
-- Preview videos before downloading so you can avoid blind full-batch downloads.
+- Manage creators in a **content library** (list + multi-select bulk actions).
+- Incremental auto-follow based on the database history: moving/archiving local files does **not** re-download past videos.
+- Full re-pull is a separate, strongly confirmed action.
 - Download selected videos and optionally trigger transcription.
 - Transcribe local audio/video files through Qwen.
-- Track background tasks with retry, cancellation, partial failure states, and WebSocket progress.
-- Read and manage transcripts in the web UI.
+- Track background tasks in a single **task panel** (pause / stop / retry / delete). Pause is not resume-from-checkpoint — continue restarts the workflow.
+- Read transcripts from creator detail when files still exist on disk.
 - Export transcripts as `md`, `docx`, `pdf`, `srt`, or `txt`.
+
+## Product Navigation
+
+| Area | Role |
+|------|------|
+| **内容库** | Default home. Add creators, local upload, multi-select unfollow/delete/sync. |
+| **系统设置** | Platform cookies, Qwen accounts, preferences, schedules. |
+| **任务** | Bottom-right status bubble → full-height task panel (`⌘\``). |
+| Reading | Open a creator → click a completed transcript. There is **no** separate transcripts page. |
+
+### Unfollow vs delete
+
+- **停跟，保留文稿**: stop auto-sync, mark `unfollowed`, keep DB rows and files.
+- **彻底删除**: remove creator, asset records, and attempt to delete local media/transcript folders.
 
 ## Recommended Quickstart: Docker
 
@@ -85,13 +100,13 @@ Other startup commands:
 
 After the app starts:
 
-1. Open Settings.
-2. Add a Douyin or Bilibili account cookie.
+1. Open **系统设置**.
+2. Add a Douyin / Bilibili / YouTube account cookie as needed.
 3. Add or rehydrate at least one Qwen account.
-4. Add one creator or use a direct video/creator link.
-5. Select one small video and run download + transcription.
-6. Watch task progress in the task panel.
-7. Open the transcript reader and confirm the transcript is available.
+4. Open **内容库** → add one creator (or local upload).
+5. Run download + transcription on a small sample.
+6. Open the task panel (bottom-right) and confirm progress / controls.
+7. Open the creator detail page and read a completed transcript.
 
 If a step fails, check [Installation](docs/references/INSTALLATION.md) and [FAQ](docs/references/FAQ.md). They list common symptoms, causes, and diagnostics.
 

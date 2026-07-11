@@ -92,6 +92,16 @@ class CreatorRepository:
             )
 
     @staticmethod
+    def set_all_auto_sync(auto_sync: bool) -> int:
+        """批量设置全部创作者的自动同步状态，返回受影响行数。"""
+        with get_db_connection() as conn:
+            cur = conn.execute(
+                "UPDATE creators SET auto_sync = ?",
+                (1 if auto_sync else 0,),
+            )
+            return int(cur.rowcount or 0)
+
+    @staticmethod
     def delete(uid: str) -> None:
         """删除创作者"""
         with get_db_connection() as conn:
@@ -269,6 +279,57 @@ class CreatorRepository:
                     )
             conn.commit()
             return not exists
+
+    @staticmethod
+    def unfollow_keep_content(uid: str) -> dict[str, Any] | None:
+        """停止关注但保留素材/文稿。
+
+        - auto_sync = 0（不再增量同步）
+        - sync_status = 'unfollowed'（列表可区分「已停跟」）
+        - 不删除 media_assets / 磁盘文件
+        """
+        with get_db_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                "SELECT uid, nickname FROM creators WHERE uid = ?",
+                (uid,),
+            ).fetchone()
+            if not row:
+                return None
+            asset_count = conn.execute(
+                "SELECT COUNT(*) AS c FROM media_assets WHERE creator_uid = ?",
+                (uid,),
+            ).fetchone()["c"]
+            conn.execute(
+                """
+                UPDATE creators
+                SET auto_sync = 0,
+                    sync_status = 'unfollowed'
+                WHERE uid = ?
+                """,
+                (uid,),
+            )
+            conn.commit()
+            return {
+                "uid": row["uid"],
+                "nickname": row["nickname"],
+                "asset_count": int(asset_count or 0),
+            }
+
+    @staticmethod
+    def refollow(uid: str) -> bool:
+        """将已停跟创作者恢复为跟进中（不自动开 auto_sync）。"""
+        with get_db_connection() as conn:
+            cur = conn.execute(
+                """
+                UPDATE creators
+                SET sync_status = 'active'
+                WHERE uid = ? AND sync_status = 'unfollowed'
+                """,
+                (uid,),
+            )
+            conn.commit()
+            return (cur.rowcount or 0) > 0
 
     @staticmethod
     def delete_with_assets(uid: str) -> tuple[str | None, list[dict[str, Any]]]:

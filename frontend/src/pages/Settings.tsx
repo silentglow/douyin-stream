@@ -112,7 +112,7 @@ export default function Settings() {
         </h1>
       </header>
 
-      <div className="px-10 py-8 max-w-xl">
+      <div className="px-10 py-8 w-full max-w-4xl">
         {/* Account Settings Section */}
         <AccountSettingsSection
           settings={settings}

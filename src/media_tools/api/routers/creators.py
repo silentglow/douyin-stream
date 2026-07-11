@@ -130,12 +130,16 @@ class ToggleAutoSyncRequest(BaseModel):
     auto_sync: bool
 
 
+class BulkAutoSyncRequest(BaseModel):
+    auto_sync: bool = True
+
+
 @router.get("")
 def list_creators(
     limit: int | None = Query(default=None, ge=1, le=500),
     offset: int | None = Query(default=None, ge=0),
 ):
-    limit = resolve_query_value(limit, 100)
+    limit = resolve_query_value(limit, 500)
     offset = resolve_query_value(offset, 0)
     try:
         creators = CreatorRepository.list_with_stats(limit=limit, offset=offset)
@@ -252,9 +256,50 @@ def toggle_creator_auto_sync(*, uid: str = Path(..., min_length=1, max_length=12
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/{uid}")
-def delete_creator(uid: str = Path(..., min_length=1, max_length=128)):
+@router.post("/auto-sync/bulk")
+def bulk_set_auto_sync(req: BulkAutoSyncRequest):
+    """一键设置全部创作者的自动同步开关。"""
     try:
+        updated = CreatorRepository.set_all_auto_sync(req.auto_sync)
+        return {"status": "success", "auto_sync": req.auto_sync, "updated": updated}
+    except (sqlite3.Error, RuntimeError) as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{uid}/refollow")
+def refollow_creator(*, uid: str = Path(..., min_length=1, max_length=128)):
+    """恢复已停跟的创作者（文稿本来就在，只改状态）。"""
+    try:
+        if not CreatorRepository.exists(uid):
+            raise HTTPException(status_code=404, detail="Creator not found")
+        ok = CreatorRepository.refollow(uid)
+        return {"status": "success", "refollowed": ok}
+    except HTTPException:
+        raise
+    except (sqlite3.Error, RuntimeError) as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/{uid}")
+def delete_creator(
+    uid: str = Path(..., min_length=1, max_length=128),
+    keep_content: bool = Query(
+        False,
+        description="true=停跟并保留文稿/素材；false=连同库记录与本地文件一并删除",
+    ),
+):
+    try:
+        if keep_content:
+            result = CreatorRepository.unfollow_keep_content(uid)
+            if result is None:
+                raise HTTPException(status_code=404, detail="Creator not found")
+            return {
+                "status": "success",
+                "mode": "keep_content",
+                "message": "已停止关注，文稿与素材仍保留",
+                "creator": result,
+            }
+
         nickname, assets = CreatorRepository.delete_with_assets(uid)
         if nickname is None:
             raise HTTPException(status_code=404, detail="Creator not found")
@@ -285,30 +330,37 @@ def delete_creator(uid: str = Path(..., min_length=1, max_length=128)):
         # Also try to delete the creator's download folder if it exists
         # 重名保护：仅当没有其他 creator 仍以此 folder_name 作为 nickname/uid 时才删除
         download_base = get_download_path().resolve()
+        transcripts_base = get_transcripts_path().resolve()
         for folder_name in [nickname, uid]:
             if not folder_name:
                 continue
-            creator_dir = resolve_safe_path(download_base, folder_name)
-            if not (creator_dir and creator_dir.exists() and creator_dir.is_dir()):
-                continue
-            try:
-                with get_db_connection() as conn:
-                    in_use = conn.execute(
-                        "SELECT 1 FROM creators WHERE nickname = ? OR uid = ? LIMIT 1",
-                        (folder_name, folder_name),
-                    ).fetchone()
-            except sqlite3.Error as e:
-                logger.warning(f"检查 {folder_name} 是否被复用失败: {e}")
-                in_use = True  # 安全侧失败：宁可不删
-            if in_use:
-                logger.info(f"目录 {creator_dir} 仍被其他创作者使用，跳过删除")
-                continue
-            try:
-                shutil.rmtree(creator_dir)
-            except OSError as e:
-                logger.warning(f"删除创作者目录失败: {creator_dir} ({e})")
+            for base in (download_base, transcripts_base):
+                creator_dir = resolve_safe_path(base, folder_name)
+                if not (creator_dir and creator_dir.exists() and creator_dir.is_dir()):
+                    continue
+                try:
+                    with get_db_connection() as conn:
+                        in_use = conn.execute(
+                            "SELECT 1 FROM creators WHERE nickname = ? OR uid = ? LIMIT 1",
+                            (folder_name, folder_name),
+                        ).fetchone()
+                except sqlite3.Error as e:
+                    logger.warning(f"检查 {folder_name} 是否被复用失败: {e}")
+                    in_use = True  # 安全侧失败：宁可不删
+                if in_use:
+                    logger.info(f"目录 {creator_dir} 仍被其他创作者使用，跳过删除")
+                    continue
+                try:
+                    shutil.rmtree(creator_dir)
+                except OSError as e:
+                    logger.warning(f"删除创作者目录失败: {creator_dir} ({e})")
 
-        return {"status": "success", "message": f"Creator {uid} and all their assets deleted successfully"}
+        return {
+            "status": "success",
+            "mode": "purge",
+            "message": f"Creator {uid} and all their assets deleted successfully",
+            "deleted_assets": len(assets),
+        }
 
     except HTTPException:
         raise

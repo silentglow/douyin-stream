@@ -133,7 +133,16 @@ export function useTaskActions() {
   const handlePause = async (task: Task) => {
     try {
       await pauseTask(task.task_id);
-      toast.success('任务已暂停');
+      const { updateTask } = useStore.getState();
+      updateTask({ task_id: task.task_id, status: 'PAUSED' });
+      // 再拉一次，避免与 worker 竞态后 UI 状态不一致
+      try {
+        const fresh = await getTaskStatus(task.task_id);
+        updateTask({ task_id: task.task_id, ...fresh });
+      } catch {
+        /* keep optimistic PAUSED */
+      }
+      toast.success('任务已暂停', { description: '继续时将从头执行，非断点续传' });
     } catch {
       // interceptor already toasts
     }
@@ -142,7 +151,15 @@ export function useTaskActions() {
   const handleResume = async (task: Task) => {
     try {
       await resumeTask(task.task_id);
-      toast.success('任务已恢复，将从头继续执行');
+      const { updateTask } = useStore.getState();
+      updateTask({ task_id: task.task_id, status: 'RUNNING', progress: 0 });
+      try {
+        const fresh = await getTaskStatus(task.task_id);
+        updateTask({ task_id: task.task_id, ...fresh });
+      } catch {
+        /* keep optimistic RUNNING */
+      }
+      toast.success('任务已恢复', { description: '将从头重新执行工作流' });
     } catch {
       // interceptor already toasts
     }
@@ -151,7 +168,15 @@ export function useTaskActions() {
   const handleCancel = async (task: Task) => {
     try {
       await cancelTask(task.task_id);
-      toast.success('已请求停止任务');
+      const { updateTask } = useStore.getState();
+      updateTask({ task_id: task.task_id, status: 'CANCELLED' });
+      try {
+        const fresh = await getTaskStatus(task.task_id);
+        updateTask({ task_id: task.task_id, ...fresh });
+      } catch {
+        /* keep optimistic CANCELLED */
+      }
+      toast.success('已停止任务');
     } catch {
       // interceptor already toasts
     }

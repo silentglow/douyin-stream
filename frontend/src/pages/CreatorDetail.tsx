@@ -1,4 +1,4 @@
-import { ArrowLeft, RefreshCw, Loader2, X, Download, Trash2, Eye, Star } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Loader2, X, Download, Trash2, Eye, Star, ExternalLink } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { TranscriptReader } from '@/components/ui/TranscriptReader';
 import { cn } from '@/lib/utils';
@@ -8,6 +8,7 @@ import { FolderBrowserModal } from '@/components/creator/FolderBrowserModal';
 import { ActionMenuModal } from '@/components/creator/ActionMenuModal';
 import { useCreatorDetail } from '@/hooks/useCreatorDetail';
 import type { Asset } from '@/types';
+import { openCreatorHomepage, resolveCreatorHomepage } from '@/lib/format';
 
 export default function CreatorDetail() {
   const {
@@ -60,46 +61,70 @@ export default function CreatorDetail() {
     );
   }
 
+  const homepageUrl = !isLocal && creator ? resolveCreatorHomepage(creator) : null;
+
   return (
     <div className="h-full flex flex-col page-enter">
-      {/* ═══ MASTHEAD ═══════════════════════════════════════════ */}
-      <header className="px-10 pt-10 pb-8 border-b border-[var(--color-hairline)] flex-shrink-0">
-        <button
-          onClick={() => navigate('/library')}
-          className="flex items-center gap-2 mb-5 text-[12px] text-[var(--color-ash)] hover:text-[var(--color-rust)] transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} />
-          返回内容库
-        </button>
+      {/* Compact masthead */}
+      <header className="px-6 md:px-8 py-3.5 border-b border-[var(--color-hairline)] flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate('/library')}
+            className="h-9 w-9 rounded-lg inline-flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors shrink-0"
+            title="返回内容库"
+          >
+            <ArrowLeft className="w-4 h-4" strokeWidth={2} />
+          </button>
 
-        <div className="flex items-end justify-between gap-10">
-          <div className="flex-1 min-w-0">
-            <div className="eyebrow mb-4">
-              {assets.length} 个文件
-              {completedCount > 0 && <span> · {completedCount} 已转写</span>}
-              {starredCount > 0 && <span> · {starredCount} 收藏</span>}
-              {failedCount > 0 && <span className="text-[var(--color-iron)]"> · {failedCount} 失败</span>}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-[17px] font-semibold text-[var(--color-bone)] truncate tracking-tight">
+                {isLocal ? '本地素材' : creator?.nickname ?? '创作者'}
+              </h1>
+              {homepageUrl && creator && (
+                <button
+                  type="button"
+                  onClick={() => openCreatorHomepage(creator)}
+                  className="shrink-0 p-1.5 rounded-md text-[var(--color-smoke)] hover:text-[var(--color-rust)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
+                  title="打开博主主页"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" strokeWidth={2} />
+                </button>
+              )}
             </div>
-            <h1 className="font-display text-[clamp(36px,5vw,68px)] leading-[1] tracking-display text-[var(--color-bone)] truncate">
-              {isLocal ? '本地素材' : creator?.nickname ?? '创作者'}
-            </h1>
+            <div className="text-[12px] text-[var(--color-smoke)] mt-0.5 tabular-nums">
+              {assets.length} 文件
+              {completedCount > 0 && <span> · {completedCount} 文稿</span>}
+              {starredCount > 0 && <span> · {starredCount} 收藏</span>}
+              {failedCount > 0 && (
+                <span className="text-[var(--color-iron)]"> · {failedCount} 失败</span>
+              )}
+            </div>
           </div>
 
           {!isLocal && (
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
+                type="button"
                 onClick={() => handleSync('incremental')}
                 disabled={syncing}
-                className="btn-sharp flex items-center gap-2"
+                className="h-9 px-3.5 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5 bg-[var(--color-rust)] text-white hover:brightness-110 shadow-sm disabled:opacity-50 transition-all"
+                title="增量同步"
               >
-                {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                {syncing ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3.5 h-3.5" strokeWidth={2} />
+                )}
                 同步
               </button>
               <button
+                type="button"
                 onClick={() => handleSync('full')}
                 disabled={syncing}
-                className="btn-sharp flex items-center gap-2"
-                title="全量重拉（忽略本地已有，重新下载所有视频）"
+                className="h-9 px-2.5 rounded-lg text-[12px] font-medium text-[var(--color-smoke)] hover:text-[var(--color-iron)] hover:bg-[rgba(239,68,68,0.08)] disabled:opacity-40 transition-colors"
+                title="全量重拉（危险）"
               >
                 全量
               </button>
@@ -108,9 +133,9 @@ export default function CreatorDetail() {
         </div>
       </header>
 
-      {/* ═══ TABS + BULK ════════════════════════════════════════ */}
-      <section className="px-10 py-4 border-b border-[var(--color-hairline)] flex-shrink-0 flex items-center justify-between gap-6">
-        <div className="flex items-center gap-1">
+      {/* Tabs + bulk — single quiet bar */}
+      <section className="px-6 md:px-8 py-2 border-b border-[var(--color-hairline)] flex-shrink-0 flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center p-0.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] gap-0.5">
           {([
             { key: 'all', label: '全部', count: assets.length },
             { key: 'completed', label: '已转写', count: completedCount },
@@ -119,72 +144,90 @@ export default function CreatorDetail() {
           ] as const).map((t) => (
             <button
               key={t.key}
+              type="button"
               onClick={() => setTabFilter(t.key)}
               className={cn(
-                'px-3 py-1.5 text-[12px] font-medium transition-colors border-b',
+                'h-8 px-2.5 text-[12px] font-medium rounded-md transition-all inline-flex items-center gap-1',
                 tabFilter === t.key
-                  ? 'text-[var(--color-rust)] border-[var(--color-rust)]'
-                  : 'text-[var(--color-smoke)] hover:text-[var(--color-bone)] border-transparent'
+                  ? 'bg-[var(--color-paper)] text-[var(--color-bone)] shadow-sm'
+                  : 'text-[var(--color-smoke)] hover:text-[var(--color-ash)]',
               )}
             >
               {t.label}
-              <span className={cn(
-                'ml-1.5 font-display text-[14px] tabular',
-                'danger' in t && t.danger && t.count > 0 ? 'text-[var(--color-iron)]' : 'text-[var(--color-ash)]'
-              )}>
+              <span
+                className={cn(
+                  'tabular-nums text-[11px]',
+                  'danger' in t && t.danger && t.count > 0
+                    ? 'text-[var(--color-iron)]'
+                    : 'text-[var(--color-smoke)]',
+                )}
+              >
                 {t.count}
               </span>
             </button>
           ))}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5">
           {bulkMode ? (
             <>
-              <span className="text-[12px] text-[var(--color-ash)]">已选 <span className="font-display text-[16px] text-[var(--color-rust)] tabular">{selectedAssets.size}</span></span>
+              <span className="text-[12px] text-[var(--color-ash)] mr-1">
+                已选 <span className="font-semibold text-[var(--color-rust)] tabular-nums">{selectedAssets.size}</span>
+              </span>
               <button
+                type="button"
                 onClick={handleBulkExport}
                 disabled={selectedAssets.size === 0}
-                className="btn-sharp disabled:opacity-40 flex items-center gap-2"
+                className="h-8 px-2.5 rounded-lg text-[12px] font-medium inline-flex items-center gap-1 text-[var(--color-ash)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] disabled:opacity-40"
               >
                 <Download className="w-3.5 h-3.5" />
                 导出
               </button>
               <button
+                type="button"
                 onClick={handleBulkMarkRead}
                 disabled={selectedAssets.size === 0}
-                className="btn-sharp disabled:opacity-40 flex items-center gap-2"
+                className="h-8 px-2.5 rounded-lg text-[12px] font-medium inline-flex items-center gap-1 text-[var(--color-ash)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] disabled:opacity-40"
               >
                 <Eye className="w-3.5 h-3.5" />
                 已读
               </button>
               <button
+                type="button"
                 onClick={handleBulkMarkStar}
                 disabled={selectedAssets.size === 0}
-                className="btn-sharp disabled:opacity-40 flex items-center gap-2"
+                className="h-8 px-2.5 rounded-lg text-[12px] font-medium inline-flex items-center gap-1 text-[var(--color-ash)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] disabled:opacity-40"
               >
                 <Star className="w-3.5 h-3.5" />
                 收藏
               </button>
               <button
+                type="button"
                 onClick={handleBulkDelete}
                 disabled={selectedAssets.size === 0}
-                className="btn-sharp border-[var(--color-iron)] text-[var(--color-iron)] hover:bg-[var(--color-iron)] hover:text-[var(--color-ink)] disabled:opacity-40 flex items-center gap-2"
+                className="h-8 px-2.5 rounded-lg text-[12px] font-medium inline-flex items-center gap-1 text-[var(--color-iron)] hover:bg-[rgba(239,68,68,0.08)] disabled:opacity-40"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 删除
               </button>
               <button
+                type="button"
                 onClick={() => { setBulkMode(false); setSelectedAssets(new Set()); }}
-                className="text-[var(--color-smoke)] hover:text-[var(--color-rust)]"
+                className="h-8 w-8 rounded-lg inline-flex items-center justify-center text-[var(--color-smoke)] hover:text-[var(--color-bone)]"
               >
                 <X className="w-4 h-4" />
               </button>
             </>
-          ) : assets.length > 0 && (
-            <button onClick={() => setBulkMode(true)} className="draw-line text-[12px] text-[var(--color-ash)] hover:text-[var(--color-rust)]">
-              批量操作
-            </button>
+          ) : (
+            assets.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setBulkMode(true)}
+                className="h-8 px-2.5 rounded-lg text-[12px] font-medium text-[var(--color-smoke)] hover:text-[var(--color-bone)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors"
+              >
+                批量
+              </button>
+            )
           )}
         </div>
       </section>

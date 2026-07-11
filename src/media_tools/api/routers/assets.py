@@ -25,17 +25,26 @@ logger = logging.getLogger(__name__)
 @transcripts_router.get("")
 def list_transcripts(
     status: str | None = Query(default="all", description="all / unread / starred"),
-    limit: int = Query(default=50, ge=1, le=200),
+    availability: str | None = Query(
+        default="local",
+        description="local（默认，仅本地可读）/ missing / all",
+    ),
+    limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ):
-    """获取全局文稿列表，支持按阅读状态和收藏状态过滤"""
+    """获取文稿列表。默认只返回本地文件仍存在的条目（可读）。"""
     try:
+        avail = (availability or "local").strip().lower()
+        if avail not in ("all", "local", "missing"):
+            raise HTTPException(status_code=400, detail="availability must be all|local|missing")
+
         with get_db_connection() as conn:
             conn.row_factory = sqlite3.Row
             base_sql = """
                 SELECT
                     a.asset_id, a.title, a.creator_uid, a.create_time,
                     a.is_read, a.is_starred, a.transcript_status, a.transcript_path,
+                    a.transcript_preview,
                     c.nickname as creator_name
                 FROM media_assets a
                 LEFT JOIN creators c ON a.creator_uid = c.uid
@@ -43,26 +52,64 @@ def list_transcripts(
                   AND a.transcript_path IS NOT NULL
                   AND a.transcript_path != ''
             """
-            params = []
+            params: list = []
 
             if status == "unread":
                 base_sql += " AND (a.is_read = 0 OR a.is_read IS NULL)"
             elif status == "starred":
                 base_sql += " AND a.is_starred = 1"
 
+            # 需要按磁盘存在性过滤时，先多取再过滤（上限 500，本机工具可接受）
+            fetch_limit = limit if avail == "all" else min(500, max(limit * 5, 200))
             base_sql += " ORDER BY a.create_time DESC LIMIT ? OFFSET ?"
-            params.extend([limit, offset])
+            params.extend([fetch_limit if avail != "all" else limit, offset if avail == "all" else 0])
 
             rows = conn.execute(base_sql, params).fetchall()
+            transcripts_dir = get_transcripts_path()
 
-            # 获取总条数用于分页
+            items: list[dict] = []
+            local_count = 0
+            missing_count = 0
+            for r in rows:
+                item = dict(r)
+                path = item.get("transcript_path") or ""
+                full = resolve_safe_path(transcripts_dir, path) if path else None
+                exists = bool(full and full.is_file())
+                item["file_exists"] = exists
+                item["availability"] = "local" if exists else "missing"
+                if exists:
+                    local_count += 1
+                else:
+                    missing_count += 1
+                if avail == "local" and not exists:
+                    continue
+                if avail == "missing" and exists:
+                    continue
+                items.append(item)
+
+            if avail != "all":
+                # 简单切片分页（在过滤后）
+                total_filtered = len(items)
+                items = items[offset : offset + limit]
+                return {
+                    "items": items,
+                    "total": total_filtered,
+                    "limit": limit,
+                    "offset": offset,
+                    "stats": {
+                        "local": local_count,
+                        "missing": missing_count,
+                        "scanned": len(rows),
+                    },
+                }
+
             count_base = """
                 SELECT COUNT(*) FROM media_assets a
                 WHERE LOWER(a.transcript_status) = 'completed'
                   AND a.transcript_path IS NOT NULL
                   AND a.transcript_path != ''
             """
-            count_params = []
+            count_params: list = []
             if status == "unread":
                 count_base += " AND (a.is_read = 0 OR a.is_read IS NULL)"
             elif status == "starred":
@@ -70,7 +117,19 @@ def list_transcripts(
 
             total = conn.execute(count_base, count_params).fetchone()[0]
 
-            return {"items": [dict(r) for r in rows], "total": total, "limit": limit, "offset": offset}
+            return {
+                "items": items,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "stats": {
+                    "local": local_count,
+                    "missing": missing_count,
+                    "page": len(items),
+                },
+            }
+    except HTTPException:
+        raise
     except (sqlite3.Error, OSError, RuntimeError) as e:
         logger.exception("list_transcripts failed")
         raise HTTPException(status_code=500, detail=str(e))

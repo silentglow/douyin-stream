@@ -7,10 +7,8 @@ import { useEffect, Component, type ReactNode, lazy, Suspense } from 'react';
 import { useStore } from './store/useStore';
 
 // Lazy load pages for code splitting
-const Home = lazy(() => import('./pages/Home'));
 const Library = lazy(() => import('./pages/Library'));
 const CreatorDetail = lazy(() => import('./pages/CreatorDetail'));
-const Transcripts = lazy(() => import('./pages/Transcripts'));
 const Settings = lazy(() => import('./pages/Settings'));
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
@@ -70,13 +68,13 @@ function App() {
       <ErrorBoundary>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Navigate to="/home" replace />} />
+            <Route path="/" element={<Navigate to="/library" replace />} />
+            {/* 工作台 / 旧任务页已降级：书签统一进内容库 */}
+            <Route path="/home" element={<Navigate to="/library" replace />} />
+            <Route path="/tasks" element={<Navigate to="/library?tasks=1" replace />} />
+            {/* 文稿库已移除：阅读走内容库 → 创作者详情 */}
+            <Route path="/transcripts" element={<Navigate to="/library" replace />} />
             <Route element={<AppLayout />}>
-              <Route path="/home" element={
-                <Suspense fallback={<SkeletonScreen />}>
-                  <Home />
-                </Suspense>
-              } />
               <Route path="/library" element={
                 <Suspense fallback={<SkeletonScreen />}>
                   <Library />
@@ -85,11 +83,6 @@ function App() {
               <Route path="/library/:creatorUid" element={
                 <Suspense fallback={<SkeletonScreen />}>
                   <CreatorDetail />
-                </Suspense>
-              } />
-              <Route path="/transcripts" element={
-                <Suspense fallback={<SkeletonScreen />}>
-                  <Transcripts />
                 </Suspense>
               } />
               <Route path="/settings" element={

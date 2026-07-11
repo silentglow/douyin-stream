@@ -1,6 +1,6 @@
 # Media Tools — 项目现状文档
 
-> 最后更新：2026-07-01
+> 最后更新：2026-07-11
 
 > 这是一份**当前状态快照**。历史变更见 [CHANGELOG.md](../CHANGELOG.md)。
 
@@ -8,13 +8,13 @@
 
 ## 一、项目概况
 
-抖音/B站视频批量下载 + 通义千问（Qwen）自动转写的 **Web 工作站**（单机本地部署，不提供 CLI 交互模式）。
+抖音/B站/YouTube 视频批量下载 + 通义千问（Qwen）自动转写的 **Web 工作站**（单机本地部署，不提供 CLI 交互模式）。
 
 | 维度 | 现状 |
 |------|------|
 | 后端 | FastAPI + Uvicorn、SQLite3（WAL，无 ORM）、APScheduler 定时任务 |
-| 前端 | React 19 + Vite 8 + Tailwind CSS v4 + shadcn/ui + Zustand 5 + Framer Motion + @number-flow/react |
-| 视频抓取 | f2（抖音）+ yt-dlp（B站） |
+| 前端 | React 19 + Vite 8 + Tailwind CSS v4 + shadcn/ui + Zustand 5 + Framer Motion |
+| 视频抓取 | f2（抖音）+ yt-dlp（B站/YouTube） |
 | 转写引擎 | Qwen HTTP API（已从 Playwright 迁移） |
 | 实时通信 | WebSocket 推送任务进度（含心跳保活） |
 | Python | 3.11+（`from __future__ import annotations` 全仓铺开，`str | None` 类型语法依赖此导入） |
@@ -23,6 +23,23 @@
 | CI | GitHub Actions（ruff lint + pytest） |
 | Lint | ruff（check + format）+ mypy（可选）+ pre-commit hooks |
 
+### 前端信息架构（2026-07）
+
+| 区域 | 说明 |
+|------|------|
+| 内容库（默认首页） | 创作者列表、多选批量、本地上传、添加创作者 |
+| 创作者详情 | 素材列表、转写阅读、同步 / 全量重拉 |
+| 系统设置 | 账号 Cookie、Qwen、偏好、定时 |
+| 任务面板 | 右下角入口；暂停/停止/重试/删除（暂停非断点续传） |
+| 文稿库 | **已移除**；阅读在创作者详情内完成 |
+
+### 同步语义（重要）
+
+- **增量同步 / 自动跟进**：以 `last_fetch_time` + `video_metadata` 为准；本地文件删除/外置归档后**不会**自动重下历史。
+- **全量重拉**：不跳过已有，会强制重下；UI 强警告。
+- **停跟保留文稿**：`sync_status=unfollowed`，`auto_sync=0`，素材与文件保留。
+- **彻底删除**：创作者 + 素材记录 + 尽量删除本地目录。
+
 ### 素材来源
 
 | 来源 | 说明 |
@@ -30,8 +47,8 @@
 | 抖音创作者 | 通过主页 URL 添加，批量下载视频 |
 | B站 UP 主 | 通过空间链接添加，批量下载视频 |
 | YouTube 频道 | 通过频道 URL 添加，批量下载视频 |
-| 直接视频链接 | Discover 页面粘贴单个视频 URL（抖音/B站/YouTube），直接下载/转写 |
-| 本地文件 | 通过「本地转写」上传，独立存储于文件夹分组中，不归属于创作者 |
+| 直接视频链接 | 内容库收录面板粘贴单个视频 URL，直接下载/转写 |
+| 本地文件 | 通过「本地上传」转写，归入本地素材入口 |
 
 ---
 
@@ -41,9 +58,12 @@
 
 | 方法 | 路径 | 用途 |
 |------|------|------|
-| GET | `/api/v1/creators/` | 列出所有创作者及资产统计 |
+| GET | `/api/v1/creators/` | 列出创作者及资产/磁盘统计（默认 limit 500） |
 | POST | `/api/v1/creators/` | 通过主页链接添加创作者（抖音/B站/YouTube） |
-| DELETE | `/api/v1/creators/{uid}` | 删除创作者及全部关联资产 |
+| PATCH | `/api/v1/creators/{uid}/auto-sync` | 单个自动跟进开关 |
+| POST | `/api/v1/creators/auto-sync/bulk` | 全部开启/关闭自动跟进 |
+| POST | `/api/v1/creators/{uid}/refollow` | 恢复已停跟创作者 |
+| DELETE | `/api/v1/creators/{uid}?keep_content=` | `true`=停跟保留文稿；`false`=彻底删除含文件 |
 
 ### 2.2 素材 `/api/v1/assets`
 
