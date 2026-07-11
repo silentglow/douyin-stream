@@ -87,7 +87,12 @@ def get_settings():
     qwen_accounts_count = len(qwen_accounts)
     bilibili_accounts_count = len(bilibili_accounts)
     youtube_accounts_count = len(youtube_accounts)
-    can_download = douyin_primary_configured or douyin_accounts_count > 0 or bilibili_accounts_count > 0 or youtube_accounts_count > 0
+    can_download = (
+        douyin_primary_configured
+        or douyin_accounts_count > 0
+        or bilibili_accounts_count > 0
+        or youtube_accounts_count > 0
+    )
     can_transcribe = qwen_configured or qwen_accounts_count > 0
 
     return {

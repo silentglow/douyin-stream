@@ -144,6 +144,7 @@ def download_channel_by_url(
 
     # 从账号池获取 youtube cookie
     from media_tools.core.cookie_manager import get_cookie_manager
+
     cookie = get_cookie_manager().get_cookie("youtube")
 
     uploader_info: UploaderInfo | None = None
@@ -247,11 +248,10 @@ def download_channel_by_url(
         ydl_opts["proxy"] = proxy
 
     import shutil
+
     if shutil.which("aria2c"):
         ydl_opts["external_downloader"] = "aria2c"
-        ydl_opts["external_downloader_args"] = {
-            "default": ["-x", "16", "-s", "16", "-j", "16", "-k", "1M"]
-        }
+        ydl_opts["external_downloader_args"] = {"default": ["-x", "16", "-s", "16", "-j", "16", "-k", "1M"]}
 
     # Cookie 转换
     cookie_content: str | None = None
@@ -486,4 +486,5 @@ def _persist_youtube_assets_to_db(
 
 def cancel_download(task_id: str) -> None:
     from media_tools.bilibili.task_control import cancel_download as bilibili_cancel
+
     bilibili_cancel(task_id)

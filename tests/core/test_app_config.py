@@ -169,9 +169,12 @@ class EnvVarHelperTests(unittest.TestCase):
     def test_setup_system_proxies_respects_explicit_env_even_if_empty(self) -> None:
         """An existing env var, including an empty one, is an explicit user choice."""
         proxies = {"http": "http://127.0.0.1:7890", "no": "localhost"}
-        with patch.dict(os.environ, {"HTTP_PROXY": "", "NO_PROXY": ""}, clear=True), patch(
-            "urllib.request.getproxies",
-            return_value=proxies,
+        with (
+            patch.dict(os.environ, {"HTTP_PROXY": "", "NO_PROXY": ""}, clear=True),
+            patch(
+                "urllib.request.getproxies",
+                return_value=proxies,
+            ),
         ):
             setup_system_proxies()
 

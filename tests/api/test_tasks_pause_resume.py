@@ -11,7 +11,9 @@ def test_pause_running_task_marks_it_paused(monkeypatch) -> None:
     from media_tools.api.routers import tasks as tasks_router
 
     pause_marker = AsyncMock(return_value=True)
-    monkeypatch.setattr(tasks_router.TaskRepository, "get_status", staticmethod(lambda _task_id: ("RUNNING", "pipeline")))
+    monkeypatch.setattr(
+        tasks_router.TaskRepository, "get_status", staticmethod(lambda _task_id: ("RUNNING", "pipeline"))
+    )
     monkeypatch.setattr(tasks_router, "_mark_task_paused", pause_marker)
     monkeypatch.setattr(tasks_router, "_active_tasks", {})
 
@@ -45,7 +47,9 @@ def test_cancel_paused_task_is_allowed(monkeypatch) -> None:
     from media_tools.douyin.core.cancel_registry import clear_cancel_event
 
     cancel_marker = AsyncMock()
-    monkeypatch.setattr(tasks_router.TaskRepository, "get_status", staticmethod(lambda _task_id: ("PAUSED", "pipeline")))
+    monkeypatch.setattr(
+        tasks_router.TaskRepository, "get_status", staticmethod(lambda _task_id: ("PAUSED", "pipeline"))
+    )
     monkeypatch.setattr(tasks_router, "_mark_task_cancelled", cancel_marker)
     monkeypatch.setattr(tasks_router, "_active_tasks", {})
     try:

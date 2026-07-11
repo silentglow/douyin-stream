@@ -108,7 +108,16 @@ async def test_mark_task_paused_preserves_progress_and_notifies() -> None:
         INSERT INTO task_queue(task_id, task_type, status, progress, payload, create_time, update_time, error_msg)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        ("t1", "pipeline", "RUNNING", 0.4, '{"url":"https://example.com"}', "2026-04-27T00:00:00", "2026-04-27T00:00:00", None),
+        (
+            "t1",
+            "pipeline",
+            "RUNNING",
+            0.4,
+            '{"url":"https://example.com"}',
+            "2026-04-27T00:00:00",
+            "2026-04-27T00:00:00",
+            None,
+        ),
     )
     conn.commit()
 
