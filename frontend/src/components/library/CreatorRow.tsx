@@ -33,7 +33,7 @@ function archiveHint(creator: Creator): string | null {
 }
 
 const CREATOR_COL =
-  'grid grid-cols-[2rem_minmax(0,1fr)_4.25rem_4.25rem_4.25rem_5.25rem_2.75rem_5rem] items-center gap-x-2 px-3 sm:px-4';
+  'grid grid-cols-[2rem_minmax(0,1fr)_3.75rem_3.75rem_2.75rem_4.5rem] lg:grid-cols-[2rem_minmax(0,1fr)_3.75rem_3.75rem_5rem_2.75rem_4.5rem] xl:grid-cols-[2rem_minmax(0,1fr)_3.75rem_3.75rem_3.75rem_5rem_2.75rem_4.5rem] items-center gap-x-2 px-3 sm:px-4';
 
 function CheckBox({
   checked,
@@ -65,7 +65,13 @@ function CheckBox({
     >
       {checked && !indeterminate && (
         <svg className="ui-check-pop w-2.5 h-2.5 text-white" viewBox="0 0 12 12" fill="none">
-          <path d="M2.5 6.2L5 8.7L9.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M2.5 6.2L5 8.7L9.5 3.5"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       )}
       {indeterminate && <div className="w-2 h-0.5 rounded bg-white" />}
@@ -90,10 +96,7 @@ export function CreatorRow({
   const hint = archiveHint(creator);
   const auto = !!creator.auto_sync;
   const homepage = resolveCreatorHomepage(creator);
-  const localLow =
-    typeof diskTx === 'number' && transcripts > 0 && diskTx < transcripts;
-
-
+  const localLow = typeof diskTx === 'number' && transcripts > 0 && diskTx < transcripts;
 
   return (
     <div
@@ -108,7 +111,7 @@ export function CreatorRow({
       }}
       className={cn(
         CREATOR_COL,
-        'ui-row py-2.5 border-b border-[var(--color-hairline-faint)] cursor-pointer group relative',
+        'ui-row py-2 border-b border-[var(--color-hairline-faint)] cursor-pointer group relative',
         selected
           ? 'bg-[rgba(0,113,227,0.07)] dark:bg-[rgba(53,128,230,0.1)] shadow-[inset_3px_0_0_var(--color-rust)]'
           : 'hover:bg-black/[0.025] dark:hover:bg-white/[0.035]',
@@ -155,22 +158,32 @@ export function CreatorRow({
         )}
       </div>
 
-      <div className="text-right tabular-nums text-[13px] font-medium text-[var(--color-bone)]">
-        {assets}
-      </div>
-      <div className="text-right tabular-nums text-[13px] font-medium text-[var(--color-bone)]">
-        {transcripts}
+      <div
+        className={cn(
+          'text-right tabular-nums text-[13px] font-medium',
+          assets ? 'text-[var(--color-bone)]' : 'text-[var(--color-smoke)]/55',
+        )}
+      >
+        {assets || '—'}
       </div>
       <div
         className={cn(
           'text-right tabular-nums text-[13px] font-medium',
+          transcripts ? 'text-[var(--color-bone)]' : 'text-[var(--color-smoke)]/55',
+        )}
+      >
+        {transcripts || '—'}
+      </div>
+      <div
+        className={cn(
+          'hidden xl:block text-right tabular-nums text-[13px] font-medium',
           localLow ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--color-bone)]',
         )}
       >
-        {typeof diskTx === 'number' ? diskTx : '—'}
+        {typeof diskTx === 'number' && diskTx > 0 ? diskTx : '—'}
       </div>
       <div
-        className="text-right text-[12px] text-[var(--color-ash)] truncate"
+        className="hidden lg:block text-right text-[12px] text-[var(--color-ash)] truncate"
         title={creator.last_fetch_time || '从未同步'}
       >
         {formatLastSync(creator.last_fetch_time)}
@@ -197,11 +210,7 @@ export function CreatorRow({
           title="增量同步"
         >
           <RefreshCw
-            className={cn(
-              'w-3.5 h-3.5',
-              isSyncing && 'ui-sync-spin-loop',
-              isSyncing && 'text-[var(--color-rust)]',
-            )}
+            className={cn('w-3.5 h-3.5', isSyncing && 'ui-sync-spin-loop', isSyncing && 'text-[var(--color-rust)]')}
             strokeWidth={2}
           />
         </button>
@@ -240,18 +249,13 @@ export function CreatorListHeader({
       )}
     >
       <div className="flex justify-center">
-        <CheckBox
-          checked={allSelected}
-          indeterminate={someSelected}
-          onChange={onToggleAll}
-          title="全选当前列表"
-        />
+        <CheckBox checked={allSelected} indeterminate={someSelected} onChange={onToggleAll} title="全选当前列表" />
       </div>
       <div className="text-[11px] font-medium text-[var(--color-smoke)] tracking-wide">创作者</div>
-      <div className="text-[11px] font-medium text-[var(--color-smoke)] text-right">历史</div>
+      <div className="text-[11px] font-medium text-[var(--color-smoke)] text-right">收录</div>
       <div className="text-[11px] font-medium text-[var(--color-smoke)] text-right">文稿</div>
-      <div className="text-[11px] font-medium text-[var(--color-smoke)] text-right">本地</div>
-      <div className="text-[11px] font-medium text-[var(--color-smoke)] text-right">同步</div>
+      <div className="hidden xl:block text-[11px] font-medium text-[var(--color-smoke)] text-right">本地</div>
+      <div className="hidden lg:block text-[11px] font-medium text-[var(--color-smoke)] text-right">同步</div>
       <div className="text-[11px] font-medium text-[var(--color-smoke)] text-center">自动</div>
       <div className="text-[11px] font-medium text-[var(--color-smoke)] text-right">操作</div>
     </div>

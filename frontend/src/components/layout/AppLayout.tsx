@@ -1,13 +1,38 @@
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Search, FolderOpen, Settings, Sun, Moon, Monitor, ListTodo } from 'lucide-react';
+import {
+  Search,
+  FolderOpen,
+  Settings,
+  Sun,
+  Moon,
+  Monitor,
+  ListTodo,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from 'lucide-react';
 import { TaskIsland } from '@/components/layout/TaskIsland';
 import { useTheme } from 'next-themes';
+import { cn } from '@/lib/utils';
 
 /* 内容库干活 · 设置配置。任务：右下角状态球。阅读：创作者详情内打开。 */
 const navItems = [
-  { to: '/library', idx: '01', icon: FolderOpen, label: '内容库', en: 'library', kbd: '⌘1' },
-  { to: '/settings', idx: '02', icon: Settings, label: '系统设置', en: 'settings', kbd: '⌘2' },
+  {
+    to: '/library',
+    idx: '01',
+    icon: FolderOpen,
+    label: '内容库',
+    en: 'library',
+    kbd: '⌘1',
+  },
+  {
+    to: '/settings',
+    idx: '02',
+    icon: Settings,
+    label: '系统设置',
+    en: 'settings',
+    kbd: '⌘2',
+  },
 ];
 
 interface CommandPaletteProps {
@@ -119,6 +144,9 @@ export default function AppLayout() {
   const [now, setNow] = useState(new Date());
   const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => window.localStorage.getItem('media-tools:sidebar-collapsed') === '1',
+  );
   const { theme, setTheme } = useTheme();
 
   useEffect(() => {
@@ -134,40 +162,64 @@ export default function AppLayout() {
       setTaskDrawerOpen(true);
       params.delete('tasks');
       const next = params.toString();
-      navigate(
-        { pathname: location.pathname, search: next ? `?${next}` : '' },
-        { replace: true },
-      );
+      navigate({ pathname: location.pathname, search: next ? `?${next}` : '' }, { replace: true });
     }
   }, [location.pathname, location.search, navigate]);
 
-  const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const toggleSidebar = () => {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem('media-tools:sidebar-collapsed', next ? '1' : '0');
+      return next;
+    });
+  };
+
+  const timeStr = now.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
 
   return (
     <div className="flex h-screen bg-[var(--color-ink)] overflow-hidden">
       {/* LEFT SIDEBAR */}
-      <nav className="w-[240px] flex-shrink-0 border-r border-[var(--color-hairline)] bg-[var(--sidebar)] backdrop-blur-xl flex flex-col z-20">
+      <nav
+        className={cn(
+          'flex-shrink-0 border-r border-[var(--color-hairline)] bg-[var(--sidebar)] backdrop-blur-xl flex flex-col z-20 transition-[width] duration-200',
+          sidebarCollapsed ? 'w-[68px]' : 'w-[220px]',
+        )}
+      >
         <NavLink
           to="/library"
           onClick={() => setTaskDrawerOpen(false)}
-          className="h-16 px-5 flex items-center justify-between border-b border-[var(--color-hairline)] group hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors"
+          className={cn(
+            'h-16 flex items-center border-b border-[var(--color-hairline)] group hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors',
+            sidebarCollapsed ? 'justify-center px-3' : 'justify-between px-4',
+          )}
           title="内容库"
         >
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center transition-all duration-300 shadow-sm border border-[var(--color-hairline-strong)] group-hover:scale-105 group-hover:shadow-md">
               <img src="/logo.png" alt="Media Studio Logo" className="w-full h-full object-cover" />
             </div>
-            <span className="font-display text-[15px] font-bold text-[var(--color-bone)] truncate tracking-wide">
-              Media Studio
-            </span>
+            {!sidebarCollapsed && (
+              <span className="font-display text-[15px] font-bold text-[var(--color-bone)] truncate tracking-wide">
+                Media Studio
+              </span>
+            )}
           </div>
-          <span className="relative flex w-2 h-2 shrink-0">
+          <span className={cn('relative w-2 h-2 shrink-0', sidebarCollapsed ? 'hidden' : 'flex')}>
             <span className="absolute inset-0 rounded-full bg-[var(--color-patina)] animate-ping opacity-75" />
             <span className="relative rounded-full w-2 h-2 bg-[var(--color-patina)]" />
           </span>
         </NavLink>
 
-        <div className="flex-1 flex flex-col py-4 px-3 space-y-1 stagger overflow-y-auto">
+        <div
+          className={cn(
+            'flex-1 flex flex-col py-4 space-y-1 stagger overflow-y-auto',
+            sidebarCollapsed ? 'px-2' : 'px-3',
+          )}
+        >
           {navItems.map((item) => {
             const isActive =
               location.pathname === item.to ||
@@ -179,7 +231,7 @@ export default function AppLayout() {
                 to={item.to}
                 onClick={() => setTaskDrawerOpen(false)}
                 title={`${item.label} (${item.kbd})`}
-                className={`relative flex items-center justify-between px-3 py-2.5 rounded-xl ui-press group ${
+                className={`relative flex items-center rounded-xl ui-press group ${sidebarCollapsed ? 'justify-center px-2 py-3' : 'justify-between px-3 py-2.5'} ${
                   isActive
                     ? 'bg-black/[0.04] dark:bg-white/[0.05] text-[var(--color-rust)] font-semibold shadow-sm border border-black/[0.02] dark:border-white/[0.02]'
                     : 'text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/[0.02] dark:hover:bg-white/[0.02]'
@@ -193,59 +245,63 @@ export default function AppLayout() {
                         : 'text-[var(--color-smoke)] group-hover:text-[var(--color-bone)]'
                     }`}
                   />
-                  <span className="text-[13.5px] truncate">{item.label}</span>
+                  {!sidebarCollapsed && <span className="text-[13.5px] truncate">{item.label}</span>}
                 </div>
-                <kbd className="mono-cap text-[9px] px-1.5 py-0.5 rounded bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.02] dark:border-white/[0.02] opacity-60 group-hover:opacity-100 transition-opacity">
-                  {item.kbd.replace('⌘', '')}
-                </kbd>
+                {!sidebarCollapsed && (
+                  <kbd className="mono-cap text-[9px] px-1.5 py-0.5 rounded bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.02] dark:border-white/[0.02] opacity-60 group-hover:opacity-100 transition-opacity">
+                    {item.kbd.replace('⌘', '')}
+                  </kbd>
+                )}
               </NavLink>
             );
           })}
         </div>
 
-        <div className="border-t border-[var(--color-hairline)] p-4 flex flex-col gap-3 bg-black/[0.005] dark:bg-white/[0.002]">
-          <div className="flex items-center gap-0.5 p-0.5 bg-black/[0.03] dark:bg-white/[0.04] rounded-lg border border-black/[0.03] dark:border-white/[0.04] shrink-0">
-            <button
-              type="button"
-              onClick={() => setTheme('light')}
-              title="浅色模式"
-              className={`flex-1 py-1.5 rounded-md flex justify-center items-center transition-all ${
-                theme === 'light'
-                  ? 'bg-white dark:bg-[var(--color-paper)] text-[var(--color-rust)] shadow-sm font-semibold'
-                  : 'text-[var(--color-ash)] hover:text-[var(--color-bone)]'
-              }`}
-            >
-              <Sun className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme('dark')}
-              title="深色模式"
-              className={`flex-1 py-1.5 rounded-md flex justify-center items-center transition-all ${
-                theme === 'dark'
-                  ? 'bg-white dark:bg-[var(--color-paper)] text-[var(--color-rust)] shadow-sm font-semibold'
-                  : 'text-[var(--color-ash)] hover:text-[var(--color-bone)]'
-              }`}
-            >
-              <Moon className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme('system')}
-              title="跟随系统"
-              className={`flex-1 py-1.5 rounded-md flex justify-center items-center transition-all ${
-                theme === 'system'
-                  ? 'bg-white dark:bg-[var(--color-paper)] text-[var(--color-rust)] shadow-sm font-semibold'
-                  : 'text-[var(--color-ash)] hover:text-[var(--color-bone)]'
-              }`}
-            >
-              <Monitor className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <div className="flex items-center justify-between text-xs text-[var(--color-smoke)] px-1 select-none font-mono">
-            <span>CLOCK</span>
-            <span className="tabular-nums font-semibold text-[var(--color-ash)]">{timeStr}</span>
-          </div>
+        <div
+          className={cn(
+            'border-t border-[var(--color-hairline)] flex flex-col gap-3 bg-black/[0.005] dark:bg-white/[0.002]',
+            sidebarCollapsed ? 'p-2' : 'p-3',
+          )}
+        >
+          {!sidebarCollapsed && (
+            <>
+              <div className="flex items-center gap-0.5 p-0.5 bg-black/[0.03] dark:bg-white/[0.04] rounded-lg border border-black/[0.03] dark:border-white/[0.04] shrink-0">
+                {[
+                  { value: 'light', label: '浅色模式', Icon: Sun },
+                  { value: 'dark', label: '深色模式', Icon: Moon },
+                  { value: 'system', label: '跟随系统', Icon: Monitor },
+                ].map(({ value, label, Icon }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setTheme(value)}
+                    title={label}
+                    className={cn(
+                      'flex-1 py-1.5 rounded-md flex justify-center items-center transition-all',
+                      theme === value
+                        ? 'bg-white dark:bg-[var(--color-paper)] text-[var(--color-rust)] shadow-sm font-semibold'
+                        : 'text-[var(--color-ash)] hover:text-[var(--color-bone)]',
+                    )}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center justify-between text-xs text-[var(--color-smoke)] px-1 select-none font-mono">
+                <span>CLOCK</span>
+                <span className="tabular-nums font-semibold text-[var(--color-ash)]">{timeStr}</span>
+              </div>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="ui-press h-9 rounded-lg flex items-center justify-center gap-2 text-[var(--color-smoke)] hover:text-[var(--color-bone)] hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
+            title={sidebarCollapsed ? '展开侧栏' : '收起侧栏'}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            {!sidebarCollapsed && <span className="text-[11px]">收起侧栏</span>}
+          </button>
         </div>
       </nav>
 
