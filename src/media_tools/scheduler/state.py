@@ -14,6 +14,20 @@ from media_tools.store.db import get_db_connection
 logger = logging.getLogger(__name__)
 
 _active_tasks: dict[str, asyncio.Task] = {}
+# 暂停会主动取消当前协程；该标记让 Worker 将取消解释为 PAUSED 而不是 CANCELLED。
+_pause_requested_tasks: set[str] = set()
+
+
+def request_task_pause(task_id: str) -> None:
+    _pause_requested_tasks.add(task_id)
+
+
+def is_task_pause_requested(task_id: str) -> bool:
+    return task_id in _pause_requested_tasks
+
+
+def clear_task_pause_request(task_id: str) -> None:
+    _pause_requested_tasks.discard(task_id)
 
 
 async def _task_heartbeat(task_id: str, interval: int = 30):

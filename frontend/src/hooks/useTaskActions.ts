@@ -9,6 +9,8 @@ import {
   triggerDownloadBatch,
   triggerFullSyncFollowing,
   triggerLocalTranscribe,
+  pauseTask,
+  resumeTask,
   cancelTask,
   deleteTask,
 } from '@/lib/api';
@@ -128,6 +130,24 @@ export function useTaskActions() {
     }
   };
 
+  const handlePause = async (task: Task) => {
+    try {
+      await pauseTask(task.task_id);
+      toast.success('任务已暂停');
+    } catch {
+      // interceptor already toasts
+    }
+  };
+
+  const handleResume = async (task: Task) => {
+    try {
+      await resumeTask(task.task_id);
+      toast.success('任务已恢复，将从头继续执行');
+    } catch {
+      // interceptor already toasts
+    }
+  };
+
   const handleCancel = async (task: Task) => {
     try {
       await cancelTask(task.task_id);
@@ -148,5 +168,5 @@ export function useTaskActions() {
     }
   };
 
-  return { handleClearHistory, handleRetry, handleCancel, handleDelete };
+  return { handleClearHistory, handleRetry, handlePause, handleResume, handleCancel, handleDelete };
 }

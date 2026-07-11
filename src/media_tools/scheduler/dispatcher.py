@@ -1,3 +1,4 @@
+import json
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -214,6 +215,33 @@ async def _start_task_worker(task_id: str, task_type: str, original_params: dict
                 "message": entry.start_message,
             }
     raise HTTPException(status_code=400, detail=f"Unsupported task type: {task_type}")
+
+
+async def resume_paused_task(task_id: str, task_type: str, original_params: dict[str, Any]):
+    """Resume a paused task by re-dispatching its original request parameters.
+
+    Workers are cooperative coroutines rather than checkpointable processes, so a
+    resumed task starts its workflow over while retaining the same task record.
+    """
+    params = {key: value for key, value in original_params.items() if key != "msg"}
+    for entry in _WORKER_DISPATCHERS:
+        if entry.match(task_type, params):
+            req = entry.build_request(params)
+            message = "任务已恢复，正在重新执行..."
+            TaskRepository.mark_running(
+                task_id,
+                payload=json.dumps({**params, "msg": message}, ensure_ascii=False),
+            )
+            await notify_task_update(task_id, 0.0, message, "RUNNING", task_type)
+            if entry.needs_register_local_assets:
+                _register_local_assets(req.file_paths, req.delete_after, req.directory_root)
+            _register_background_task(task_id, entry.build_worker(task_id, req, params))
+            return {
+                "task_id": task_id,
+                "status": "started",
+                "message": "Task resumed",
+            }
+    raise HTTPException(status_code=400, detail=f"Unsupported task type for resume: {task_type}")
 
 
 async def dispatch_new_task(task_id: str, task_type: str, params: dict[str, Any]):

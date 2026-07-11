@@ -3,7 +3,7 @@ import { useStore } from '@/store/useStore';
 import { useTaskActions } from '@/hooks/useTaskActions';
 import { getTaskDisplayState, sortTasks, filterTasksByCategory, getTaskMessage, type TaskFilterCategory } from '@/lib/task-utils';
 import type { Task } from '@/lib/api';
-import { Loader2, CheckCircle2, AlertTriangle, RotateCw, Trash2, ArrowUpDown, X, ListTodo, Square } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, RotateCw, Trash2, ArrowUpDown, X, ListTodo, Square, Pause, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -85,7 +85,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
 
   const rawTasks = useStore((state) => state.tasks);
   const fetchInitialTasks = useStore((state) => state.fetchInitialTasks);
-  const { handleClearHistory, handleRetry, handleCancel, handleDelete } = useTaskActions();
+  const { handleClearHistory, handleRetry, handlePause, handleResume, handleCancel, handleDelete } = useTaskActions();
 
   // Load initial tasks on mount
   useEffect(() => {
@@ -329,7 +329,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                       key={task.task_id}
                       className={cn(
                         'relative overflow-hidden p-3 rounded-xl border flex flex-col justify-between transition-all duration-200 group',
-                        isRunning
+                        isRunning || isPaused
                           ? 'bg-black/[0.015] dark:bg-white/[0.02] border-black/[0.04] dark:border-white/10'
                           : 'bg-transparent border-transparent hover:bg-black/[0.005] dark:hover:bg-white/[0.01]'
                       )}
@@ -356,7 +356,7 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                             {title}
                           </div>
                           <div className="text-[10px] text-[var(--color-smoke)] mt-0.5 font-medium truncate">
-                            {getTaskMessage(task) || (isRunning ? '正在运行中...' : isSuccess ? '已成功完成' : isFailed ? '执行失败' : '排队中')}
+                            {getTaskMessage(task) || (isRunning ? '正在运行中...' : isPaused ? '任务已暂停' : isSuccess ? '已成功完成' : isFailed ? '执行失败' : '排队中')}
                           </div>
                         </div>
 
@@ -368,11 +368,46 @@ export function TaskIsland({ isOpen, onToggle, onClose }: TaskIslandProps) {
                                 {pct}%
                               </span>
                               <button
+                                onClick={() => handlePause(task)}
+                                title="暂停任务"
+                                className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-bone)] cursor-pointer"
+                              >
+                                <Pause className="size-3" strokeWidth={2.5} />
+                              </button>
+                              <button
                                 onClick={() => handleCancel(task)}
                                 title="停止任务"
                                 className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-iron)] cursor-pointer"
                               >
                                 <Square className="size-3" strokeWidth={2.5} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (confirm(`确定关闭并删除此任务？\n${getTaskTitle(task)}`)) handleDelete(task);
+                                }}
+                                title="关闭并删除任务"
+                                className="p-1 rounded-md hover:bg-[var(--color-iron)]/10 text-[var(--color-smoke)] hover:text-[var(--color-iron)] cursor-pointer"
+                              >
+                                <Trash2 className="size-3" />
+                              </button>
+                            </>
+                          ) : isPaused ? (
+                            <>
+                              <button
+                                onClick={() => handleResume(task)}
+                                title="继续任务（将从头重新执行）"
+                                className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-[var(--color-smoke)] hover:text-[var(--color-patina)] cursor-pointer"
+                              >
+                                <Play className="size-3.5" fill="currentColor" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (confirm(`确定关闭并删除此任务？\n${getTaskTitle(task)}`)) handleDelete(task);
+                                }}
+                                title="关闭并删除任务"
+                                className="p-1 rounded-md hover:bg-[var(--color-iron)]/10 text-[var(--color-smoke)] hover:text-[var(--color-iron)] cursor-pointer"
+                              >
+                                <Trash2 className="size-3" />
                               </button>
                             </>
                           ) : (

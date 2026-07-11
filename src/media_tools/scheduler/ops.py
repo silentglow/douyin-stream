@@ -190,7 +190,7 @@ async def update_task_progress(
                 "SELECT status FROM task_queue WHERE task_id = ?",
                 (task_id,),
             ).fetchone()
-            if row and row["status"] in ("COMPLETED", "FAILED", "CANCELLED"):
+            if row and row["status"] in ("COMPLETED", "FAILED", "CANCELLED", "PAUSED"):
                 return
 
             payload_str = _merge_payload_from_db(conn, task_id, msg, result_summary, subtasks)
@@ -219,7 +219,7 @@ async def update_task_progress(
                 cursor = conn.execute(
                     """UPDATE task_queue
                        SET status='RUNNING', progress=?, payload=?, update_time=?
-                       WHERE task_id=? AND status IN ('PENDING', 'RUNNING', 'PAUSED')""",
+                       WHERE task_id=? AND status IN ('PENDING', 'RUNNING')""",
                     (progress, payload_str, now, task_id),
                 )
                 updated = cursor.rowcount > 0
@@ -227,7 +227,7 @@ async def update_task_progress(
                 cursor = conn.execute(
                     """UPDATE task_queue
                        SET status='RUNNING', progress=?, payload=?, update_time=?
-                       WHERE task_id=? AND status IN ('PENDING', 'RUNNING', 'PAUSED')""",
+                       WHERE task_id=? AND status IN ('PENDING', 'RUNNING')""",
                     (progress, payload_str, now, task_id),
                 )
                 updated = cursor.rowcount > 0
@@ -242,6 +242,37 @@ async def update_task_progress(
     )
 
 
+async def _mark_task_paused(task_id: str, task_type: str) -> bool:
+    """Persist a cooperative pause without allowing late worker updates to revive it."""
+    msg = "任务已暂停"
+    updated = False
+    progress = 0.0
+    try:
+        with get_db_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                "SELECT progress FROM task_queue WHERE task_id = ?",
+                (task_id,),
+            ).fetchone()
+            if row is None:
+                return False
+            progress = float(row["progress"] or 0.0)
+            payload_str = _merge_payload_from_db(conn, task_id, msg)
+            cursor = conn.execute(
+                """UPDATE task_queue
+                   SET status='PAUSED', payload=?, update_time=?
+                   WHERE task_id=? AND status IN ('PENDING', 'RUNNING')""",
+                (payload_str, datetime.now().isoformat(), task_id),
+            )
+            updated = cursor.rowcount > 0
+    except (sqlite3.Error, OSError, RuntimeError) as e:
+        logger.error(f"Failed to mark task {task_id} as paused: {e}")
+        return False
+    if updated:
+        await notify_task_update(task_id, progress, msg, "PAUSED", task_type)
+    return updated
+
+
 async def _mark_task_cancelled(task_id: str, task_type: str) -> None:
     msg = "任务已取消"
     updated = False
@@ -251,7 +282,7 @@ async def _mark_task_cancelled(task_id: str, task_type: str) -> None:
             cursor = conn.execute(
                 """UPDATE task_queue
                    SET status='CANCELLED', payload=?, update_time=CURRENT_TIMESTAMP
-                   WHERE task_id=? AND status IN ('PENDING', 'RUNNING')""",
+                   WHERE task_id=? AND status IN ('PENDING', 'RUNNING', 'PAUSED')""",
                 (payload_str, task_id),
             )
             updated = cursor.rowcount > 0
@@ -302,7 +333,7 @@ async def _complete_task(
             cursor = conn.execute(
                 """UPDATE task_queue
                    SET status=?, progress=?, payload=?, error_msg=?, update_time=?
-                   WHERE task_id=? AND status NOT IN ('COMPLETED', 'CANCELLED', 'PARTIAL_FAILED')""",
+                   WHERE task_id=? AND status NOT IN ('COMPLETED', 'CANCELLED', 'PARTIAL_FAILED', 'PAUSED')""",
                 (status, new_progress, payload_str, error_msg, now, task_id),
             )
             updated = cursor.rowcount > 0
@@ -334,7 +365,7 @@ async def _fail_task(task_id: str, task_type: str, error: str) -> None:
         with get_db_connection() as conn:
             cursor = conn.execute(
                 """UPDATE task_queue SET status='FAILED', error_msg=?, update_time=?
-                   WHERE task_id=? AND status NOT IN ('COMPLETED', 'CANCELLED', 'PARTIAL_FAILED')""",
+                   WHERE task_id=? AND status NOT IN ('COMPLETED', 'CANCELLED', 'PARTIAL_FAILED', 'PAUSED')""",
                 (str(error), datetime.now().isoformat(), task_id),
             )
             updated = cursor.rowcount > 0

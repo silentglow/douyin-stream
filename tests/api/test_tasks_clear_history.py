@@ -44,6 +44,10 @@ def test_clear_history_removes_non_active_tasks(monkeypatch) -> None:
         "INSERT INTO task_queue (task_id, task_type, status, progress, payload, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
         ("t_active", "pipeline", "RUNNING", 0.5, "{}", "t0", "t0"),
     )
+    conn.execute(
+        "INSERT INTO task_queue (task_id, task_type, status, progress, payload, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("t_paused", "pipeline", "PAUSED", 0.4, "{}", "t0", "t0"),
+    )
     conn.commit()
 
     @contextmanager
@@ -61,7 +65,7 @@ def test_clear_history_removes_non_active_tasks(monkeypatch) -> None:
     assert resp.status_code == 200
 
     rows = conn.execute("SELECT task_id FROM task_queue ORDER BY task_id").fetchall()
-    assert [r["task_id"] for r in rows] == ["t_active"]
+    assert [r["task_id"] for r in rows] == ["t_active", "t_paused"]
 
     assert cancel_registry.is_task_cancelled("t_done") is False
     assert cancel_registry.get_download_progress("t_orphan") is None

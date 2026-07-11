@@ -35,16 +35,20 @@ from media_tools.scheduler.dispatcher import (
     _retry_task_worker,
     _start_task_worker,
     dispatch_new_task,
+    resume_paused_task,
 )
 
 # Task operations
 from media_tools.scheduler.ops import (
     _mark_task_cancelled,
+    _mark_task_paused,
 )
 from media_tools.scheduler.progress import build_pipeline_progress
 from media_tools.scheduler.repository import TaskRepository
 from media_tools.scheduler.state import (
     _active_tasks,
+    clear_task_pause_request,
+    request_task_pause,
 )
 from media_tools.services.cleanup import cleanup_paths_allowlist
 from media_tools.services.file_browser import scan_directory, select_folder
@@ -116,7 +120,8 @@ def get_task_history():
 @router.delete("/history")
 def clear_task_history():
     try:
-        active_task_ids = set(_active_tasks.keys())
+        # 暂停任务不在运行协程注册表中，但仍可恢复，不能被“清除历史”删除。
+        active_task_ids = set(_active_tasks.keys()) | set(TaskRepository.find_paused_ids())
         deleted_task_ids = TaskRepository.delete_all_except(active_task_ids)
         for task_id in deleted_task_ids:
             clear_cancel_event(task_id)
@@ -135,6 +140,8 @@ def clear_task_history_compat():
 @router.delete("/{task_id}")
 async def delete_task(task_id: str = Path(..., min_length=1, max_length=128)):
     try:
+        # 删除/取消的语义优先于此前的暂停请求，避免 worker 把本次取消误标成 PAUSED。
+        clear_task_pause_request(task_id)
         # 先 get 再 cancel，避免 rerun 期间 pop 错任务（identity 校验）
         active_task = _active_tasks.get(task_id)
         if active_task is not None:
@@ -177,9 +184,90 @@ def get_task_status(task_id: str = Path(..., min_length=1, max_length=128)):
         raise HTTPException(status_code=500, detail="获取任务状态失败")
 
 
+@router.post("/{task_id}/pause")
+async def pause_task(task_id: str = Path(..., min_length=1, max_length=128)):
+    """暂停任务。
+
+    Worker 没有可持久化的执行断点，因此暂停会终止当前协程并保留原始参数；
+    恢复时会使用同一任务记录重新执行工作流。
+    """
+    try:
+        status, task_type = TaskRepository.get_status(task_id)
+        if not status:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        if status == "PAUSED":
+            return {"status": "success", "message": "任务已暂停"}
+        if status not in ("PENDING", "RUNNING"):
+            raise HTTPException(status_code=409, detail=f"当前状态 {status} 不能暂停")
+
+        request_task_pause(task_id)
+        # 先持久化 PAUSED，阻止 worker 在取消竞态中的迟到进度/完成回调将状态改回 RUNNING。
+        paused = await _mark_task_paused(task_id, task_type)
+        active_task = _active_tasks.get(task_id)
+        if active_task is None:
+            clear_task_pause_request(task_id)
+            if not paused:
+                raise HTTPException(status_code=409, detail="任务状态已变化，无法暂停")
+            return {"status": "success", "message": "任务已暂停"}
+
+        try:
+            from media_tools.platform.bilibili import cancel_download
+
+            cancel_download(task_id)
+        except (RuntimeError, OSError, ImportError):
+            pass
+        set_cancel_event(task_id)
+        active_task.cancel()
+        with contextlib.suppress(TimeoutError, asyncio.CancelledError):
+            await asyncio.wait_for(active_task, timeout=5.0)
+        if active_task.done():
+            if _active_tasks.get(task_id) is active_task:
+                _active_tasks.pop(task_id, None)
+            clear_task_pause_request(task_id)
+        return {"status": "success", "message": "任务已暂停" if paused else "已请求暂停任务"}
+    except HTTPException:
+        raise
+    except (sqlite3.Error, OSError, RuntimeError, asyncio.CancelledError) as e:
+        logger.exception(f"pause_task failed for {task_id}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{task_id}/resume")
+async def resume_task(task_id: str = Path(..., min_length=1, max_length=128)):
+    """恢复暂停任务（会从头重新执行未持久化的工作流）。"""
+    try:
+        task_type, payload_str, status = TaskRepository.get_task_type_payload_status(task_id)
+        if not status or not task_type:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        if status != "PAUSED":
+            raise HTTPException(status_code=409, detail=f"当前状态 {status} 不能恢复")
+        active_task = _active_tasks.get(task_id)
+        if active_task is not None and not active_task.done():
+            raise HTTPException(status_code=409, detail="任务仍在暂停处理中，请稍后再恢复")
+        try:
+            original_params = json.loads(payload_str) if payload_str else {}
+        except (json.JSONDecodeError, TypeError, ValueError):
+            original_params = {}
+        if not isinstance(original_params, dict):
+            raise HTTPException(status_code=400, detail="任务原始参数无效，无法恢复")
+        for transient_key in ("msg", "result_summary", "subtasks", "total", "completed", "failed", "pipeline_progress"):
+            original_params.pop(transient_key, None)
+
+        clear_task_pause_request(task_id)
+        clear_cancel_event(task_id)
+        return await resume_paused_task(task_id, task_type, original_params)
+    except HTTPException:
+        raise
+    except (sqlite3.Error, OSError, RuntimeError, asyncio.CancelledError) as e:
+        logger.exception(f"resume_task failed for {task_id}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/{task_id}/cancel")
 async def cancel_task(task_id: str = Path(..., min_length=1, max_length=128)):
     try:
+        # 明确取消要覆盖已发出的暂停意图。
+        clear_task_pause_request(task_id)
         status, task_type = TaskRepository.get_status(task_id)
         if not status:
             raise HTTPException(status_code=404, detail="任务不存在")

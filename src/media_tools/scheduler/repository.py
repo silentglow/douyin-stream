@@ -115,10 +115,17 @@ class TaskRepository:
 
     @staticmethod
     def find_active() -> list[dict[str, Any]]:
-        """查询活跃任务（PENDING 或 RUNNING）"""
+        """查询未结束的任务（PENDING、RUNNING 或 PAUSED）。"""
         with get_db_connection() as conn:
-            cursor = conn.execute("SELECT * FROM task_queue WHERE status IN ('PENDING', 'RUNNING')")
+            cursor = conn.execute("SELECT * FROM task_queue WHERE status IN ('PENDING', 'RUNNING', 'PAUSED')")
             return [dict(row) for row in cursor.fetchall()]
+
+    @staticmethod
+    def find_paused_ids() -> list[str]:
+        """查询暂停任务 ID，供清理历史时保留可恢复的任务。"""
+        with get_db_connection() as conn:
+            cursor = conn.execute("SELECT task_id FROM task_queue WHERE status = 'PAUSED'")
+            return [str(row["task_id"]) for row in cursor.fetchall()]
 
     @staticmethod
     def list_recent(limit: int = 50) -> list[dict[str, Any]]:
@@ -216,7 +223,7 @@ class TaskRepository:
                 conn.execute(
                     """UPDATE task_queue
                        SET status='RUNNING', progress=?, payload=?, update_time=?
-                       WHERE task_id=? AND status NOT IN ('COMPLETED', 'FAILED', 'CANCELLED')""",
+                       WHERE task_id=? AND status NOT IN ('COMPLETED', 'FAILED', 'CANCELLED', 'PAUSED')""",
                     (progress, payload_str, now, task_id),
                 )
             conn.commit()

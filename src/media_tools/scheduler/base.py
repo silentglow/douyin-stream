@@ -16,9 +16,14 @@ from media_tools.scheduler.ops import (
     _complete_task,
     _fail_task,
     _mark_task_cancelled,
+    _mark_task_paused,
     update_task_progress,
 )
-from media_tools.scheduler.state import _task_heartbeat
+from media_tools.scheduler.state import (
+    _task_heartbeat,
+    clear_task_pause_request,
+    is_task_pause_requested,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -169,9 +174,23 @@ class BaseWorker:
     # 内部钩子（子类可按需覆盖）
     # ------------------------------------------------------------------
     async def _handle_cancelled(self) -> None:
+        if is_task_pause_requested(self._task_id):
+            try:
+                await _mark_task_paused(self._task_id, self.task_type)
+            finally:
+                clear_task_pause_request(self._task_id)
+            return
         await _mark_task_cancelled(self._task_id, self.task_type)
 
     async def _handle_exception(self, exc: Exception) -> None:
+        if is_task_pause_requested(self._task_id):
+            # Some download backends surface a cooperative cancellation as a normal
+            # RuntimeError. Preserve the user-requested PAUSED state in that case.
+            try:
+                await _mark_task_paused(self._task_id, self.task_type)
+            finally:
+                clear_task_pause_request(self._task_id)
+            return
         logger.exception(f"Worker {self.task_type} failed: {exc}")
         await _fail_task(self._task_id, self.task_type, str(exc))
 
