@@ -58,7 +58,7 @@ export const AssetListItem = memo(function AssetListItem({
   return (
     <div
       className={cn(
-        'grid grid-cols-[auto_1fr_auto] items-center gap-4 px-6 py-4 border-b border-[var(--color-hairline-faint)] transition-colors group relative',
+        'grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 md:px-6 py-3 border-b border-[var(--color-hairline-faint)] transition-colors group relative',
         canView || bulkMode ? 'cursor-pointer' : 'cursor-default',
         isSelected ? 'bg-[rgba(0,113,227,0.06)] dark:bg-[rgba(53,128,230,0.08)]' : 'hover:bg-black/[0.015] dark:hover:bg-white/[0.025]',
         asset.transcript_status === 'failed' && 'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2.5px] before:bg-[var(--color-iron)]'
@@ -97,7 +97,7 @@ export const AssetListItem = memo(function AssetListItem({
             <Star className="w-3.5 h-3.5 text-[var(--color-ember)] fill-[var(--color-ember)] flex-shrink-0 self-center" />
           )}
           <div className={cn(
-            'font-sans font-medium text-[15px] leading-snug line-clamp-1 transition-colors',
+            'font-sans font-medium text-[14px] leading-snug line-clamp-1 transition-colors',
             canView
               ? 'text-[var(--color-bone)] group-hover:text-[var(--color-rust)]'
               : 'text-[var(--color-ash)]'
@@ -105,7 +105,7 @@ export const AssetListItem = memo(function AssetListItem({
             {asset.title || '未命名视频'}
           </div>
         </div>
-        <div className="mono-cap mt-1.5 flex items-center gap-2">
+        <div className="mono-cap mt-1 flex items-center gap-2">
           {asset.create_time && (
             <span>{new Date(asset.create_time).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })}</span>
           )}
@@ -119,7 +119,7 @@ export const AssetListItem = memo(function AssetListItem({
       </div>
 
       {/* Status + actions */}
-      <div className="flex items-center gap-4 flex-shrink-0">
+      <div className="flex items-center gap-2.5 flex-shrink-0">
         <StatusLabel
           status={asset.transcript_status}
           error={asset.transcript_last_error}

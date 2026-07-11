@@ -1,14 +1,23 @@
-import { ArrowLeft, RefreshCw, X, Download, Trash2, Eye, Star, ExternalLink } from 'lucide-react';
+import { ArrowLeft, RefreshCw, X, Download, Trash2, Eye, Star, ExternalLink, Inbox } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
-import { TranscriptReader } from '@/components/ui/TranscriptReader';
+import { lazy, Suspense, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Virtuoso } from 'react-virtuoso';
 import { AssetListItem } from '@/components/creator/CreatorAssetList';
-import { FolderBrowserModal } from '@/components/creator/FolderBrowserModal';
-import { ActionMenuModal } from '@/components/creator/ActionMenuModal';
+
 import { useCreatorDetail } from '@/hooks/useCreatorDetail';
 import type { Asset } from '@/types';
 import { openCreatorHomepage, resolveCreatorHomepage } from '@/lib/format';
+
+const TranscriptReader = lazy(() =>
+  import('@/components/ui/TranscriptReader').then((module) => ({ default: module.TranscriptReader })),
+);
+const FolderBrowserModal = lazy(() =>
+  import('@/components/creator/FolderBrowserModal').then((module) => ({ default: module.FolderBrowserModal })),
+);
+const ActionMenuModal = lazy(() =>
+  import('@/components/creator/ActionMenuModal').then((module) => ({ default: module.ActionMenuModal })),
+);
 
 export function CreatorDetailWorkspace() {
   const {
@@ -53,6 +62,11 @@ export function CreatorDetailWorkspace() {
     starredCount,
     failedCount,
   } = useCreatorDetail();
+  const completedAssets = useMemo(() => assets.filter((asset) => asset.transcript_status === 'completed'), [assets]);
+  const viewingIndex = viewingAsset
+    ? completedAssets.findIndex((asset) => asset.asset_id === viewingAsset.asset_id)
+    : -1;
+
   if (!creator && !isLocal) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -80,7 +94,7 @@ export function CreatorDetailWorkspace() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 min-w-0">
               <h1 className="text-[17px] font-semibold text-[var(--color-bone)] truncate tracking-tight">
-                {isLocal ? '本地素材' : creator?.nickname ?? '创作者'}
+                {isLocal ? '本地素材' : (creator?.nickname ?? '创作者')}
               </h1>
               {homepageUrl && creator && (
                 <button
@@ -97,9 +111,7 @@ export function CreatorDetailWorkspace() {
               {assets.length} 文件
               {completedCount > 0 && <span> · {completedCount} 文稿</span>}
               {starredCount > 0 && <span> · {starredCount} 收藏</span>}
-              {failedCount > 0 && (
-                <span className="text-[var(--color-iron)]"> · {failedCount} 失败</span>
-              )}
+              {failedCount > 0 && <span className="text-[var(--color-iron)]"> · {failedCount} 失败</span>}
             </div>
           </div>
 
@@ -112,13 +124,7 @@ export function CreatorDetailWorkspace() {
                 className="ui-press h-9 px-3.5 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5 bg-[var(--color-rust)] text-white hover:brightness-110 shadow-sm shadow-[var(--color-rust)]/25 disabled:opacity-50"
                 title="增量同步"
               >
-                <RefreshCw
-                  className={cn(
-                    'w-3.5 h-3.5',
-                    syncing && 'ui-sync-spin-loop',
-                  )}
-                  strokeWidth={2}
-                />
+                <RefreshCw className={cn('w-3.5 h-3.5', syncing && 'ui-sync-spin-loop')} strokeWidth={2} />
                 同步
               </button>
               <button
@@ -138,12 +144,14 @@ export function CreatorDetailWorkspace() {
       {/* Tabs + bulk — single quiet bar */}
       <section className="px-6 md:px-8 py-2 border-b border-[var(--color-hairline)] flex-shrink-0 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center p-0.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] gap-0.5">
-          {([
-            { key: 'all', label: '全部', count: assets.length },
-            { key: 'completed', label: '已转写', count: completedCount },
-            { key: 'starred', label: '收藏', count: starredCount },
-            { key: 'failed', label: '失败', count: failedCount, danger: true },
-          ] as const).map((t) => (
+          {(
+            [
+              { key: 'all', label: '全部', count: assets.length },
+              { key: 'completed', label: '已转写', count: completedCount },
+              { key: 'starred', label: '收藏', count: starredCount },
+              { key: 'failed', label: '失败', count: failedCount, danger: true },
+            ] as const
+          ).map((t) => (
             <button
               key={t.key}
               type="button"
@@ -160,9 +168,7 @@ export function CreatorDetailWorkspace() {
               <span
                 className={cn(
                   'tabular-nums text-[11px]',
-                  'danger' in t && t.danger && t.count > 0
-                    ? 'text-[var(--color-iron)]'
-                    : 'text-[var(--color-smoke)]',
+                  'danger' in t && t.danger && t.count > 0 ? 'text-[var(--color-iron)]' : 'text-[var(--color-smoke)]',
                 )}
               >
                 {t.count}
@@ -215,7 +221,10 @@ export function CreatorDetailWorkspace() {
               </button>
               <button
                 type="button"
-                onClick={() => { setBulkMode(false); setSelectedAssets(new Set()); }}
+                onClick={() => {
+                  setBulkMode(false);
+                  setSelectedAssets(new Set());
+                }}
                 className="h-8 w-8 rounded-lg inline-flex items-center justify-center text-[var(--color-smoke)] hover:text-[var(--color-bone)]"
               >
                 <X className="w-4 h-4" />
@@ -244,12 +253,28 @@ export function CreatorDetailWorkspace() {
             ))}
           </div>
         ) : filteredAssets.length === 0 ? (
-          <div className="py-24 text-center">
-            <div className="font-display text-[32px] text-[var(--color-smoke)] mb-2">
-              {tabFilter === 'all' ? '还没有素材' : '此筛选下暂无内容'}
-            </div>
-            <div className="text-[13px] text-[var(--color-ash)]">
-              {isLocal ? '在内容库点击「本地上传」添加文件' : '点击上方「同步」按钮获取视频'}
+          <div className="h-full min-h-64 flex items-center justify-center px-6">
+            <div className="max-w-sm text-center rounded-2xl border border-[var(--color-hairline)] bg-[var(--color-paper)]/35 px-8 py-8">
+              <div className="mx-auto mb-4 w-10 h-10 rounded-xl bg-black/[0.035] dark:bg-white/[0.05] flex items-center justify-center text-[var(--color-smoke)]">
+                <Inbox className="w-5 h-5" strokeWidth={1.6} />
+              </div>
+              <div className="text-[15px] font-semibold text-[var(--color-bone)] mb-1.5">
+                {tabFilter === 'all' ? '还没有素材' : '此筛选下暂无内容'}
+              </div>
+              <div className="text-[12px] leading-5 text-[var(--color-smoke)]">
+                {isLocal ? '返回内容库，通过「本地上传」添加文件。' : '同步后，视频和文稿会统一显示在这里。'}
+              </div>
+              {!isLocal && tabFilter === 'all' && (
+                <button
+                  type="button"
+                  onClick={() => handleSync('incremental')}
+                  disabled={syncing}
+                  className="ui-press mt-5 h-9 px-4 rounded-lg text-[12px] font-medium inline-flex items-center gap-1.5 bg-[var(--color-rust)] text-white disabled:opacity-50"
+                >
+                  <RefreshCw className={cn('w-3.5 h-3.5', syncing && 'ui-sync-spin-loop')} />
+                  开始同步
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -271,50 +296,66 @@ export function CreatorDetailWorkspace() {
         )}
       </div>
 
-      <ActionMenuModal
-        asset={actionMenuAsset}
-        onClose={() => setActionMenuAsset(null)}
-        onViewTranscript={handleViewTranscript}
-        onToggleRead={handleToggleRead}
-        onToggleStar={handleToggleStar}
-        onExportTranscript={handleExportTranscript}
-        onViewFile={handleViewFile}
-        onBrowseFolder={handleBrowseFolder}
-        onDeleteAsset={handleDeleteAsset}
-      />
+      {actionMenuAsset && (
+        <Suspense fallback={null}>
+          <ActionMenuModal
+            asset={actionMenuAsset}
+            onClose={() => setActionMenuAsset(null)}
+            onViewTranscript={handleViewTranscript}
+            onToggleRead={handleToggleRead}
+            onToggleStar={handleToggleStar}
+            onExportTranscript={handleExportTranscript}
+            onViewFile={handleViewFile}
+            onBrowseFolder={handleBrowseFolder}
+            onDeleteAsset={handleDeleteAsset}
+          />
+        </Suspense>
+      )}
 
       {/* ═══ TRANSCRIPT READER ══════════════════════════════════ */}
       <AnimatePresence>
         {viewingAsset && (
-          <TranscriptReader
-            asset={viewingAsset}
-            content={transcriptContent}
-            loading={transcriptLoading}
-            onClose={() => setViewingAsset(null)}
-            onPrev={() => {
-              const completed = assets.filter((a) => a.transcript_status === 'completed');
-              const ci = completed.findIndex((a) => a.asset_id === viewingAsset.asset_id);
-              if (ci > 0) { setTranscriptContent(''); setTranscriptLoading(true); handleViewTranscript(completed[ci - 1]); }
-            }}
-            onNext={() => {
-              const completed = assets.filter((a) => a.transcript_status === 'completed');
-              const ci = completed.findIndex((a) => a.asset_id === viewingAsset.asset_id);
-              if (ci >= 0 && ci < completed.length - 1) { setTranscriptContent(''); setTranscriptLoading(true); handleViewTranscript(completed[ci + 1]); }
-            }}
-            hasPrev={(() => { const completed = assets.filter((a) => a.transcript_status === 'completed'); const ci = completed.findIndex((a) => a.asset_id === viewingAsset.asset_id); return ci > 0; })()}
-            hasNext={(() => { const completed = assets.filter((a) => a.transcript_status === 'completed'); const ci = completed.findIndex((a) => a.asset_id === viewingAsset.asset_id); return ci >= 0 && ci < completed.length - 1; })()}
-            onAssetUpdate={(updated) => { setAssets((prev: Asset[]) => prev.map((a: Asset) => a.asset_id === updated.asset_id ? updated : a)); }}
-          />
+          <Suspense fallback={<div className="fixed inset-0 z-50 bg-[var(--color-ink)] skeleton" />}>
+            <TranscriptReader
+              asset={viewingAsset}
+              content={transcriptContent}
+              loading={transcriptLoading}
+              onClose={() => setViewingAsset(null)}
+              onPrev={() => {
+                if (viewingIndex > 0) {
+                  setTranscriptContent('');
+                  setTranscriptLoading(true);
+                  handleViewTranscript(completedAssets[viewingIndex - 1]);
+                }
+              }}
+              onNext={() => {
+                if (viewingIndex >= 0 && viewingIndex < completedAssets.length - 1) {
+                  setTranscriptContent('');
+                  setTranscriptLoading(true);
+                  handleViewTranscript(completedAssets[viewingIndex + 1]);
+                }
+              }}
+              hasPrev={viewingIndex > 0}
+              hasNext={viewingIndex >= 0 && viewingIndex < completedAssets.length - 1}
+              onAssetUpdate={(updated) => {
+                setAssets((prev: Asset[]) => prev.map((a: Asset) => (a.asset_id === updated.asset_id ? updated : a)));
+              }}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
-      <FolderBrowserModal
-        isOpen={folderBrowser.open}
-        assetTitle={folderBrowser.assetTitle}
-        loading={folderBrowser.loading}
-        data={folderBrowser.data}
-        onClose={() => setFolderBrowser((prev) => ({ ...prev, open: false }))}
-      />
+      {folderBrowser.open && (
+        <Suspense fallback={null}>
+          <FolderBrowserModal
+            isOpen={folderBrowser.open}
+            assetTitle={folderBrowser.assetTitle}
+            loading={folderBrowser.loading}
+            data={folderBrowser.data}
+            onClose={() => setFolderBrowser((prev) => ({ ...prev, open: false }))}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
