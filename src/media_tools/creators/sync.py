@@ -197,6 +197,9 @@ class CreatorSyncWorker(BaseWorker):
         # 更新创作者信息
         await self._update_creator_info(last_result, uid)
 
+        # 刷新头像（仅更新 CDN URL，best-effort，失败不影响同步）
+        await self._refresh_avatar(platform, uid, sec_user_id)
+
         # 构建结果摘要
         result_summary = self._build_result_summary(transcribe_stats, reconcile_total, reconcile_missing)
         msg = self._build_message(
@@ -505,6 +508,60 @@ class CreatorSyncWorker(BaseWorker):
                     (uploader["nickname"], uid),
                 )
             conn.commit()
+
+    async def _refresh_avatar(self, platform: str, uid: str, sec_user_id: str) -> None:
+        """同步后刷新创作者头像 CDN URL（不下载图片）。
+
+        - best-effort：任何异常都吞掉，绝不影响同步结果
+        - 仅当拿到非空头像、且 creators 表有 avatar 列时才写入
+        - 空头像不覆盖已有值
+        """
+        try:
+            avatar = await self._fetch_avatar(platform, uid, sec_user_id)
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.warning(f"[头像刷新] 获取失败，跳过: {e}")
+            return
+
+        if not avatar:
+            return
+
+        try:
+            with get_db_connection() as conn:
+                if "avatar" not in get_table_columns(conn, "creators"):
+                    return
+                conn.execute("UPDATE creators SET avatar = ? WHERE uid = ?", (avatar, uid))
+                conn.commit()
+            logger.info(f"[头像刷新] 已更新 {uid} 的头像 URL")
+        except sqlite3.Error as e:
+            logger.warning(f"[头像刷新] 写库失败，跳过: {e}")
+
+    async def _fetch_avatar(self, platform: str, uid: str, sec_user_id: str) -> str:
+        """按平台获取头像 CDN URL；获取不到返回空串。"""
+        if platform == "bilibili":
+            from media_tools.bilibili.nickname import fetch_bilibili_profile
+
+            mid = sec_user_id or uid.split(":", 1)[-1]
+            profile = await fetch_bilibili_profile(mid)
+            return profile.get("avatar", "") or ""
+
+        if platform == "youtube":
+            from media_tools.platform.youtube import fetch_youtube_channel_info
+
+            channel_id = sec_user_id or uid.split(":", 1)[-1]
+            url = f"https://www.youtube.com/channel/{channel_id}"
+            info = await asyncio.to_thread(fetch_youtube_channel_info, url)
+            return info.get("avatar", "") or ""
+
+        # douyin：复用 F2 实时 profile
+        from media_tools.douyin.core.following_mgr import _fetch_user_info_via_f2
+
+        if not sec_user_id:
+            return ""
+        url = f"https://www.douyin.com/user/{sec_user_id}"
+        user_info = await asyncio.to_thread(_fetch_user_info_via_f2, url, sec_user_id)
+        if isinstance(user_info, dict):
+            return user_info.get("avatar_url", "") or ""
+        return ""
 
     def _build_result_summary(
         self,

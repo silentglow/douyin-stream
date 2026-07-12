@@ -30,6 +30,38 @@ export function platformLabel(platform?: string): string {
   }
 }
 
+/** Brand accent per platform — used for badges & avatar rings. */
+export function platformColor(platform?: string): string {
+  switch ((platform || '').toLowerCase()) {
+    case 'bilibili':
+      return '#fb7299';
+    case 'youtube':
+      return '#ff4d4d';
+    case 'local':
+      return '#8e8e93';
+    case 'douyin':
+    default:
+      return '#fe2c55';
+  }
+}
+
+/** Deterministic vivid gradient for avatar fallbacks — high-energy, stable per seed. */
+export function avatarGradient(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    h = (h * 31 + seed.charCodeAt(i)) % 360;
+  }
+  const h2 = (h + 42) % 360;
+  return `linear-gradient(135deg, hsl(${h} 72% 56%), hsl(${h2} 74% 48%))`;
+}
+
+/** First visible glyph of a name, for avatar initials. */
+export function initialOf(name?: string | null): string {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return '?';
+  return Array.from(trimmed)[0].toUpperCase();
+}
+
 /** FULL sync is destructive relative to archive workflow — always confirm. */
 export const FULL_SYNC_CONFIRM =
   '全量重拉会忽略「已收录历史」去重策略，重新下载该创作者的全部视频（包括你已归档/移走的内容）。\n\n' +

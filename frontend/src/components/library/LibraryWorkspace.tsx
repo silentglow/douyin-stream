@@ -322,6 +322,7 @@ export function LibraryWorkspace() {
             allSelected={allFilteredSelected}
             someSelected={someFilteredSelected}
             onToggleAll={toggleSelectAllFiltered}
+            count={filteredCreators.length}
           />
 
           {loading ? (

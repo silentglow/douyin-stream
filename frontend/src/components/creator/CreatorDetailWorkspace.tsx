@@ -4,10 +4,11 @@ import { lazy, Suspense, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Virtuoso } from 'react-virtuoso';
 import { AssetListItem } from '@/components/creator/CreatorAssetList';
+import { CreatorAvatar } from '@/components/ui/CreatorAvatar';
 
 import { useCreatorDetail } from '@/hooks/useCreatorDetail';
 import type { Asset } from '@/types';
-import { openCreatorHomepage, resolveCreatorHomepage } from '@/lib/format';
+import { formatLastSync, openCreatorHomepage, platformLabel, resolveCreatorHomepage } from '@/lib/format';
 
 const TranscriptReader = lazy(() =>
   import('@/components/ui/TranscriptReader').then((module) => ({ default: module.TranscriptReader })),
@@ -76,26 +77,46 @@ export function CreatorDetailWorkspace() {
   }
 
   const homepageUrl = !isLocal && creator ? resolveCreatorHomepage(creator) : null;
+  const totalAssets = assets.length;
+  const pct = totalAssets > 0 ? Math.min(100, Math.round((completedCount / totalAssets) * 100)) : 0;
 
   return (
     <div className="h-full flex flex-col page-enter">
-      {/* Compact masthead */}
-      <header className="px-6 md:px-8 py-3.5 border-b border-[var(--color-hairline)] flex-shrink-0">
-        <div className="flex items-center gap-3">
+      {/* Masthead — avatar + hero stats */}
+      <header className="px-6 md:px-8 pt-4 pb-4 border-b border-[var(--color-hairline)] flex-shrink-0">
+        <div className="flex items-start gap-4">
           <button
             type="button"
             onClick={() => navigate('/library')}
-            className="ui-press h-9 w-9 rounded-lg inline-flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] shrink-0"
+            className="ui-press h-9 w-9 mt-0.5 rounded-lg inline-flex items-center justify-center text-[var(--color-ash)] hover:text-[var(--color-bone)] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] shrink-0"
             title="返回内容库"
           >
             <ArrowLeft className="w-4 h-4" strokeWidth={2} />
           </button>
 
+          {isLocal ? (
+            <div className="h-11 w-11 rounded-full bg-[var(--accent-grad)] flex items-center justify-center text-white shrink-0">
+              <Inbox className="w-5 h-5" strokeWidth={2} />
+            </div>
+          ) : (
+            <CreatorAvatar
+              name={creator?.nickname}
+              avatar={creator?.avatar}
+              platform={creator?.platform}
+              seed={creator?.uid}
+              size={44}
+              className="mt-0.5"
+            />
+          )}
+
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 min-w-0">
-              <h1 className="text-[17px] font-semibold text-[var(--color-bone)] truncate tracking-tight">
+              <h1 className="text-[19px] font-bold text-[var(--color-bone)] truncate tracking-tight">
                 {isLocal ? '本地素材' : (creator?.nickname ?? '创作者')}
               </h1>
+              {!isLocal && creator && (
+                <span className="shrink-0 text-[11px] text-[var(--color-smoke)]">{platformLabel(creator.platform)}</span>
+              )}
               {homepageUrl && creator && (
                 <button
                   type="button"
@@ -107,11 +128,47 @@ export function CreatorDetailWorkspace() {
                 </button>
               )}
             </div>
-            <div className="text-[12px] text-[var(--color-smoke)] mt-0.5 tabular-nums">
-              {assets.length} 文件
-              {completedCount > 0 && <span> · {completedCount} 文稿</span>}
-              {starredCount > 0 && <span> · {starredCount} 收藏</span>}
-              {failedCount > 0 && <span className="text-[var(--color-iron)]"> · {failedCount} 失败</span>}
+
+            {/* Hero stat row */}
+            <div className="flex items-center gap-5 mt-2 flex-wrap">
+              <div className="flex items-baseline gap-1.5">
+                <span className="numeral text-[22px] leading-none">{totalAssets}</span>
+                <span className="text-[11px] text-[var(--color-smoke)]">收录</span>
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="numeral text-[22px] leading-none text-[var(--color-rust)]">{completedCount}</span>
+                <span className="text-[11px] text-[var(--color-smoke)]">文稿</span>
+              </div>
+              {starredCount > 0 && (
+                <div className="flex items-baseline gap-1.5">
+                  <span className="numeral text-[22px] leading-none">{starredCount}</span>
+                  <span className="text-[11px] text-[var(--color-smoke)]">收藏</span>
+                </div>
+              )}
+              {failedCount > 0 && (
+                <div className="flex items-baseline gap-1.5">
+                  <span className="numeral text-[22px] leading-none text-[var(--color-iron)]">{failedCount}</span>
+                  <span className="text-[11px] text-[var(--color-smoke)]">失败</span>
+                </div>
+              )}
+              {!isLocal && creator?.last_fetch_time && (
+                <span className="text-[11px] text-[var(--color-smoke)] self-center">
+                  {formatLastSync(creator.last_fetch_time)}同步
+                </span>
+              )}
+
+              {/* Inline progress meter */}
+              {totalAssets > 0 && (
+                <div className="flex items-center gap-2 min-w-[140px] flex-1 max-w-[240px] self-center">
+                  <div className="flex-1 h-2 rounded-full bg-black/[0.06] dark:bg-white/[0.07] overflow-hidden">
+                    <div
+                      className="ui-progress-bar h-full rounded-full"
+                      style={{ width: `${pct}%`, background: 'var(--accent-grad)' }}
+                    />
+                  </div>
+                  <span className="tabular-nums text-[12px] font-semibold text-[var(--color-bone)]">{pct}%</span>
+                </div>
+              )}
             </div>
           </div>
 

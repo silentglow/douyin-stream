@@ -40,13 +40,13 @@ async def close_bilibili_client() -> None:
             _shared_client = None
 
 
-async def fetch_bilibili_nickname(mid: str, retries: int = 3) -> str:
+async def fetch_bilibili_profile(mid: str, retries: int = 3) -> dict[str, str]:
     """
-    异步获取 B 站用户昵称
+    异步获取 B 站用户资料（昵称 + 头像）
 
     - 超时控制: connect=5s, read=10s
     - 重试: 最多 3 次，指数退避
-    - 异常: 返回 mid 作为后备
+    - 异常: 昵称回退为 mid，头像为空串
     """
     url = f"https://api.bilibili.com/x/web-interface/card?mid={mid}"
     client = await _get_shared_client()
@@ -61,14 +61,16 @@ async def fetch_bilibili_nickname(mid: str, retries: int = 3) -> str:
                     code = json_data.get("code")
                     data = json_data.get("data", {})
                     if code == 0 and data.get("card"):
-                        name = data["card"].get("name")
-                        logger.info(f"B站昵称获取成功: mid={mid}, name={name}")
-                        return name or mid
+                        card = data["card"]
+                        name = card.get("name")
+                        face = card.get("face") or ""
+                        logger.info(f"B站资料获取成功: mid={mid}, name={name}")
+                        return {"nickname": name or mid, "avatar": face}
                     else:
                         logger.warning(f"B站API业务错误: code={code}, mid={mid}")
                 elif resp.status_code == 404:
                     logger.warning(f"B站用户不存在: mid={mid}")
-                    return mid
+                    return {"nickname": mid, "avatar": ""}
                 else:
                     logger.warning(f"B站API返回非200: {resp.status_code}, body={resp.text[:200]}, mid={mid}")
         except httpx.TimeoutException:
@@ -85,4 +87,10 @@ async def fetch_bilibili_nickname(mid: str, retries: int = 3) -> str:
             logger.error(f"B站API异常: {e}")
             break
 
-    return mid
+    return {"nickname": mid, "avatar": ""}
+
+
+async def fetch_bilibili_nickname(mid: str, retries: int = 3) -> str:
+    """异步获取 B 站用户昵称（兼容旧调用，内部走 fetch_bilibili_profile）。"""
+    profile = await fetch_bilibili_profile(mid, retries=retries)
+    return profile["nickname"]

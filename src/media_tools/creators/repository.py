@@ -165,62 +165,67 @@ class CreatorRepository:
             return [dict(row) for row in cursor.fetchall()]
 
     @staticmethod
-    def upsert_bilibili_creator(
+    @staticmethod
+    def _upsert_platform_creator(
+        platform: str,
         uid: str,
         sec_user_id: str,
         nickname: str,
         homepage_url: str = "",
+        avatar: str = "",
     ) -> bool:
-        """插入或更新 Bilibili 创作者。返回 True 表示新插入，False 表示更新。"""
+        """插入或更新平台创作者（列按实际 schema 动态拼装）。返回 True 表示新插入。"""
         with get_db_connection() as conn:
             creator_columns = get_table_columns(conn, "creators")
             cursor = conn.execute("SELECT uid FROM creators WHERE uid = ?", (uid,))
             exists = cursor.fetchone() is not None
 
+            # 可选列：仅当表里存在时写入；avatar 为空时不覆盖已有头像
+            optional: list[tuple[str, str]] = []
+            if "homepage_url" in creator_columns:
+                optional.append(("homepage_url", homepage_url))
+            if "avatar" in creator_columns and avatar:
+                optional.append(("avatar", avatar))
+
             if exists:
-                # 已存在则更新
-                if "homepage_url" in creator_columns:
-                    conn.execute(
-                        (
-                            "UPDATE creators SET sec_user_id = ?, nickname = ?, homepage_url = ?"
-                            + (", platform = 'bilibili'" if "platform" in creator_columns else "")
-                            + " WHERE uid = ?"
-                        ),
-                        (sec_user_id, nickname, homepage_url, uid),
-                    )
-                else:
-                    conn.execute(
-                        (
-                            "UPDATE creators SET sec_user_id = ?, nickname = ?"
-                            + (", platform = 'bilibili'" if "platform" in creator_columns else "")
-                            + " WHERE uid = ?"
-                        ),
-                        (sec_user_id, nickname, uid),
-                    )
+                sets = ["sec_user_id = ?", "nickname = ?"]
+                params: list[str] = [sec_user_id, nickname]
+                for col, val in optional:
+                    sets.append(f"{col} = ?")
+                    params.append(val)
+                if "platform" in creator_columns:
+                    sets.append("platform = ?")
+                    params.append(platform)
+                params.append(uid)
+                conn.execute(f"UPDATE creators SET {', '.join(sets)} WHERE uid = ?", params)
             else:
-                # 不存在则插入
-                if "homepage_url" in creator_columns and "platform" in creator_columns:
-                    conn.execute(
-                        "INSERT INTO creators (uid, sec_user_id, nickname, homepage_url, platform, sync_status) VALUES (?, ?, ?, ?, 'bilibili', 'active')",
-                        (uid, sec_user_id, nickname, homepage_url),
-                    )
-                elif "homepage_url" in creator_columns:
-                    conn.execute(
-                        "INSERT INTO creators (uid, sec_user_id, nickname, homepage_url, sync_status) VALUES (?, ?, ?, ?, 'active')",
-                        (uid, sec_user_id, nickname, homepage_url),
-                    )
-                elif "platform" in creator_columns:
-                    conn.execute(
-                        "INSERT INTO creators (uid, sec_user_id, nickname, platform, sync_status) VALUES (?, ?, ?, 'bilibili', 'active')",
-                        (uid, sec_user_id, nickname),
-                    )
-                else:
-                    conn.execute(
-                        "INSERT INTO creators (uid, sec_user_id, nickname, sync_status) VALUES (?, ?, ?, 'active')",
-                        (uid, sec_user_id, nickname),
-                    )
+                cols = ["uid", "sec_user_id", "nickname"]
+                params = [uid, sec_user_id, nickname]
+                for col, val in optional:
+                    cols.append(col)
+                    params.append(val)
+                if "platform" in creator_columns:
+                    cols.append("platform")
+                    params.append(platform)
+                cols.append("sync_status")
+                params.append("active")
+                placeholders = ", ".join("?" for _ in cols)
+                conn.execute(f"INSERT INTO creators ({', '.join(cols)}) VALUES ({placeholders})", params)
             conn.commit()
             return not exists
+
+    @staticmethod
+    def upsert_bilibili_creator(
+        uid: str,
+        sec_user_id: str,
+        nickname: str,
+        homepage_url: str = "",
+        avatar: str = "",
+    ) -> bool:
+        """插入或更新 Bilibili 创作者。返回 True 表示新插入，False 表示更新。"""
+        return CreatorRepository._upsert_platform_creator(
+            "bilibili", uid, sec_user_id, nickname, homepage_url=homepage_url, avatar=avatar
+        )
 
     @staticmethod
     def upsert_youtube_creator(
@@ -228,57 +233,12 @@ class CreatorRepository:
         sec_user_id: str,
         nickname: str,
         homepage_url: str = "",
+        avatar: str = "",
     ) -> bool:
         """插入或更新 YouTube 创作者。返回 True 表示新插入，False 表示更新。"""
-        with get_db_connection() as conn:
-            creator_columns = get_table_columns(conn, "creators")
-            cursor = conn.execute("SELECT uid FROM creators WHERE uid = ?", (uid,))
-            exists = cursor.fetchone() is not None
-
-            if exists:
-                # 已存在则更新
-                if "homepage_url" in creator_columns:
-                    conn.execute(
-                        (
-                            "UPDATE creators SET sec_user_id = ?, nickname = ?, homepage_url = ?"
-                            + (", platform = 'youtube'" if "platform" in creator_columns else "")
-                            + " WHERE uid = ?"
-                        ),
-                        (sec_user_id, nickname, homepage_url, uid),
-                    )
-                else:
-                    conn.execute(
-                        (
-                            "UPDATE creators SET sec_user_id = ?, nickname = ?"
-                            + (", platform = 'youtube'" if "platform" in creator_columns else "")
-                            + " WHERE uid = ?"
-                        ),
-                        (sec_user_id, nickname, uid),
-                    )
-            else:
-                # 不存在则插入
-                if "homepage_url" in creator_columns and "platform" in creator_columns:
-                    conn.execute(
-                        "INSERT INTO creators (uid, sec_user_id, nickname, homepage_url, platform, sync_status) VALUES (?, ?, ?, ?, 'youtube', 'active')",
-                        (uid, sec_user_id, nickname, homepage_url),
-                    )
-                elif "homepage_url" in creator_columns:
-                    conn.execute(
-                        "INSERT INTO creators (uid, sec_user_id, nickname, homepage_url, sync_status) VALUES (?, ?, ?, ?, 'active')",
-                        (uid, sec_user_id, nickname, homepage_url),
-                    )
-                elif "platform" in creator_columns:
-                    conn.execute(
-                        "INSERT INTO creators (uid, sec_user_id, nickname, platform, sync_status) VALUES (?, ?, ?, 'youtube', 'active')",
-                        (uid, sec_user_id, nickname),
-                    )
-                else:
-                    conn.execute(
-                        "INSERT INTO creators (uid, sec_user_id, nickname, sync_status) VALUES (?, ?, ?, 'active')",
-                        (uid, sec_user_id, nickname),
-                    )
-            conn.commit()
-            return not exists
+        return CreatorRepository._upsert_platform_creator(
+            "youtube", uid, sec_user_id, nickname, homepage_url=homepage_url, avatar=avatar
+        )
 
     @staticmethod
     def unfollow_keep_content(uid: str) -> dict[str, Any] | None:

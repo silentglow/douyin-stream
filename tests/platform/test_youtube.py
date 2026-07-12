@@ -26,6 +26,10 @@ class YoutubePlatformTests(unittest.TestCase):
             "channel": "Test Channel",
             "channel_id": "UC1234567890",
             "channel_url": "https://www.youtube.com/channel/UC1234567890",
+            "thumbnails": [
+                {"id": "avatar_uncropped", "url": "https://yt3.example/avatar.jpg"},
+                {"url": "https://yt3.example/banner.jpg"},
+            ],
         }
 
         info = fetch_youtube_channel_info("https://www.youtube.com/@testchannel")
@@ -33,6 +37,7 @@ class YoutubePlatformTests(unittest.TestCase):
         self.assertEqual(info["nickname"], "Test Channel")
         self.assertEqual(info["channel_id"], "UC1234567890")
         self.assertEqual(info["homepage_url"], "https://www.youtube.com/channel/UC1234567890")
+        self.assertEqual(info["avatar"], "https://yt3.example/avatar.jpg")
         mock_instance.extract_info.assert_called_once_with("https://www.youtube.com/@testchannel", download=False)
 
     @patch("media_tools.core.config.get_app_config")

@@ -121,10 +121,23 @@ def fetch_youtube_channel_info(url: str) -> dict[str, str]:
 
     homepage_url = info.get("channel_url") or info.get("webpage_url") or f"https://www.youtube.com/channel/{channel_id}"
 
+    # 频道头像：优先 avatar_uncropped（频道页真实头像），回退最后一张缩略图
+    avatar = ""
+    thumbnails = info.get("thumbnails") or []
+    for thumb in thumbnails:
+        if thumb.get("id") == "avatar_uncropped" and thumb.get("url"):
+            avatar = thumb["url"]
+            break
+    if not avatar and thumbnails:
+        avatar = thumbnails[-1].get("url") or ""
+    if not avatar:
+        avatar = info.get("thumbnail") or ""
+
     return {
         "nickname": nickname,
         "channel_id": channel_id,
         "homepage_url": homepage_url,
+        "avatar": avatar,
     }
 
 

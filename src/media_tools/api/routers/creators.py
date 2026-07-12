@@ -9,7 +9,7 @@ import time
 from fastapi import APIRouter, HTTPException, Path, Query
 from pydantic import BaseModel
 
-from media_tools.bilibili.nickname import fetch_bilibili_nickname
+from media_tools.bilibili.nickname import fetch_bilibili_profile
 from media_tools.common.paths import get_download_path, get_transcripts_path
 from media_tools.creators.repository import CreatorRepository
 from media_tools.store.db import get_db_connection, resolve_query_value, resolve_safe_path
@@ -165,13 +165,16 @@ async def create_creator(req: CreatorCreateRequest):
 
             uid = build_bilibili_creator_uid(parsed.mid)
 
-            # 尝试获取B站用户真实昵称（异步，不阻塞线程池）
+            # 尝试获取B站用户真实昵称+头像（异步，不阻塞线程池）
             nickname = parsed.mid
+            avatar = ""
             homepage_url = f"https://space.bilibili.com/{parsed.mid}"
             try:
-                nickname = await fetch_bilibili_nickname(parsed.mid)
+                profile = await fetch_bilibili_profile(parsed.mid)
+                nickname = profile["nickname"]
+                avatar = profile["avatar"]
             except (RuntimeError, OSError, ValueError) as e:
-                logger.warning(f"获取B站昵称失败: {e}")
+                logger.warning(f"获取B站资料失败: {e}")
                 # 使用 mid 作为后备
 
             created = CreatorRepository.upsert_bilibili_creator(
@@ -179,6 +182,7 @@ async def create_creator(req: CreatorCreateRequest):
                 sec_user_id=parsed.mid,
                 nickname=nickname,
                 homepage_url=homepage_url,
+                avatar=avatar,
             )
 
             return {
@@ -189,6 +193,7 @@ async def create_creator(req: CreatorCreateRequest):
                     "sec_user_id": parsed.mid,
                     "platform": "bilibili",
                     "homepage_url": homepage_url,
+                    "avatar": avatar,
                     "sync_status": "active",
                 },
             }
@@ -201,6 +206,7 @@ async def create_creator(req: CreatorCreateRequest):
                 nickname = info.get("nickname") or "YouTube Channel"
                 channel_id = info.get("channel_id") or ""
                 homepage_url = info.get("homepage_url") or req.url
+                avatar = info.get("avatar") or ""
             except Exception as e:
                 logger.error(f"提取 YouTube 频道信息失败: {e}")
                 raise HTTPException(status_code=400, detail=f"无法获取 YouTube 频道信息，请检查链接或网络代理: {e}")
@@ -214,6 +220,7 @@ async def create_creator(req: CreatorCreateRequest):
                 sec_user_id=channel_id,
                 nickname=nickname,
                 homepage_url=homepage_url,
+                avatar=avatar,
             )
 
             return {
@@ -224,6 +231,7 @@ async def create_creator(req: CreatorCreateRequest):
                     "sec_user_id": channel_id,
                     "platform": "youtube",
                     "homepage_url": homepage_url,
+                    "avatar": avatar,
                     "sync_status": "active",
                 },
             }
