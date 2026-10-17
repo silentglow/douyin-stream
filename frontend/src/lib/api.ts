@@ -114,6 +114,7 @@ export {
   getFailureSummary,
 } from '@/services/tasks';
 export type { FailureSummary, FailureBucket } from '@/services/tasks';
+export type { DouyinCookieCheckResult } from '@/services/settings';
 
 export {
   getSettings,
@@ -126,6 +127,7 @@ export {
   addDouyinAccount,
   deleteDouyinAccount,
   updateDouyinAccountRemark,
+  checkDouyinCookie,
   addBilibiliAccount,
   deleteBilibiliAccount,
   updateBilibiliAccountRemark,

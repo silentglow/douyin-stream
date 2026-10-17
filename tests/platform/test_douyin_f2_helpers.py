@@ -12,6 +12,57 @@ from media_tools.platform.douyin import _prepare_f2_temp_dir
 
 
 class F2HelperTests(unittest.TestCase):
+    def _get_kwargs_with_cookie(
+        self,
+        cookie: str,
+        headers: dict[str, str] | None = None,
+    ) -> dict:
+        class FakeConfig:
+            def __init__(self, downloads_path: Path) -> None:
+                self._downloads_path = downloads_path
+                self.project_root = downloads_path.parent
+
+            def get_cookie(self) -> str:
+                return cookie
+
+            def get_download_path(self) -> Path:
+                return self._downloads_path
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            downloads_path = Path(tmp_dir) / "downloads"
+            fake_config = FakeConfig(downloads_path)
+
+            with (
+                patch("media_tools.douyin.core.f2_helper.get_config", return_value=fake_config),
+                patch("media_tools.douyin.core.f2_helper.ConfigManager") as mock_config_manager,
+                patch("media_tools.core.cookie_manager.CookieManager.get_cookie", return_value=None),
+            ):
+                mock_config_manager.return_value.config = {
+                    "douyin": {
+                        "headers": headers or {},
+                        "max_tasks": 10,
+                    }
+                }
+
+                return get_f2_kwargs()
+
+    def test_get_f2_kwargs_adds_douyin_gateway_headers_from_cookie(self) -> None:
+        cookie = "sessionid=abc; UIFID=uifid-value; ttwid=ttw"
+
+        kwargs = self._get_kwargs_with_cookie(cookie)
+
+        self.assertEqual(kwargs["headers"]["uifid"], "uifid-value")
+        self.assertEqual(kwargs["headers"]["x-tt-argus"], "1")
+
+    def test_get_f2_kwargs_preserves_explicit_gateway_headers(self) -> None:
+        cookie = "UIFID=cookie-uifid; sessionid=abc"
+        headers = {"uifid": "configured-uifid", "X-TT-Argus": "0"}
+
+        kwargs = self._get_kwargs_with_cookie(cookie, headers)
+
+        self.assertEqual(kwargs["headers"]["uifid"], "configured-uifid")
+        self.assertEqual(kwargs["headers"]["X-TT-Argus"], "0")
+
     def test_get_f2_kwargs_uses_short_temp_naming_and_all_interval(self) -> None:
         class FakeConfig:
             def __init__(self, downloads_path: Path) -> None:

@@ -1,5 +1,6 @@
-import { KeyRound, Loader2, Trash2 } from 'lucide-react';
+import { KeyRound, Loader2, ShieldCheck, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { DouyinCookieCheckResult } from '@/services/settings';
 
 interface Account {
   id: string;
@@ -36,6 +37,14 @@ interface AccountExpandableProps {
   handleClaimQuota: () => Promise<void>;
   isClaimingQuota: boolean;
   isDeleting: string | null;
+  douyinCheck?: {
+    byId: Record<string, DouyinCookieCheckResult>;
+    checkingId: string | null;
+    onCheckAccount: (id: string) => void;
+    inputResult: DouyinCookieCheckResult | null;
+    isCheckingInput: boolean;
+    onCheckInput: () => void;
+  };
 }
 
 export function AccountExpandable({
@@ -65,6 +74,7 @@ export function AccountExpandable({
   handleClaimQuota,
   isClaimingQuota,
   isDeleting,
+  douyinCheck,
 }: AccountExpandableProps) {
   const handleStartEditRemark = (id: string, currentRemark: string) => {
     setEditingRemark({ id });
@@ -102,6 +112,16 @@ export function AccountExpandable({
           onChange={(e) => setRemark(e.target.value)}
           className="w-24 bg-sunken rounded-lg px-3 py-2 text-sm text-fg-primary outline-none border border-transparent focus:border-accent-dim transition-colors"
         />
+        {accountType === 'douyin' && douyinCheck && (
+          <button
+            onClick={douyinCheck.onCheckInput}
+            disabled={!cookie.trim() || douyinCheck.isCheckingInput}
+            className="px-3 py-2 bg-sunken rounded-lg text-sm font-medium text-fg-primary hover:bg-accent hover:text-white transition-all active:scale-[0.96] disabled:opacity-50"
+            title="在添加前检测 Cookie 是否有效"
+          >
+            {douyinCheck.isCheckingInput ? <Loader2 className="w-4 h-4 animate-spin" /> : '检测'}
+          </button>
+        )}
         <button
           onClick={onAdd}
           disabled={!cookie.trim() || isAdding}
@@ -111,6 +131,11 @@ export function AccountExpandable({
         </button>
       </div>
       {cookieError && <div className="text-xs text-err">{cookieError}</div>}
+      {accountType === 'douyin' && douyinCheck?.inputResult && (
+        <div className={cn('text-xs', douyinCheck.inputResult.valid ? 'text-ok' : 'text-err')}>
+          {douyinCheck.inputResult.message}
+        </div>
+      )}
 
       <div className="space-y-2">
         {accounts.length === 0 ? (
@@ -165,6 +190,17 @@ export function AccountExpandable({
                   )}>
                     {account.status === 'active' ? '可用' : account.status === 'inactive' ? '停用' : account.status === 'expired' ? '过期' : account.status}
                   </span>
+                  {accountType === 'douyin' && douyinCheck?.byId[account.id] && (
+                    <span
+                      title={douyinCheck.byId[account.id].message}
+                      className={cn(
+                        "text-[11px] font-semibold px-2 py-0.5 rounded-full",
+                        douyinCheck.byId[account.id].valid ? 'bg-ok/10 text-ok' : 'bg-err/10 text-err'
+                      )}
+                    >
+                      {douyinCheck.byId[account.id].valid ? '有效' : '失效'}
+                    </span>
+                  )}
                   {onUpdateCookie && accountType === 'qwen' && (
                     <button
                       onClick={() => {
@@ -177,6 +213,16 @@ export function AccountExpandable({
                       title="更新 Cookie"
                     >
                       <KeyRound className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {accountType === 'douyin' && douyinCheck && (
+                    <button
+                      onClick={() => douyinCheck.onCheckAccount(account.id)}
+                      disabled={douyinCheck.checkingId === account.id}
+                      className="p-1.5 rounded-lg hover:bg-accent/10 text-fg-muted hover:text-accent transition-colors"
+                      title="检测 Cookie 是否有效"
+                    >
+                      {douyinCheck.checkingId === account.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
                     </button>
                   )}
                   <button

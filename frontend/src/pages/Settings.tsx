@@ -76,6 +76,12 @@ export default function Settings() {
     handleDeleteQwen,
     handleAddDouyin,
     handleDeleteDouyin,
+    douyinCookieChecks,
+    checkingDouyinId,
+    douyinInputCheck,
+    isCheckingDouyinInput,
+    handleCheckDouyinCookie,
+    handleCheckDouyinInput,
     handleAddBilibili,
     handleDeleteBilibili,
     handleAddYoutube,
@@ -127,6 +133,12 @@ export default function Settings() {
           editingRemarkDouyin={editingRemarkDouyin}
           setEditingRemarkDouyin={setEditingRemarkDouyin}
           handleAddDouyin={handleAddDouyin}
+          douyinCookieChecks={douyinCookieChecks}
+          checkingDouyinId={checkingDouyinId}
+          douyinInputCheck={douyinInputCheck}
+          isCheckingDouyinInput={isCheckingDouyinInput}
+          handleCheckDouyinCookie={handleCheckDouyinCookie}
+          handleCheckDouyinInput={handleCheckDouyinInput}
           setConfirmDelete={setConfirmDelete}
           editingRemarkBilibili={editingRemarkBilibili}
           setEditingRemarkBilibili={setEditingRemarkBilibili}

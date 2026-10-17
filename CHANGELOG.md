@@ -7,6 +7,28 @@
 
 ---
 
+## [Unreleased] - DOUYIN COOKIE & GATEWAY FIX 2026-10
+
+### 修复
+
+- **抖音 metadata 接口 403**：抖音列表接口（`aweme/post`）现在要求网关头 `uifid` + `x-tt-argus: 1`，f2 库（v0.0.1.7）不会从 Cookie 中提取并发送这两个头。已在 `get_f2_kwargs()` 中自动从 Cookie 解析 `UIFID` 并注入网关头，同时保留用户显式配置的头（不覆盖）。
+- **Cookie 自检误报"已失效"**：抖音 `user/profile/self` 接口在缺少 `aid` / `cookie_enabled` 等基础参数时，即使 Cookie 有效也会返回 `status_code=8`（用户未登录）。自检请求现在携带必需参数，能正确识别登录态。
+- **f2 API 异常翻译**：`/api/v1/douyin/metadata` 的底层 f2 异常（403/429/401/404/408/503）现在映射为对用户友好的 HTTP 状态码和中文错误提示，不再抛出原始堆栈。
+
+### 新增
+
+- **抖音 Cookie 自检 API**：`POST /api/v1/douyin/cookie/check`。支持三种来源：请求体传入 `cookie_string`（检测未保存的新 Cookie）、`account_id`（检测指定账号）、不传参数（检测账号池当前活跃 Cookie）。返回 `valid / expired / blocked / missing / error` 状态及提示信息。
+- **Cookie 结构离线检查**：解析 Cookie 字符串，检查登录态（`sessionid`/`sid_tt`）、设备指纹（`UIFID`/`ttwid`）和建议字段（`msToken`/`passport_csrf_token`）。
+- **设置页 Cookie 检测按钮**：抖音账号列表每个账号可单独检测；添加新 Cookie 输入框旁可先检测再保存；检测结果以"有效/失效"徽标和 toast 展示。
+
+### 技术备注
+
+- 网关头修复位于 `src/media_tools/douyin/core/f2_helper.py` 的 `get_f2_kwargs()`，对所有使用 f2 的抖音调用路径（metadata、下载、关注列表）统一生效。
+- Cookie 自检逻辑位于 `src/media_tools/douyin/core/cookie_check.py`，探测请求使用被检测 Cookie 自身的 `uifid`，避免账号池旧设备指纹干扰。
+- `msToken` 缺失不会判定 Cookie 失效（f2 的 a_bogus 签名器会在 URL 中自动生成）。
+
+---
+
 ## [Unreleased] - PRODUCT UX 2026-07
 
 ### 产品导航与任务

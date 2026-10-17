@@ -1,6 +1,6 @@
 # Media Tools — 项目现状文档
 
-> 最后更新：2026-07-11
+> 最后更新：2026-10-17
 
 > 这是一份**当前状态快照**。历史变更见 [CHANGELOG.md](../CHANGELOG.md)。
 
@@ -118,6 +118,9 @@
 | 方法 | 路径 | 用途 |
 |------|------|------|
 | GET | `/api/v1/douyin/metadata` | 获取创作者主页视频预览列表 |
+| POST | `/api/v1/douyin/cookie/check` | 检测抖音 Cookie 登录态（支持传入新 Cookie / 指定账号 / 默认活跃账号） |
+
+> **网关头注入**：抖音列表接口要求 `uifid` + `x-tt-argus` 请求头，`get_f2_kwargs()` 会自动从 Cookie 提取并注入，无需手动配置。
 
 ### 2.6 定时任务 `/api/v1/scheduler`
 

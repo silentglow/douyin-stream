@@ -57,6 +57,27 @@ export const updateQwenAccountRemark = async (accountId: string, remark: string,
   return response.data;
 };
 
+export type DouyinCookieCheckResult = {
+  valid: boolean;
+  status: 'valid' | 'expired' | 'blocked' | 'missing' | 'error';
+  message: string;
+  http_status: number | null;
+  missing_keys: string[];
+  nickname: string;
+};
+
+export const checkDouyinCookie = async (
+  payload: { cookie?: string; account?: string } = {},
+  signal?: AbortSignal
+): Promise<{ status: string; source: string; result: DouyinCookieCheckResult }> => {
+  const response = await apiClient.post(
+    '/douyin/cookie/check',
+    { cookie_string: payload.cookie ?? null, account_id: payload.account ?? null },
+    { signal }
+  );
+  return response.data;
+};
+
 export const addDouyinAccount = async (cookieString: string, remark?: string, signal?: AbortSignal): Promise<unknown> => {
   const response = await apiClient.post('/settings/douyin', { cookie_string: cookieString, remark: remark || '' }, { signal });
   return response.data;

@@ -121,13 +121,41 @@ def get_f2_kwargs() -> dict:
     kwargs["timeout"] = max(current_timeout, 20)
 
     # 确保 headers 存在
-    if not kwargs.get("headers"):
-        kwargs["headers"] = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-            "Referer": "https://www.douyin.com/",
-        }
+    headers = dict(kwargs.get("headers") or {})
+    if not headers:
+        headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+                "Referer": "https://www.douyin.com/",
+            }
+        )
+
+    # 抖音列表接口（如 aweme/post）现在要求网关头 uifid 和 x-tt-argus。
+    # f2 目前不会从 Cookie 中提取这两个头；在这里补齐，同时保留用户显式配置。
+    cookie_values = _parse_cookie_values(cookie)
+    uifid = cookie_values.get("uifid")
+    existing_header_names = {name.casefold() for name in headers}
+    if uifid and "uifid" not in existing_header_names:
+        headers["uifid"] = uifid
+    if uifid and "x-tt-argus" not in existing_header_names:
+        headers["x-tt-argus"] = "1"
+
+    kwargs["headers"] = headers
 
     return kwargs
+
+
+def _parse_cookie_values(cookie: str | None) -> dict[str, str]:
+    """解析 Cookie 字符串，键统一为小写，便于不区分大小写地查找。"""
+    values: dict[str, str] = {}
+    for part in (cookie or "").split(";"):
+        if "=" not in part:
+            continue
+        name, value = part.strip().split("=", 1)
+        name = name.strip()
+        if name:
+            values[name.casefold()] = value.strip()
+    return values
 
 
 import datetime

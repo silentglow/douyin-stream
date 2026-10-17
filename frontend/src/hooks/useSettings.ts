@@ -9,6 +9,7 @@ import {
   addDouyinAccount,
   deleteDouyinAccount,
   updateDouyinAccountRemark,
+  checkDouyinCookie,
   addBilibiliAccount,
   deleteBilibiliAccount,
   updateBilibiliAccountRemark,
@@ -24,6 +25,7 @@ import {
   deleteSchedule,
 } from '@/lib/api';
 import type { ScheduleTask } from '@/types';
+import type { DouyinCookieCheckResult } from '@/services/settings';
 
 export function useSettings() {
   const settings = useStore((state) => state.settings);
@@ -73,6 +75,12 @@ export function useSettings() {
   const [qwenRemainingHoursById, setQwenRemainingHoursById] = useState<Record<string, number>>({});
   const [isLoadingQwenStatus, setIsLoadingQwenStatus] = useState(false);
   const [qwenStatusError, setQwenStatusError] = useState('');
+
+  // 抖音 Cookie 自检
+  const [douyinCookieChecks, setDouyinCookieChecks] = useState<Record<string, DouyinCookieCheckResult>>({});
+  const [checkingDouyinId, setCheckingDouyinId] = useState<string | null>(null);
+  const [douyinInputCheck, setDouyinInputCheck] = useState<DouyinCookieCheckResult | null>(null);
+  const [isCheckingDouyinInput, setIsCheckingDouyinInput] = useState(false);
 
   // Scheduler
   const [schedules, setSchedules] = useState<ScheduleTask[]>([]);
@@ -208,6 +216,39 @@ export function useSettings() {
       setConfirmDelete(null);
     }
   }, [refreshSettings]);
+
+  const handleCheckDouyinCookie = useCallback(async (id: string) => {
+    setCheckingDouyinId(id);
+    try {
+      const res = await checkDouyinCookie({ account: id });
+      setDouyinCookieChecks((prev) => ({ ...prev, [id]: res.result }));
+      if (res.result.valid) toast.success(res.result.message);
+      else toast.error(res.result.message);
+    } catch {
+      toast.error('检测失败，请稍后重试');
+    } finally {
+      setCheckingDouyinId(null);
+    }
+  }, []);
+
+  const handleCheckDouyinInput = useCallback(async () => {
+    const ck = douyinCookie.trim();
+    if (!ck) return;
+    setIsCheckingDouyinInput(true);
+    try {
+      const res = await checkDouyinCookie({ cookie: ck });
+      setDouyinInputCheck(res.result);
+      if (res.result.valid) toast.success(res.result.message);
+      else toast.error(res.result.message);
+    } catch {
+      toast.error('检测失败，请稍后重试');
+    } finally {
+      setIsCheckingDouyinInput(false);
+    }
+  }, [douyinCookie]);
+
+  // 输入框内容变化时清除上一次的检测结果
+  useEffect(() => { setDouyinInputCheck(null); }, [douyinCookie]);
 
   const handleAddDouyin = useCallback(async () => {
     if (!douyinCookie.trim()) return;
@@ -462,6 +503,12 @@ export function useSettings() {
     handleDeleteQwen,
     handleAddDouyin,
     handleDeleteDouyin,
+    douyinCookieChecks,
+    checkingDouyinId,
+    douyinInputCheck,
+    isCheckingDouyinInput,
+    handleCheckDouyinCookie,
+    handleCheckDouyinInput,
     handleAddBilibili,
     handleDeleteBilibili,
     handleAddYoutube,

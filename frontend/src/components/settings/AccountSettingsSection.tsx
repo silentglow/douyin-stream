@@ -3,6 +3,7 @@ import { Users, KeyRound } from 'lucide-react';
 import { SettingsGroup, SettingsItem } from '@/components/settings/SettingsLayout';
 import { AccountExpandable } from '@/components/settings/AccountExpandable';
 import type { SettingsPayload } from '@/store/slices/settingsSlice';
+import type { DouyinCookieCheckResult } from '@/services/settings';
 
 interface ConfirmDeletePayload {
   type: string;
@@ -23,6 +24,12 @@ interface AccountSettingsSectionProps {
   editingRemarkDouyin: { id: string } | null;
   setEditingRemarkDouyin: (v: { id: string } | null) => void;
   handleAddDouyin: () => void;
+  douyinCookieChecks: Record<string, DouyinCookieCheckResult>;
+  checkingDouyinId: string | null;
+  douyinInputCheck: DouyinCookieCheckResult | null;
+  isCheckingDouyinInput: boolean;
+  handleCheckDouyinCookie: (id: string) => void;
+  handleCheckDouyinInput: () => void;
   setConfirmDelete: (v: ConfirmDeletePayload | null) => void;
   editingRemarkBilibili: { id: string } | null;
   setEditingRemarkBilibili: (v: { id: string } | null) => void;
@@ -82,6 +89,12 @@ export function AccountSettingsSection({
   editingRemarkDouyin,
   setEditingRemarkDouyin,
   handleAddDouyin,
+  douyinCookieChecks,
+  checkingDouyinId,
+  douyinInputCheck,
+  isCheckingDouyinInput,
+  handleCheckDouyinCookie,
+  handleCheckDouyinInput,
   setConfirmDelete,
   editingRemarkBilibili,
   setEditingRemarkBilibili,
@@ -146,6 +159,14 @@ export function AccountSettingsSection({
           setCookieError={setDouyinCookieError}
           onAdd={handleAddDouyin}
           onDelete={(id) => setConfirmDelete({ type: 'douyin', id, name: '抖音账号' })}
+          douyinCheck={{
+            byId: douyinCookieChecks,
+            checkingId: checkingDouyinId,
+            onCheckAccount: handleCheckDouyinCookie,
+            inputResult: douyinInputCheck,
+            isCheckingInput: isCheckingDouyinInput,
+            onCheckInput: handleCheckDouyinInput,
+          }}
           placeholder="粘贴 douyin.com Cookie"
           accountType="douyin"
           editingRemark={editingRemarkDouyin}
