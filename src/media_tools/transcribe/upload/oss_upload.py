@@ -88,8 +88,18 @@ def _build_oss2_bucket(token: dict[str, Any]) -> oss2.Bucket:
     app_config = get_app_config()
     sts = token["sts"]
     auth = oss2.StsAuth(sts["accessKeyId"], sts["accessKeySecret"], sts["securityToken"])
-    proxies = {} if app_config.qwen_oss_bypass_proxy else None
-    return oss2.Bucket(auth, sts["endpoint"], sts["bucket"], connect_timeout=120, proxies=proxies)
+    bypass = app_config.qwen_oss_bypass_proxy
+    proxies = {} if bypass else None
+    bucket = oss2.Bucket(auth, sts["endpoint"], sts["bucket"], connect_timeout=120, proxies=proxies)
+    if bypass:
+        # oss2 内部的 requests.Session 默认 trust_env=True，即使传 proxies={}
+        # 也会合并环境变量 / macOS 系统代理（如 Clash 127.0.0.1:7890），
+        # 导致"绕过代理"开关失效、大片上传被代理掐断（BrokenPipeError）。
+        # 直接关掉 trust_env 才能真正直连阿里云 OSS。
+        requests_session = getattr(getattr(bucket, "session", None), "session", None)
+        if requests_session is not None:
+            requests_session.trust_env = False
+    return bucket
 
 
 def _resumable_upload_via_oss2(
