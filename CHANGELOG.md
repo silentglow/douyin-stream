@@ -7,6 +7,20 @@
 
 ---
 
+## [Unreleased] - UPLOAD PROXY & LOG NOISE 2026-10
+
+### 修复
+
+- **千问 OSS 上传绕过代理真正生效**：此前 `proxies={}` 无法阻止 requests 合并环境变量 / macOS 系统代理，上传仍走 Clash 且大片传输易被掐断（BrokenPipeError）。现在绕过开关开启时会同时关闭 `trust_env`，直连阿里云 OSS；断点续传不受影响。
+
+### 优化
+
+- **下载日志降噪**：f2 的装饰性分隔线（"当前任务处理完成" / "处理第 X 页"）降为 debug；每个视频从两行日志合并为一行（成功 ✓ / 失败 ✗ 带原因）；标题截断仅在真截断时加省略号。
+- **页面与任务摘要**：每页输出真实页号、新增/跳过/失败计数与用时；任务结束输出总耗时与平均每视频耗时；失败后重试成功的视频标注"（重试成功）"。
+- **uvicorn 断连噪音过滤**：WebSocket `connection open/closed` 的 INFO 日志不再刷屏（WARNING 以上保留）。
+
+---
+
 ## [Unreleased] - DOUYIN COOKIE & GATEWAY FIX 2026-10
 
 ### 修复
