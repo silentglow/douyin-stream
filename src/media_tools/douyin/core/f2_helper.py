@@ -296,7 +296,14 @@ def _patch_f2_console_for_non_interactive() -> None:
                             continue
                         # 去掉行首行尾的分隔符，提取核心内容
                         cleaned = stripped.strip("─━═─ ")
-                        if cleaned:
+                        if not cleaned:
+                            continue
+                        # f2 的装饰性 Rule 输出在逐视频下载时会重复几十次，
+                        # 且页码实为 max_cursor 时间戳，对日志检索只有噪音。
+                        # 降为 debug 保留可排查性，不进 INFO 主日志流。
+                        if cleaned.startswith("当前任务处理完成") or cleaned.startswith("处理第"):
+                            logger.debug(f"[F2] {cleaned}")
+                        else:
                             logger.info(f"[F2] {cleaned}")
                     self._log_buffer.truncate(0)
                     self._log_buffer.seek(0)

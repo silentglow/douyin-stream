@@ -7,6 +7,7 @@ import asyncio
 import re
 import shutil
 import sqlite3
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -31,6 +32,14 @@ from media_tools.douyin.core.ui import (
 )
 
 MIN_VIDEO_BYTES = 10240  # 10KB（与 pipeline/task_helpers.py 保持一致）
+
+
+def _short_title(text: str, limit: int = 50) -> str:
+    """日志用标题截断：去换行、合并空白，只有真被截断时才加省略号。"""
+    cleaned = " ".join(str(text or "").split())
+    if len(cleaned) <= limit:
+        return cleaned
+    return cleaned[: limit - 1].rstrip() + "…"
 
 
 def _is_probably_valid_mp4(file_path: Path) -> bool:
@@ -708,10 +717,14 @@ async def _download_with_stats(
     # 收集所有视频数据
     total_downloaded = 0
     total_skipped = 0
+    total_failed = 0
     total_stats_saved = 0
     new_aweme_ids = []
     progress_details: list[dict] = []
     all_videos_count = 0
+    page_idx = 0
+    failed_aweme_ids: set[str] = set()
+    download_started = time.monotonic()
 
     logger.info(info("[下载] 正在获取视频列表..."))
     logger.info("正在获取视频列表...")
@@ -721,6 +734,9 @@ async def _download_with_stats(
         async for aweme_data_list in handler.fetch_user_post_videos(sec_user_id, max_counts=max_counts or float("inf")):
             video_list = aweme_data_list._to_list()
             all_videos_count += len(video_list)
+            page_idx += 1
+            page_started = time.monotonic()
+            page_failed = 0
 
             if video_list:
                 # 保存统计数据
@@ -762,8 +778,6 @@ async def _download_with_stats(
                         if task_id:
                             update_current_video(task_id, video_title)
 
-                        logger.info(info(f"[下载] ({video_idx}/{new_videos_total}) {video_title[:50]}..."))
-
                         try:
                             # 单视频下载
                             await handler.downloader.create_download_tasks(kwargs, [video], user_path)
@@ -777,18 +791,28 @@ async def _download_with_stats(
                             if task_id:
                                 increment_downloaded(task_id, video_title)
 
-                            logger.info(info(f"[成功] {video_title[:50]}..."))
+                            retried = "（重试成功）" if aweme_id and aweme_id in failed_aweme_ids else ""
+                            failed_aweme_ids.discard(aweme_id)
+                            logger.info(info(f"✓ ({video_idx}/{new_videos_total}) {_short_title(video_title)}{retried}"))
                         except (RuntimeError, OSError, ValueError) as e:
+                            total_failed += 1
+                            page_failed += 1
+                            if aweme_id:
+                                failed_aweme_ids.add(aweme_id)
                             logger.error(f"下载视频失败 {video_title}: {e}")
-                            logger.info(error(f"[失败] {video_title[:50]}..."))
+                            logger.info(error(f"✗ ({video_idx}/{new_videos_total}) {_short_title(video_title)} — {e}"))
                             if task_id:
                                 add_download_error(task_id, video_title, str(e))
 
                     page_skipped = len(video_list) - len(new_videos) if skip_existing else 0
-                    if skip_existing:
-                        logger.info(info(f"[下载] 本页 {len(new_videos)} 个新视频（跳过 {page_skipped} 个已有）"))
-                    else:
-                        logger.info(info(f"[下载] 本页 {len(new_videos)} 个视频（全量重拉）"))
+                    page_seconds = time.monotonic() - page_started
+                    mode = "全量重拉" if not skip_existing else f"跳过 {page_skipped} 个已有"
+                    logger.info(
+                        info(
+                            f"📄 第 {page_idx} 页：新增 {len(new_videos)} / {mode} / 失败 {page_failed}"
+                            f" ｜ 累计新增 {total_downloaded} ｜ 用时 {page_seconds:.0f}s"
+                        )
+                    )
                 else:
                     logger.info(info(f"[跳过] 本页 {len(video_list)} 个视频均为本地已有"))
 
@@ -810,8 +834,16 @@ async def _download_with_stats(
     if task_id:
         set_total_count(task_id, all_videos_count)
 
+    total_seconds = time.monotonic() - download_started
+    avg_seconds = total_seconds / total_downloaded if total_downloaded else 0
     logger.info(f"保存了 {total_stats_saved} 条视频元数据")
-    logger.info(success(f"[统计] 新增 {total_downloaded} 个，跳过 {total_skipped} 个已有"))
+    logger.info(
+        success(
+            f"[统计] 新增 {total_downloaded} / 跳过 {total_skipped} / 失败 {total_failed}"
+            f" ｜ 总用时 {total_seconds:.0f}s"
+            + (f" ｜ 平均 {avg_seconds:.1f}s/个" if total_downloaded else "")
+        )
+    )
 
     incomplete_fetch_error = _detect_incomplete_creator_fetch(
         expected_aweme_count=expected_aweme_count,

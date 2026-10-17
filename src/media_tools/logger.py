@@ -330,8 +330,33 @@ def init_logging(
     if structured:
         setup_structured_logging(level)
 
+    _mute_uvicorn_connection_noise()
+
     _logger.info(f"日志系统初始化完成 (级别: {level}, JSON日志: {json_logs}, 结构化: {structured})")
     return _logger
+
+
+class _ConnectionNoiseFilter(logging.Filter):
+    """过滤 uvicorn 的 WebSocket 断连/重连 INFO 日志。
+
+    前端任务面板断连重连时 uvicorn 每次打 "connection open/closed"，
+    在长下载任务的日志流里是纯噪音；WARNING 及以上仍正常放行。
+    """
+
+    _NOISE_FRAGMENTS = ("connection closed", "connection open")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno > logging.INFO:
+            return True
+        message = record.getMessage().casefold()
+        return not any(fragment in message for fragment in self._NOISE_FRAGMENTS)
+
+
+def _mute_uvicorn_connection_noise() -> None:
+    """给 uvicorn error/access logger 挂载断连噪音过滤器（幂等）。"""
+    uvicorn_logger = logging.getLogger("uvicorn.error")
+    if not any(isinstance(f, _ConnectionNoiseFilter) for f in uvicorn_logger.filters):
+        uvicorn_logger.addFilter(_ConnectionNoiseFilter())
 
 
 def setup_structured_logging(level: str = "INFO") -> None:
